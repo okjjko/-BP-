@@ -18,7 +18,7 @@
       </span>
       <!-- 分数 -->
       <div class="flex items-center gap-1 mt-0.5">
-        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Score</div>
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">得分</div>
         <div class="flex">
           <span
             v-for="n in 5"
@@ -48,7 +48,7 @@ const props = defineProps({
 const store = useGameStore()
 
 const playerName = computed(() => {
-  return store[props.player]?.name || 'Player'
+  return store[props.player]?.name || '选手'
 })
 
 const score = computed(() => {

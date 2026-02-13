@@ -3,12 +3,12 @@
     <div class="flex items-center gap-2 mb-2">
       <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
         <span class="w-1.5 h-1.5 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-ban-red'"></span>
-        {{ playerName }} HISTORY
+        {{ playerName }} 历史
       </h3>
     </div>
 
     <div v-if="usedPlants.length === 0" class="text-gray-600 text-xs px-1 italic">
-      No plants used yet
+      暂未使用植物
     </div>
 
     <div v-else class="flex flex-wrap gap-1.5">

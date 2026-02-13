@@ -19,9 +19,9 @@
           </div>
         </div>
         <div class="flex justify-between items-center mt-1.5 px-1">
-          <span class="text-[10px] text-gray-500">START</span>
+          <span class="text-[10px] text-gray-500">开始</span>
           <span class="text-xs text-gray-300 font-mono font-bold">{{ step + 1 }} <span class="text-gray-600">/</span> {{ totalSteps }}</span>
-          <span class="text-[10px] text-gray-500">END</span>
+          <span class="text-[10px] text-gray-500">结束</span>
         </div>
       </div>
 
@@ -68,16 +68,16 @@ const totalSteps = computed(() => {
 
 const currentPlayerName = computed(() => {
   if (currentPlayer.value === 'player1') {
-    return store.player1.id || 'Blue'
+    return store.player1.id || '蓝方'
   } else if (currentPlayer.value === 'player2') {
-    return store.player2.id || 'Red'
+    return store.player2.id || '红方'
   }
   return ''
 })
 
 const actionText = computed(() => {
-  if (action.value === 'ban') return 'BANNING'
-  if (action.value === 'pick') return 'PICKING'
+  if (action.value === 'ban') return '禁用'
+  if (action.value === 'pick') return '选择'
   return ''
 })
 

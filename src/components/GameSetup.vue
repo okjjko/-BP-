@@ -127,7 +127,7 @@
       </form>
 
       <div class="mt-8 text-center" role="note">
-        <p class="text-xs text-gray-500 font-mono tracking-widest uppercase">First to 5 wins • 2 Uses Per Plant</p>
+        <p class="text-xs text-gray-500 font-mono tracking-widest">先得5分者胜 • 每个植物最多使用2次</p>
       </div>
     </div>
   </div>

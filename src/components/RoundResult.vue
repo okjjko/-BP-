@@ -5,7 +5,7 @@
       <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
       
       <h2 class="text-4xl font-black text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 drop-shadow-lg">
-        ROUND SETTLEMENT
+        小分结算
       </h2>
 
       <div v-if="!roundWinner" class="text-center space-y-8">
@@ -44,7 +44,7 @@
         <div class="mb-8 relative z-10">
           <div class="text-8xl mb-4 animate-bounce filter drop-shadow-[0_0_20px_rgba(255,215,0,0.5)]">🏆</div>
           <p class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 mb-2 drop-shadow-md">
-            VICTORY!
+            胜利!
           </p>
           <p class="text-2xl text-white font-bold tracking-wide">
             {{ winnerName }}
@@ -112,7 +112,7 @@
 
         <!-- 游戏结束 -->
         <div v-else-if="isGameEnd" class="mt-8 pt-8 border-t border-gray-700/50">
-          <p class="text-gray-300 mb-6 font-mono tracking-widest uppercase">Game Over</p>
+          <p class="text-gray-300 mb-6 font-mono tracking-widest">游戏结束</p>
           <button
             @click="resetGame"
             class="w-full py-4 bg-ban-red hover:bg-ban-red-neon text-white rounded-xl font-bold text-xl shadow-lg hover:shadow-red-500/30 transition-all duration-300"

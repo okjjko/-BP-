@@ -11,13 +11,13 @@
           {{ getPlayerName(player) }} 阵型
         </h2>
         <div class="px-3 py-1 rounded bg-black/30 border border-white/10 text-sm font-mono text-gray-300">
-          ROAD: <span class="font-bold text-white">{{ getPlayerRoad(player) }}</span>
+          道路: <span class="font-bold text-white">{{ getPlayerRoad(player) }}</span>
         </div>
       </div>
 
       <!-- 植物站位 -->
       <fieldset class="mb-6">
-        <legend class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Battlefield Positions (1-5)</legend>
+        <legend class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">战场位置 (1-5)</legend>
         <div class="flex flex-wrap gap-4" role="list">
           <button
             v-for="index in 5"
@@ -51,7 +51,7 @@
 
       <!-- 当前已选植物列表 (备选池) -->
       <div class="bg-black/20 rounded-lg p-4 border border-white/5">
-        <div class="text-xs text-gray-400 mb-3 uppercase tracking-wider">Available Plants</div>
+        <div class="text-xs text-gray-400 mb-3 uppercase tracking-wider">可选植物</div>
         <div class="flex flex-wrap gap-2">
           <div
             v-for="plantId in getPicks(player)"
