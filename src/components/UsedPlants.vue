@@ -1,27 +1,29 @@
 <template>
-  <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl px-3 py-2 shadow-md border border-gray-700" role="region" :aria-label="`${playerName}已使用植物列表`">
-    <div class="flex items-center gap-1 mb-1">
-      <h3 class="text-xs font-bold text-yellow-500 flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-        {{ playerName }}
+  <div class="bg-black/20 rounded-xl px-4 py-2 border border-white/5 backdrop-blur-sm" role="region" :aria-label="`${playerName}已使用植物列表`">
+    <div class="flex items-center gap-2 mb-2">
+      <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-ban-red'"></span>
+        {{ playerName }} HISTORY
       </h3>
-      <span class="text-xs text-gray-400">已用：</span>
     </div>
 
-    <div v-if="usedPlants.length === 0" class="text-gray-600 text-xs px-1">
-      暂无
+    <div v-if="usedPlants.length === 0" class="text-gray-600 text-xs px-1 italic">
+      No plants used yet
     </div>
 
-    <div v-else class="flex flex-wrap gap-1">
+    <div v-else class="flex flex-wrap gap-1.5">
       <span
         v-for="item in usedPlants"
         :key="item.id"
-        class="inline-flex items-center text-xs px-1.5 py-0.5 bg-gray-700 rounded hover:bg-gray-600 transition-colors cursor-help"
+        class="inline-flex items-center text-xs px-2 py-1 rounded border transition-all duration-200 cursor-help group"
+        :class="{
+          'bg-yellow-900/30 border-yellow-700/50 text-yellow-200 hover:bg-yellow-900/50': item.count === 1,
+          'bg-red-900/30 border-red-700/50 text-red-200 hover:bg-red-900/50': item.count >= 2
+        }"
         :title="`${getPlantName(item.id)}，已使用${item.count}/2次`"
       >
-        <span class="text-gray-300">{{ getPlantName(item.id) }}</span>
-        <span class="text-yellow-400 font-semibold ml-0.5">×{{ item.count }}</span>
-        <span v-if="item !== usedPlants[usedPlants.length - 1]" class="text-gray-600 mx-0.5">·</span>
+        <span class="font-medium">{{ getPlantName(item.id) }}</span>
+        <span class="ml-1.5 text-[10px] px-1 rounded bg-black/30 font-bold" :class="item.count >= 2 ? 'text-red-400' : 'text-yellow-400'">{{ item.count }}</span>
       </span>
     </div>
   </div>

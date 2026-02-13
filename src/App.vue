@@ -1,97 +1,124 @@
 <template>
-  <div id="app" class="min-h-screen bg-gradient-to-br from-green-900 via-gray-900 to-purple-900">
-    <!-- 角色选择器 - 始终可见 -->
-    <RoleSelector @role-changed="(role) => store.setRole(role)" />
+  <div id="app" class="min-h-screen text-gray-100 overflow-x-hidden selection:bg-plant-green selection:text-white">
+    <!-- 背景动画元素 -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+      <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-900/20 rounded-full blur-[100px] animate-float"></div>
+      <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-900/20 rounded-full blur-[100px] animate-float" style="animation-delay: -1.5s;"></div>
+    </div>
 
-    <!-- 游戏设置界面 -->
-    <GameSetup v-if="gameStatus === 'setup'" />
+    <div class="relative z-10 min-h-screen flex flex-col">
+      <!-- 顶部通知/状态栏 (可选) -->
+      
+      <!-- 游戏设置界面 -->
+      <transition name="fade" mode="out-in">
+        <GameSetup v-if="gameStatus === 'setup'" />
+        
+        <!-- BP主界面 -->
+        <div v-else class="container mx-auto px-4 py-6 max-w-[1600px] flex-1 flex flex-col">
+          <!-- 头部：信息概览 -->
+          <div class="glass-panel rounded-2xl p-4 mb-6 animate-slide-up">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+              <!-- 选手1区域 -->
+              <div class="flex items-center gap-4 w-full md:w-auto justify-center md:justify-start">
+                <PlayerInfo player="player1" />
+                <BanArea player="player1" />
+              </div>
 
-    <!-- BP主界面 -->
-    <div v-else class="container mx-auto px-4 py-4 max-w-7xl">
-      <!-- 顶部：选手信息 + 阶段指示器（单行紧凑） -->
-      <div class="flex items-center justify-center gap-3 mb-3">
-        <div class="flex items-center gap-2">
-          <PlayerInfo player="player1" />
-          <BanArea player="player1" />
-        </div>
-        <StageIndicator />
-        <div class="flex items-center gap-2">
-          <BanArea player="player2" />
-          <PlayerInfo player="player2" />
-        </div>
-      </div>
+              <!-- 中央阶段指示器 -->
+              <div class="flex-shrink-0">
+                <StageIndicator />
+              </div>
 
-      <!-- 永久禁用区域 + 已使用植物（更紧凑） -->
-      <div v-if="gameStatus === 'banning' || gameStatus === 'positioning'" class="flex items-center justify-center gap-3 mb-4">
-        <UsedPlants player="player1" />
-
-        <!-- 本局永久禁用植物 -->
-        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg px-3 py-1.5 shadow-md border border-gray-700 flex-shrink-0">
-          <h3 class="text-xs font-bold mb-1.5 text-center text-ban-red flex items-center justify-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-ban-red"></span>
-            永久禁用
-          </h3>
-          <div class="flex justify-center gap-1.5">
-            <div
-              v-for="plantId in globalBans"
-              :key="plantId"
-              class="relative group w-12 flex-shrink-0"
-            >
-              <img
-                :src="getPlantImage(plantId)"
-                :alt="`永久禁用植物：${getPlantName(plantId)}`"
-                class="w-full rounded border border-ban-red opacity-50"
-              />
-              <div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition rounded" role="tooltip">
-                <span class="text-xs text-center px-1">{{ getPlantName(plantId) }}</span>
+              <!-- 选手2区域 -->
+              <div class="flex items-center gap-4 w-full md:w-auto justify-center md:justify-end">
+                <BanArea player="player2" />
+                <PlayerInfo player="player2" />
               </div>
             </div>
           </div>
+
+          <!-- 全局状态栏：永久禁用 + 已使用植物 -->
+          <transition name="fade">
+            <div v-if="gameStatus === 'banning' || gameStatus === 'positioning'" class="glass-panel rounded-xl p-3 mb-6 flex flex-wrap items-center justify-center gap-6 animate-slide-up" style="animation-delay: 0.1s;">
+              <UsedPlants player="player1" />
+
+              <!-- 本局永久禁用植物 -->
+              <div class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)]">
+                <h3 class="text-xs font-bold mb-2 text-center text-ban-red-neon uppercase tracking-wider flex items-center justify-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
+                  永久禁用
+                  <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
+                </h3>
+                <div class="flex justify-center gap-2">
+                  <div
+                    v-for="plantId in globalBans"
+                    :key="plantId"
+                    class="relative group w-10 h-10"
+                  >
+                    <img
+                      :src="getPlantImage(plantId)"
+                      :alt="`永久禁用植物：${getPlantName(plantId)}`"
+                      class="w-full h-full rounded border border-ban-red/50 opacity-60 grayscale hover:grayscale-0 transition-all duration-300 transform hover:scale-110"
+                    />
+                    <!-- Tooltip -->
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-black/90 text-white rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-50">
+                      {{ getPlantName(plantId) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <UsedPlants player="player2" />
+            </div>
+          </transition>
+
+          <!-- 主体操作区域 -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0 animate-slide-up" style="animation-delay: 0.2s;">
+            <!-- 左侧 Pick 区域 -->
+            <div class="lg:col-span-3">
+              <PickArea player="player1" />
+            </div>
+
+            <!-- 中间核心操作区域 -->
+            <div class="lg:col-span-6 flex flex-col">
+              <PlantSelector v-if="gameStatus === 'banning'" class="flex-1" />
+              <PositionSetup v-if="gameStatus === 'positioning'" class="flex-1" />
+            </div>
+
+            <!-- 右侧 Pick 区域 -->
+            <div class="lg:col-span-3">
+              <PickArea player="player2" />
+            </div>
+          </div>
+
+          <!-- 底部控制栏 -->
+          <div class="mt-6 flex justify-center gap-4 animate-slide-up" style="animation-delay: 0.3s;">
+            <button
+              v-if="gameStatus === 'positioning'"
+              @click="finishRound"
+              class="group relative px-8 py-3 bg-plant-green hover:bg-plant-green-neon text-white font-bold rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/30 overflow-hidden"
+            >
+              <span class="relative z-10 flex items-center gap-2">
+                <span class="text-xl">⚔️</span> 完成本小分
+              </span>
+              <div class="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+            </button>
+
+            <button
+              @click="resetGame"
+              class="px-8 py-3 bg-gray-700 hover:bg-ban-red text-gray-300 hover:text-white font-bold rounded-lg transition-all duration-300 border border-gray-600 hover:border-ban-red shadow-lg hover:shadow-red-500/20"
+            >
+              ↺ 重置游戏
+            </button>
+          </div>
         </div>
+      </transition>
 
-        <UsedPlants player="player2" />
-      </div>
-
-      <!-- 主体区域：更紧凑的三列布局 -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
-        <!-- 左侧选择区域 -->
-        <div class="lg:col-span-3">
-          <PickArea player="player1" />
-        </div>
-
-        <!-- 中间操作区域 -->
-        <div class="lg:col-span-6">
-          <PlantSelector v-if="gameStatus === 'banning'" />
-          <PositionSetup v-if="gameStatus === 'positioning'" />
-        </div>
-
-        <!-- 右侧选择区域 -->
-        <div class="lg:col-span-3">
-          <PickArea player="player2" />
-        </div>
-      </div>
-
-      <!-- 底部控制按钮 -->
-      <div class="mt-4 flex justify-center gap-3">
-        <button
-          v-if="gameStatus === 'positioning'"
-          @click="finishRound"
-          class="px-8 py-2.5 bg-plant-green hover:bg-green-600 rounded-lg font-bold text-base transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
-        >
-          完成本小分
-        </button>
-
-        <button
-          @click="resetGame"
-          class="px-8 py-2.5 bg-ban-red hover:bg-red-600 rounded-lg font-bold text-base transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
-        >
-          重置游戏
-        </button>
-      </div>
+      <!-- 小分结算模态框 -->
+      <transition name="fade">
+        <RoundResult v-if="gameStatus === 'result'" />
+      </transition>
     </div>
-
-    <!-- 小分结算界面 -->
-    <RoundResult v-if="gameStatus === 'result'" />
   </div>
 </template>
 
@@ -137,3 +164,15 @@ const resetGame = () => {
   }
 }
 </script>
+
+<style>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

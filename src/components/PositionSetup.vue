@@ -3,122 +3,124 @@
     <div
       v-for="player in ['player1', 'player2']"
       :key="player"
-      class="bg-gray-800 rounded-xl p-6"
+      class="glass-panel rounded-xl p-6 transition-all duration-300 hover:bg-white/5"
     >
-      <h2 class="text-xl font-bold mb-2 text-center">
-        {{ getPlayerName(player) }} 站位设置
-      </h2>
-      <p class="text-sm text-center text-blue-400 mb-4">
-        当前道路：{{ getPlayerRoad(player) }}
-      </p>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold flex items-center gap-2 text-white">
+          <span class="w-2 h-8 rounded-full" :class="player === 'player1' ? 'bg-pick-blue-neon' : 'bg-ban-red-neon'"></span>
+          {{ getPlayerName(player) }} 阵型
+        </h2>
+        <div class="px-3 py-1 rounded bg-black/30 border border-white/10 text-sm font-mono text-gray-300">
+          ROAD: <span class="font-bold text-white">{{ getPlayerRoad(player) }}</span>
+        </div>
+      </div>
 
       <!-- 植物站位 -->
-      <fieldset class="mb-4">
-        <legend class="block text-sm font-semibold mb-2">植物站位（1-5号位）：</legend>
-        <div class="flex flex-wrap gap-2" role="list" :aria-label="`${getPlayerName(player)}的植物站位`">
+      <fieldset class="mb-6">
+        <legend class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Battlefield Positions (1-5)</legend>
+        <div class="flex flex-wrap gap-4" role="list">
           <button
             v-for="index in 5"
             :key="index"
             @click="openPlantSelector(player, index)"
-            :disabled="!true"
-            :aria-label="`位置${index}：${getPlantAtPosition(player, index) ? getPlantName(getPlantAtPosition(player, index)) : '未设置'}，点击设置植物`"
-            class="relative w-16 h-16 bg-gray-700 rounded-lg border-2 border-gray-600 flex items-center justify-center cursor-pointer hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+            class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-600 flex items-center justify-center cursor-pointer transition-all duration-200 group hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95"
             :class="{
-              'border-gray-500 hover:border-gray-500': true,
-              'border-gray-600': !true
+              'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index),
             }"
-            role="listitem"
           >
-            <template v-if="getPlantAtPosition(player, index)">
-              <img
-                :src="getPlantImage(getPlantAtPosition(player, index))"
-                :alt="getPlantName(getPlantAtPosition(player, index))"
-                class="w-full h-full rounded"
-              />
-            </template>
-            <template v-else>
-              <span class="text-gray-400 text-sm">#{{ index }}</span>
-            </template>
-            <div class="absolute -top-2 -right-2 w-6 h-6 bg-plant-green rounded-full text-white text-xs flex items-center justify-center font-bold" aria-hidden="true">
+            <!-- 序号标记 -->
+            <div class="absolute -top-2 -left-2 w-6 h-6 bg-gray-700 text-gray-300 rounded-full text-xs flex items-center justify-center font-bold border border-gray-500 z-10 group-hover:bg-plant-green group-hover:text-white transition-colors">
               {{ index }}
             </div>
+
+            <template v-if="getPlantAtPosition(player, index)">
+              <div class="w-full h-full p-1">
+                <img
+                  :src="getPlantImage(getPlantAtPosition(player, index))"
+                  :alt="getPlantName(getPlantAtPosition(player, index))"
+                  class="w-full h-full object-cover rounded-lg shadow-sm"
+                />
+              </div>
+            </template>
+            <template v-else>
+              <span class="text-gray-600 text-2xl group-hover:text-plant-green-neon transition-colors">+</span>
+            </template>
           </button>
         </div>
       </fieldset>
 
-      <!-- 当前已选植物列表 -->
-      <div class="bg-gray-700 rounded-lg p-3" role="region" :aria-label="`${getPlayerName(player)}已选植物`">
-        <div class="text-sm text-gray-400 mb-2">已选植物：</div>
-        <div class="flex flex-wrap gap-2" role="list">
+      <!-- 当前已选植物列表 (备选池) -->
+      <div class="bg-black/20 rounded-lg p-4 border border-white/5">
+        <div class="text-xs text-gray-400 mb-3 uppercase tracking-wider">Available Plants</div>
+        <div class="flex flex-wrap gap-2">
           <div
             v-for="plantId in getPicks(player)"
             :key="plantId"
-            class="flex items-center gap-1 bg-gray-600 px-2 py-1 rounded text-sm"
-            role="listitem"
+            class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border border-gray-700 text-sm hover:border-gray-500 transition-colors"
           >
             <img
               :src="getPlantImage(plantId)"
-              :alt="getPlantName(plantId)"
-              class="w-6 h-6 rounded"
+              class="w-6 h-6 rounded border border-gray-600"
             />
-            <span>{{ getPlantName(plantId) }}</span>
+            <span class="text-gray-300 font-medium">{{ getPlantName(plantId) }}</span>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 植物选择模态框 -->
-    <div
-      v-if="showPlantSelector"
-      class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
-      role="dialog"
-      aria-modal="true"
-      :aria-labelledby="`plant-selector-title-${selectingPosition}`"
-    >
-      <div class="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4">
-        <h3 :id="`plant-selector-title-${selectingPosition}`" class="text-xl font-bold mb-4">
-          选择植物放入 {{ selectingPosition }} 号位
-        </h3>
-        <div
-          class="grid grid-cols-6 gap-2 max-h-[400px] overflow-y-auto mb-4"
-          role="listbox"
-          :aria-label="`选择植物放入${selectingPosition}号位`"
-        >
-          <button
-            v-for="plantId in getPicks(selectingPlayer)"
-            :key="plantId"
-            @click="placePlant(plantId)"
-            :disabled="!true"
-            :aria-label="`选择${getPlantName(plantId)}放入${selectingPosition}号位`"
-            class="cursor-pointer hover:scale-105 transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800 rounded disabled:opacity-40 disabled:cursor-not-allowed"
-            role="option"
-          >
-            <img
-              :src="getPlantImage(plantId)"
-              :alt="getPlantName(plantId)"
-              class="w-full rounded"
-            />
-            <div class="text-xs text-center mt-1">{{ getPlantName(plantId) }}</div>
-          </button>
-        </div>
-        <div class="flex gap-3">
-          <button
-            @click="clearPosition"
-            :disabled="!true"
-            :aria-label="`清空${selectingPosition}号位`"
-            class="flex-1 py-2 bg-ban-red hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-bold transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
-          >
-            清空该位
-          </button>
-          <button
-            @click="closePlantSelector"
-            class="flex-1 py-2 bg-gray-600 hover:bg-gray-500 rounded font-bold transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
-          >
-            取消
-          </button>
+    <transition name="fade">
+      <div
+        v-if="showPlantSelector"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        @click.self="closePlantSelector"
+      >
+        <div class="glass-card bg-gray-900 rounded-2xl p-6 max-w-2xl w-full shadow-2xl border border-gray-700 animate-slide-up">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-white flex items-center gap-2">
+              <span class="text-plant-green-neon">配置</span> {{ selectingPosition }} 号位
+            </h3>
+            <button @click="closePlantSelector" class="text-gray-400 hover:text-white transition-colors">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-5 sm:grid-cols-6 gap-3 max-h-[400px] overflow-y-auto mb-6 custom-scrollbar pr-2">
+            <button
+              v-for="plantId in getPicks(selectingPlayer)"
+              :key="plantId"
+              @click="placePlant(plantId)"
+              class="group relative flex flex-col items-center gap-2 p-2 rounded-xl border border-transparent hover:bg-gray-800 transition-all duration-200"
+            >
+              <div class="relative w-16 h-16 group-hover:scale-110 transition-transform duration-200">
+                <img
+                  :src="getPlantImage(plantId)"
+                  class="w-full h-full object-cover rounded-lg border-2 border-gray-600 group-hover:border-plant-green-neon shadow-lg"
+                />
+              </div>
+              <div class="text-xs font-bold text-gray-400 group-hover:text-white transition-colors text-center w-full truncate">{{ getPlantName(plantId) }}</div>
+            </button>
+          </div>
+          
+          <div class="flex gap-4 border-t border-gray-700 pt-6">
+            <button
+              @click="clearPosition"
+              class="flex-1 py-3 bg-red-900/50 text-red-200 hover:bg-red-800 rounded-lg font-bold border border-red-800 hover:border-red-600 transition-colors"
+            >
+              🗑️ 清空该位
+            </button>
+            <button
+              @click="closePlantSelector"
+              class="flex-1 py-3 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg font-bold transition-colors"
+            >
+              取消
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </transition>
   </div>
 </template>
 

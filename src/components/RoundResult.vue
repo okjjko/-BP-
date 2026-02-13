@@ -1,143 +1,123 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="round-result-title">
-    <div class="bg-gray-800 rounded-xl p-8 max-w-lg w-full mx-4">
-      <h2 id="round-result-title" class="text-3xl font-bold text-center mb-6">
-        小分结算
+  <div class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50" role="dialog" aria-modal="true">
+    <div class="glass-card rounded-2xl p-10 max-w-xl w-full mx-4 shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 animate-slide-up relative overflow-hidden">
+      <!-- 背景光效 -->
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+      
+      <h2 class="text-4xl font-black text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 drop-shadow-lg">
+        ROUND SETTLEMENT
       </h2>
 
-      <div v-if="!roundWinner" class="text-center">
-        <p class="text-xl mb-6">请选择获胜选手：</p>
+      <div v-if="!roundWinner" class="text-center space-y-8">
+        <p class="text-xl text-gray-300">请选择本局获胜方</p>
 
-        <div class="flex gap-4 justify-center mb-6" role="group" aria-label="选择获胜选手">
+        <div class="flex gap-6 justify-center">
           <button
             @click="setWinner('player1')"
-            :disabled="!true"
-            :aria-label="`${player1Name} 胜，当前比分 ${player1Score} - ${player2Score}`"
-            class="flex-1 py-4 bg-plant-green hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+            class="group flex-1 py-6 bg-pick-blue/10 hover:bg-pick-blue/30 border-2 border-pick-blue/50 hover:border-pick-blue-neon rounded-xl font-bold text-2xl transition-all duration-300"
           >
-            {{ player1Name }} 胜
+            <div class="text-pick-blue-neon group-hover:scale-110 transition-transform mb-2">🔵</div>
+            <div class="text-white">{{ player1Name }}</div>
           </button>
+          
+          <div class="flex items-center text-gray-500 font-black italic text-2xl">VS</div>
+
           <button
             @click="setWinner('player2')"
-            :disabled="!true"
-            :aria-label="`${player2Name} 胜，当前比分 ${player1Score} - ${player2Score}`"
-            class="flex-1 py-4 bg-plant-green hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+            class="group flex-1 py-6 bg-ban-red/10 hover:bg-ban-red/30 border-2 border-ban-red/50 hover:border-ban-red-neon rounded-xl font-bold text-2xl transition-all duration-300"
           >
-            {{ player2Name }} 胜
+            <div class="text-ban-red-neon group-hover:scale-110 transition-transform mb-2">🔴</div>
+            <div class="text-white">{{ player2Name }}</div>
           </button>
         </div>
 
-        <div class="text-sm text-gray-400 mb-6" role="status" aria-live="polite">
-          <p>当前比分：{{ player1Score }} - {{ player2Score }}</p>
-        </div>
-
-        <!-- 取消按钮 -->
         <button
           @click="cancelFinishRound"
-          class="w-full py-3 bg-gray-600 hover:bg-gray-500 rounded-lg font-bold text-lg transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+          class="text-gray-500 hover:text-white underline underline-offset-4 transition-colors text-sm"
         >
           返回修改站位
         </button>
       </div>
 
-      <div v-else class="text-center">
-        <div class="mb-6" role="status" aria-live="polite">
-          <div class="text-4xl mb-4" aria-hidden="true">🎉</div>
-          <p class="text-2xl font-bold text-plant-green mb-2">
-            {{ winnerName }} 获胜！
+      <div v-else class="text-center relative">
+        <!-- 胜利动画效果 -->
+        <div class="mb-8 relative z-10">
+          <div class="text-8xl mb-4 animate-bounce filter drop-shadow-[0_0_20px_rgba(255,215,0,0.5)]">🏆</div>
+          <p class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 mb-2 drop-shadow-md">
+            VICTORY!
           </p>
-          <p class="text-lg text-gray-300">
-            当前比分：{{ player1Score }} - {{ player2Score }}
+          <p class="text-2xl text-white font-bold tracking-wide">
+            {{ winnerName }}
           </p>
+          <div class="mt-4 flex justify-center gap-4 text-gray-400">
+             <span>{{ player1Name }}: <span class="text-white font-bold">{{ player1Score }}</span></span>
+             <span>|</span>
+             <span>{{ player2Name }}: <span class="text-white font-bold">{{ player2Score }}</span></span>
+          </div>
         </div>
 
         <!-- 败方选路 -->
-        <fieldset v-if="!isGameEnd && needsRoadSelection" class="mt-6 pt-6 border-t border-gray-700">
-          <legend class="text-lg font-semibold mb-3">
-            {{ loserName }} 请选择下一轮的道路（败者选路权）：
+        <fieldset v-if="!isGameEnd && needsRoadSelection" class="mt-8 pt-8 border-t border-gray-700/50">
+          <legend class="text-lg font-bold text-gray-300 px-4">
+            <span class="text-ban-red-neon">{{ loserName }}</span> 败者选路
           </legend>
 
-          <!-- 败者选路按钮 -->
-          <div class="flex gap-4 justify-center mb-4" role="group" :aria-label="`${loserName}选择道路`">
+          <div class="flex gap-4 justify-center mb-6 mt-4">
             <button
               @click="toggleLoserRoad(2)"
-              :aria-pressed="loserRoad === 2"
-              :disabled="winnerRoad === 2 || !true"
-              class="flex-1 py-3 rounded-lg font-bold text-lg transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+              :disabled="winnerRoad === 2"
+              class="flex-1 py-4 rounded-lg font-bold text-xl border-2 transition-all duration-300"
               :class="loserRoad === 2
-                ? 'bg-blue-600 text-white'
-                : winnerRoad === 2 || !true
-                  ? 'bg-gray-800 text-gray-500'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
+                ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]'
+                : winnerRoad === 2
+                  ? 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
+                  : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               2路
             </button>
             <button
               @click="toggleLoserRoad(4)"
-              :aria-pressed="loserRoad === 4"
-              :disabled="winnerRoad === 4 || !true"
-              class="flex-1 py-3 rounded-lg font-bold text-lg transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+              :disabled="winnerRoad === 4"
+              class="flex-1 py-4 rounded-lg font-bold text-xl border-2 transition-all duration-300"
               :class="loserRoad === 4
-                ? 'bg-blue-600 text-white'
-                : winnerRoad === 4 || !true
-                  ? 'bg-gray-800 text-gray-500'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
+                ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]'
+                : winnerRoad === 4
+                  ? 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
+                  : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               4路
             </button>
-          </div>
-
-          <!-- 显示双方道路分配 -->
-          <div v-if="loserRoad" class="mb-4 text-center" role="status" aria-live="polite">
-            <p class="text-sm text-gray-300">
-              <span class="font-semibold text-plant-green">{{ loserName }}</span>
-              → {{ loserRoad }}路
-              <span class="mx-2">|</span>
-              <span class="font-semibold text-plant-green">{{ winnerName }}</span>
-              → {{ winnerRoad }}路
-            </p>
           </div>
 
           <!-- 确认按钮 -->
           <button
             v-if="loserRoad"
             @click="confirmRoadSelection"
-            :disabled="!true"
-            :aria-label="`确认${loserName}选择${loserRoad}路，${winnerName}选择${winnerRoad}路，进入下一小分`"
-            class="w-full py-3 bg-plant-green hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+            class="w-full py-4 bg-gradient-to-r from-plant-green-dark to-plant-green hover:to-plant-green-neon text-white rounded-xl font-bold text-xl shadow-lg hover:shadow-green-500/30 transition-all duration-300 transform active:scale-95"
           >
-            确认并进入下一小分
+            确认并继续 →
           </button>
         </fieldset>
 
-        <!-- 第一局且败者是先输入ID的选手，自动进入下一局 -->
-        <div v-if="!isGameEnd && !needsRoadSelection" class="mt-6 pt-6 border-t border-gray-700 text-center">
-          <p class="text-lg font-semibold mb-3 text-plant-green">
-            {{ loserName }} 的道路已在开局时确定
-          </p>
-          <button
+        <!-- 自动继续 (无需选路) -->
+        <div v-if="!isGameEnd && !needsRoadSelection" class="mt-8 pt-8 border-t border-gray-700/50">
+           <p class="text-gray-400 mb-6">下一局道路已自动确定</p>
+           <button
             @click="goToNextRound"
-            :disabled="!true"
-            class="px-6 py-3 bg-plant-green hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+            class="px-10 py-4 bg-plant-green hover:bg-plant-green-neon text-white rounded-xl font-bold text-xl shadow-lg transition-all duration-300"
           >
-            进入下一小分
+            下一小分 →
           </button>
         </div>
 
         <!-- 游戏结束 -->
-        <div v-else class="mt-6 pt-6 border-t border-gray-700">
-          <p class="text-2xl font-bold text-yellow-400 mb-4" aria-hidden="true">
-            🏆 游戏结束！
-          </p>
-          <p class="text-xl mb-6">
-            最终获胜者：<span class="font-bold text-plant-green">{{ winnerName }}</span>
-          </p>
+        <div v-else-if="isGameEnd" class="mt-8 pt-8 border-t border-gray-700/50">
+          <p class="text-gray-300 mb-6 font-mono tracking-widest uppercase">Game Over</p>
           <button
             @click="resetGame"
-            :disabled="!true"
-            class="w-full py-3 bg-ban-red hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
+            class="w-full py-4 bg-ban-red hover:bg-ban-red-neon text-white rounded-xl font-bold text-xl shadow-lg hover:shadow-red-500/30 transition-all duration-300"
           >
-            重新开始
+            全新开始
           </button>
         </div>
       </div>
