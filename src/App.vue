@@ -39,17 +39,17 @@
 
           <!-- 全局状态栏：永久禁用 + 已使用植物 -->
           <transition name="fade">
-            <div v-if="gameStatus === 'banning' || gameStatus === 'positioning'" class="glass-panel rounded-xl p-3 mb-6 flex flex-wrap items-center justify-center gap-6 animate-slide-up" style="animation-delay: 0.1s;">
+            <div v-if="gameStatus === 'banning' || gameStatus === 'positioning'" class="glass-panel rounded-xl p-3 mb-6 flex items-start justify-center gap-6 animate-slide-up" style="animation-delay: 0.1s;">
               <UsedPlants player="player1" />
 
               <!-- 本局永久禁用植物 -->
-              <div class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)]">
+              <div class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)] flex-shrink-0">
                 <h3 class="text-xs font-bold mb-2 text-center text-ban-red-neon uppercase tracking-wider flex items-center justify-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
                   永久禁用
                   <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
                 </h3>
-                <div class="flex justify-center gap-2">
+                <div class="flex justify-center gap-2 flex-wrap">
                   <div
                     v-for="plantId in globalBans"
                     :key="plantId"

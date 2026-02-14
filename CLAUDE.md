@@ -49,7 +49,7 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 
 5. **Round Flow**
    - BP阶段 → Positioning (站位设置) → Result (小分结算) → Next Round
-   - Winner gets 1 point, first to 5 points wins the match
+   - Winner gets 1 point, first to 4 points wins the match
    - Loser selects road for next round (败者选路权)
 
 ### Key Files & Responsibilities
@@ -126,14 +126,14 @@ Custom colors defined in `tailwind.config.js`:
 - ✅ Usage limit tracking (max 2 times per plant per player)
 - ✅ Cannot pick opponent's already-selected plants
 - ✅ Global bans (5 plants per match)
-- ✅ Score tracking (first to 5 wins)
+- ✅ Score tracking (first to 4 wins)
 - ✅ Loser picks road for next round
 - ✅ First-round special case: if loser chose road initially, no re-selection needed
 
 **Not Yet Implemented:**
 - ⚠️ Position validation rules (副C/大C requirements)
 - ⚠️ Pumpkin shell rules (南瓜套规则)
-- ⚠️ 巅峰对决 mode (4:4 tiebreaker)
+- ⚠️ 巅峰对决 mode (3:3 tiebreaker)
 
 ## Testing Flows
 

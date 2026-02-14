@@ -190,15 +190,15 @@ export const canPick = (plantId, playerId, gameState) => {
  * 检查游戏是否结束
  * @param {number} score1 - 选手1得分
  * @param {number} score2 - 选手2得分
- * @param {number} maxScore - 最高分（默认5分）
+ * @param {number} maxScore - 最高分（默认4分）
  */
-export const isGameOver = (score1, score2, maxScore = 5) => {
+export const isGameOver = (score1, score2, maxScore = 4) => {
   return score1 >= maxScore || score2 >= maxScore
 }
 
 /**
- * 检查是否进入巅峰对决（4:4平局）
+ * 检查是否进入巅峰对决（3:3平局）
  */
 export const isGrandFinal = (score1, score2) => {
-  return score1 === 4 && score2 === 4
+  return score1 === 3 && score2 === 3
 }
