@@ -23,14 +23,19 @@
             v-for="index in 5"
             :key="index"
             @click="openPlantSelector(player, index)"
+            @dragstart="handleDragStartFromPosition($event, player, index)"
             @dragover="handleDragOver($event, player, index)"
             @dragleave="handleDragLeave"
             @drop="handleDrop($event, player, index)"
+            :draggable="getPlantAtPosition(player, index) !== null"
             class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group"
             :class="{
               'border-gray-600 hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
               'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index) && (!dropTarget || dropTarget.position !== index),
               'border-plant-green-neon shadow-[0_0_20px_rgba(76,175,80,0.6)] bg-plant-green/10 scale-105 dropzone-active': dropTarget && dropTarget.player === player && dropTarget.position === index,
+              'dragging-from': store.dragState?.draggedFromType === 'battlefield' &&
+                              store.dragState?.draggedFromPlayer === player &&
+                              store.dragState?.draggedFromPosition === index
             }"
           >
             <!-- 序号标记 -->
@@ -74,8 +79,8 @@
             @dragend="handleDragEnd"
             class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border text-sm cursor-grab active:cursor-grabbing transition-all duration-200"
             :class="{
-              'border-gray-700 hover:border-gray-500': !isDragging || draggedPlantId !== plantId,
-              'opacity-50 scale-95 border-plant-green-neon shadow-[0_0_15px_rgba(76,175,80,0.5)]': isDragging && draggedPlantId === plantId
+              'border-gray-700 hover:border-gray-500': !store.dragState?.isDragging || store.dragState?.draggedPlantId !== plantId,
+              'opacity-50 scale-95 border-plant-green-neon shadow-[0_0_15px_rgba(76,175,80,0.5)]': store.dragState?.isDragging && store.dragState?.draggedPlantId === plantId
             }"
           >
             <img
@@ -156,10 +161,8 @@ const selectingPlayer = ref(null)
 const selectingPosition = ref(null)
 
 // 拖拽状态管理
-const draggedPlantId = ref(null)        // 当前拖拽的植物ID
-const draggedFromPlayer = ref(null)      // 拖拽源所属玩家
+// 注意：draggedPlantId, draggedFromPlayer, isDragging 已改用 store.dragState
 const dropTarget = ref(null)             // 当前悬停的目标位置 { player, position }
-const isDragging = ref(false)            // 是否正在拖拽
 
 const getPlayerName = (player) => {
   return store[player]?.id || (player === 'player1' ? '甲' : '乙')
@@ -237,29 +240,66 @@ const clearPosition = () => {
 
 // ========== 拖拽事件处理函数 ==========
 
-// 开始拖拽
+// 从战场位置开始拖拽
+const handleDragStartFromPosition = (event, player, position) => {
+  const plantId = getPlantAtPosition(player, position)
+  if (!plantId) return
+
+  // 更新全局拖拽状态
+  store.setDragState({
+    isDragging: true,
+    draggedPlantId: plantId,
+    draggedFromPlayer: player,
+    draggedFromType: 'battlefield',
+    draggedFromPosition: position
+  })
+
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', JSON.stringify({
+    plantId,
+    source: 'battlefield',
+    player,
+    position
+  }))
+}
+
+// 从可选列表开始拖拽
 const handleDragStart = (event, plantId, player) => {
-  draggedPlantId.value = plantId
-  draggedFromPlayer.value = player
-  isDragging.value = true
+  // 更新全局拖拽状态
+  store.setDragState({
+    isDragging: true,
+    draggedPlantId: plantId,
+    draggedFromPlayer: player,
+    draggedFromType: 'availableList',
+    draggedFromPosition: null
+  })
+
   event.dataTransfer.effectAllowed = 'copy'
-  event.dataTransfer.setData('text/plain', plantId)
+  event.dataTransfer.setData('text/plain', JSON.stringify({
+    plantId,
+    source: 'availableList',
+    player
+  }))
 }
 
 // 拖拽结束清理
 const handleDragEnd = () => {
-  draggedPlantId.value = null
-  draggedFromPlayer.value = null
+  store.clearDragState()
   dropTarget.value = null
-  isDragging.value = false
 }
 
 // 拖拽悬停
 const handleDragOver = (event, player, position) => {
   event.preventDefault()
-  if (canDropAt(player, position)) {
+
+  const dragState = store.dragState
+  if (!dragState?.isDragging) return
+
+  if (canDropAt(player, position, dragState)) {
     dropTarget.value = { player, position }
-    event.dataTransfer.dropEffect = 'copy'
+    event.dataTransfer.dropEffect = dragState.draggedFromType === 'battlefield'
+      ? 'move'
+      : 'copy'
   }
 }
 
@@ -271,16 +311,49 @@ const handleDragLeave = () => {
 // 放置植物
 const handleDrop = (event, targetPlayer, targetPosition) => {
   event.preventDefault()
-  const plantId = draggedPlantId.value
-  if (!plantId || !canDropAt(targetPlayer, targetPosition)) {
-    handleDragEnd()
+
+  const dragState = store.dragState
+  if (!dragState?.isDragging || !canDropAt(targetPlayer, targetPosition, dragState)) {
+    store.clearDragState()
+    dropTarget.value = null
     return
   }
 
-  // 执行放置逻辑（复用现有逻辑）
-  const player = targetPlayer
-  const position = targetPosition
+  const plantId = dragState.draggedPlantId
 
+  // 根据拖拽源类型执行不同逻辑
+  if (dragState.draggedFromType === 'battlefield') {
+    // 战场位置间移动
+    movePlantBetweenPositions(
+      dragState.draggedFromPlayer,
+      dragState.draggedFromPosition,
+      targetPlayer,
+      targetPosition,
+      plantId
+    )
+  } else {
+    // 从 PickArea 或可选列表复制
+    placePlantToPosition(targetPlayer, targetPosition, plantId)
+  }
+
+  store.saveToLocalStorage()
+  store.clearDragState()
+  dropTarget.value = null
+}
+
+// 战场位置间移动植物
+const movePlantBetweenPositions = (fromPlayer, fromPosition, toPlayer, toPosition, plantId) => {
+  const plants = store.currentRound.positions[fromPlayer].plants
+
+  // 移除原位置
+  plants[fromPosition - 1] = null
+
+  // 放置到新位置（覆盖已有植物）
+  plants[toPosition - 1] = plantId
+}
+
+// 从 PickArea/可选列表放置植物
+const placePlantToPosition = (player, position, plantId) => {
   if (!store.currentRound.positions[player].plants) {
     store.currentRound.positions[player].plants = []
   }
@@ -289,24 +362,29 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
   const existingIndex = plants.indexOf(plantId)
 
   if (existingIndex !== -1) {
+    // 已存在，先移除原位置（重复放置行为）
     plants[existingIndex] = null
   }
 
+  // 放置到新位置
   plants[position - 1] = plantId
-
-  store.saveToLocalStorage()
-  handleDragEnd()
 }
 
 // 验证是否可放置
-const canDropAt = (player, position) => {
-  // 只能在同一玩家区域内拖拽
-  if (draggedFromPlayer.value !== player) return false
+const canDropAt = (targetPlayer, targetPosition, dragState) => {
+  // 1. 只能在同一玩家区域内拖拽
+  if (dragState.draggedFromPlayer !== targetPlayer) return false
 
-  // 验证植物是否在可选列表中
-  const plantId = draggedPlantId.value
-  const picks = store.currentRound?.picks?.[player] || []
+  // 2. 植物必须在该玩家的 picks 列表中
+  const plantId = dragState.draggedPlantId
+  const picks = store.currentRound?.picks?.[targetPlayer] || []
   if (!picks.includes(plantId)) return false
+
+  // 3. 战场位置间拖拽时，不能拖到同一位置
+  if (dragState.draggedFromType === 'battlefield' &&
+      dragState.draggedFromPosition === targetPosition) {
+    return false
+  }
 
   return true
 }
@@ -322,6 +400,24 @@ const canDropAt = (player, position) => {
 
 :deep([draggable="true"]:active) {
   cursor: grabbing;
+}
+
+/* 正在被拖拽出的战场位置（源位置） */
+.dragging-from {
+  opacity: 0.3;
+  border-style: dashed !important;
+  border-color: #FFA726 !important;
+  transform: scale(0.95);
+  animation: pulse-source 1s infinite;
+}
+
+@keyframes pulse-source {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 167, 38, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 167, 38, 0.6);
+  }
 }
 
 /* 放置目标高亮动画 */

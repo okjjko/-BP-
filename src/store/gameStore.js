@@ -51,7 +51,16 @@ export const useGameStore = defineStore('game', {
 
     // 游戏状态
     gameStatus: 'setup', // 'setup', 'banning', 'positioning', 'result', 'finished'
-    roundWinner: null // 当前小分的获胜者
+    roundWinner: null, // 当前小分的获胜者
+
+    // 拖拽状态（临时UI状态，不保存到localStorage）
+    dragState: {
+      isDragging: false,
+      draggedPlantId: null,
+      draggedFromPlayer: null,         // 'player1' | 'player2'
+      draggedFromType: null,           // 'pickArea' | 'availableList' | 'battlefield'
+      draggedFromPosition: null        // 战场位置拖拽时：1-5
+    }
   }),
 
   getters: {
@@ -441,6 +450,26 @@ export const useGameStore = defineStore('game', {
         }
       }
       return false
+    },
+
+    /**
+     * 设置拖拽状态
+     */
+    setDragState(dragState) {
+      this.dragState = { ...this.dragState, ...dragState }
+    },
+
+    /**
+     * 清除拖拽状态
+     */
+    clearDragState() {
+      this.dragState = {
+        isDragging: false,
+        draggedPlantId: null,
+        draggedFromPlayer: null,
+        draggedFromType: null,
+        draggedFromPosition: null
+      }
     }
   }
 })

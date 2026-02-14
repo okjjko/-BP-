@@ -14,6 +14,10 @@
         <div
           v-for="(plantId, index) in picks"
           :key="plantId"
+          draggable="true"
+          @dragstart="handleDragStart($event, plantId)"
+          @dragend="handleDragEnd"
+          :class="{ 'dragging': isCurrentDragging(plantId) }"
           class="group flex items-center gap-3 bg-gray-800/40 p-2 rounded-lg border border-gray-700 hover:border-pick-blue/50 hover:bg-gray-800/80 transition-all duration-300"
         >
           <span class="text-gray-500 text-xs font-mono w-4 text-center">#{{ index + 1 }}</span>
@@ -55,7 +59,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import { getPlantById } from '@/data/plants'
 
@@ -67,6 +71,9 @@ const props = defineProps({
 })
 
 const store = useGameStore()
+
+// 本地拖拽状态（用于视觉反馈）
+const localDraggingPlantId = ref(null)
 
 const playerName = computed(() => {
   return store[props.player]?.id || (props.player === 'player1' ? '甲' : '乙')
@@ -91,6 +98,40 @@ const getPlantDesc = (id) => {
 const getUsageCount = (plantId) => {
   return store.getPlantUsageCount(props.player, plantId)
 }
+
+// ========== 拖拽事件处理函数 ==========
+
+const handleDragStart = (event, plantId) => {
+  localDraggingPlantId.value = plantId
+
+  // 更新全局拖拽状态
+  store.setDragState({
+    isDragging: true,
+    draggedPlantId: plantId,
+    draggedFromPlayer: props.player,
+    draggedFromType: 'pickArea',
+    draggedFromPosition: null
+  })
+
+  // 设置拖拽数据
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('text/plain', JSON.stringify({
+    plantId,
+    source: 'pickArea',
+    player: props.player
+  }))
+}
+
+const handleDragEnd = () => {
+  localDraggingPlantId.value = null
+  store.clearDragState()
+}
+
+const isCurrentDragging = (plantId) => {
+  return store.dragState?.isDragging &&
+         store.dragState?.draggedPlantId === plantId &&
+         store.dragState?.draggedFromType === 'pickArea'
+}
 </script>
 
 <style scoped>
@@ -102,5 +143,21 @@ const getUsageCount = (plantId) => {
 .list-leave-to {
   opacity: 0;
   transform: translateX(-20px);
+}
+
+/* 拖拽样式 */
+.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.6);
+  border-color: #4CAF50 !important;
+}
+
+[draggable="true"] {
+  cursor: grab;
+}
+
+[draggable="true"]:active {
+  cursor: grabbing;
 }
 </style>
