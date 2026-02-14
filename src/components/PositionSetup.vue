@@ -23,9 +23,14 @@
             v-for="index in 5"
             :key="index"
             @click="openPlantSelector(player, index)"
-            class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-600 flex items-center justify-center cursor-pointer transition-all duration-200 group hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95"
+            @dragover="handleDragOver($event, player, index)"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop($event, player, index)"
+            class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group"
             :class="{
-              'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index),
+              'border-gray-600 hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
+              'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index) && (!dropTarget || dropTarget.position !== index),
+              'border-plant-green-neon shadow-[0_0_20px_rgba(76,175,80,0.6)] bg-plant-green/10 scale-105 dropzone-active': dropTarget && dropTarget.player === player && dropTarget.position === index,
             }"
           >
             <!-- 序号标记 -->
@@ -45,6 +50,14 @@
             <template v-else>
               <span class="text-gray-600 text-2xl group-hover:text-plant-green-neon transition-colors">+</span>
             </template>
+
+            <!-- 拖拽悬停提示层 -->
+            <div
+              v-if="dropTarget && dropTarget.player === player && dropTarget.position === index"
+              class="absolute inset-0 bg-plant-green/20 rounded-xl border-2 border-plant-green-neon flex items-center justify-center pointer-events-none"
+            >
+              <span class="text-plant-green-neon font-bold text-lg">放置</span>
+            </div>
           </button>
         </div>
       </fieldset>
@@ -56,13 +69,20 @@
           <div
             v-for="plantId in getPicks(player)"
             :key="plantId"
-            class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border border-gray-700 text-sm hover:border-gray-500 transition-colors"
+            draggable="true"
+            @dragstart="handleDragStart($event, plantId, player)"
+            @dragend="handleDragEnd"
+            class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border text-sm cursor-grab active:cursor-grabbing transition-all duration-200"
+            :class="{
+              'border-gray-700 hover:border-gray-500': !isDragging || draggedPlantId !== plantId,
+              'opacity-50 scale-95 border-plant-green-neon shadow-[0_0_15px_rgba(76,175,80,0.5)]': isDragging && draggedPlantId === plantId
+            }"
           >
             <img
               :src="getPlantImage(plantId)"
-              class="w-6 h-6 rounded border border-gray-600"
+              class="w-6 h-6 rounded border border-gray-600 pointer-events-none"
             />
-            <span class="text-gray-300 font-medium">{{ getPlantName(plantId) }}</span>
+            <span class="text-gray-300 font-medium pointer-events-none">{{ getPlantName(plantId) }}</span>
           </div>
         </div>
       </div>
@@ -134,6 +154,12 @@ const store = useGameStore()
 const showPlantSelector = ref(false)
 const selectingPlayer = ref(null)
 const selectingPosition = ref(null)
+
+// 拖拽状态管理
+const draggedPlantId = ref(null)        // 当前拖拽的植物ID
+const draggedFromPlayer = ref(null)      // 拖拽源所属玩家
+const dropTarget = ref(null)             // 当前悬停的目标位置 { player, position }
+const isDragging = ref(false)            // 是否正在拖拽
 
 const getPlayerName = (player) => {
   return store[player]?.id || (player === 'player1' ? '甲' : '乙')
@@ -208,4 +234,107 @@ const clearPosition = () => {
   closePlantSelector()
   store.saveToLocalStorage()
 }
+
+// ========== 拖拽事件处理函数 ==========
+
+// 开始拖拽
+const handleDragStart = (event, plantId, player) => {
+  draggedPlantId.value = plantId
+  draggedFromPlayer.value = player
+  isDragging.value = true
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('text/plain', plantId)
+}
+
+// 拖拽结束清理
+const handleDragEnd = () => {
+  draggedPlantId.value = null
+  draggedFromPlayer.value = null
+  dropTarget.value = null
+  isDragging.value = false
+}
+
+// 拖拽悬停
+const handleDragOver = (event, player, position) => {
+  event.preventDefault()
+  if (canDropAt(player, position)) {
+    dropTarget.value = { player, position }
+    event.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+// 离开目标
+const handleDragLeave = () => {
+  dropTarget.value = null
+}
+
+// 放置植物
+const handleDrop = (event, targetPlayer, targetPosition) => {
+  event.preventDefault()
+  const plantId = draggedPlantId.value
+  if (!plantId || !canDropAt(targetPlayer, targetPosition)) {
+    handleDragEnd()
+    return
+  }
+
+  // 执行放置逻辑（复用现有逻辑）
+  const player = targetPlayer
+  const position = targetPosition
+
+  if (!store.currentRound.positions[player].plants) {
+    store.currentRound.positions[player].plants = []
+  }
+
+  const plants = store.currentRound.positions[player].plants
+  const existingIndex = plants.indexOf(plantId)
+
+  if (existingIndex !== -1) {
+    plants[existingIndex] = null
+  }
+
+  plants[position - 1] = plantId
+
+  store.saveToLocalStorage()
+  handleDragEnd()
+}
+
+// 验证是否可放置
+const canDropAt = (player, position) => {
+  // 只能在同一玩家区域内拖拽
+  if (draggedFromPlayer.value !== player) return false
+
+  // 验证植物是否在可选列表中
+  const plantId = draggedPlantId.value
+  const picks = store.currentRound?.picks?.[player] || []
+  if (!picks.includes(plantId)) return false
+
+  return true
+}
 </script>
+
+<style scoped>
+/* 拖拽时的全局样式 */
+:deep([draggable="true"]) {
+  -webkit-user-drag: element;
+  user-select: none;
+  cursor: grab;
+}
+
+:deep([draggable="true"]:active) {
+  cursor: grabbing;
+}
+
+/* 放置目标高亮动画 */
+@keyframes pulse-dropzone {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(76, 175, 80, 0.6);
+  }
+}
+
+.dropzone-active {
+  animation: pulse-dropzone 1.5s infinite;
+}
+</style>
