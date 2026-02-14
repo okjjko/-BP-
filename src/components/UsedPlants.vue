@@ -32,7 +32,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '@/store/gameStore'
-import { getPlantById, PLANTS } from '@/data/plants'
+import { getPlantByIdSync, getAllPlantsSync } from '@/data/customPlants'
 
 const props = defineProps({
   player: {
@@ -52,8 +52,8 @@ const usedPlants = computed(() => {
   const plantUsage = store.plantUsage || {}
   const used = []
 
-  // 遍历所有可能的植物
-  for (const plant of PLANTS) {
+  // 遍历所有可能的植物（内置+自定义）
+  for (const plant of getAllPlantsSync()) {
     const key = `${props.player}_${plant.id}`
     const count = plantUsage[key] || 0
     if (count > 0) {

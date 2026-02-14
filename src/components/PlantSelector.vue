@@ -90,7 +90,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '@/store/gameStore'
-import { getPlantById } from '@/data/plants'
+import { getPlantByIdSync } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
 
 const store = useGameStore()
@@ -107,7 +107,7 @@ const availablePlants = computed(() => {
 
 const selectedPlantInfo = computed(() => {
   const selectedId = store.currentRound?.selectedPlant
-  return selectedId ? getPlantById(selectedId) : null
+  return selectedId ? getPlantByIdSync(selectedId) : null
 })
 
 const isSelected = (plantId) => {

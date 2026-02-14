@@ -61,7 +61,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useGameStore } from '@/store/gameStore'
-import { getPlantById } from '@/data/plants'
+import { getPlantImage, getPlantName, getPlantDesc } from '@/data/customPlants'
 
 const props = defineProps({
   player: {
@@ -82,18 +82,6 @@ const playerName = computed(() => {
 const picks = computed(() => {
   return store.currentRound?.picks?.[props.player] || []
 })
-
-const getPlantImage = (id) => {
-  return getPlantById(id)?.image || ''
-}
-
-const getPlantName = (id) => {
-  return getPlantById(id)?.name || ''
-}
-
-const getPlantDesc = (id) => {
-  return getPlantById(id)?.description || ''
-}
 
 const getUsageCount = (plantId) => {
   return store.getPlantUsageCount(props.player, plantId)

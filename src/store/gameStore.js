@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { PLANTS } from '@/data/plants'
+import { getAllPlantsSync } from '@/data/customPlants'
 import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
 import { canBan, canPick, validatePosition, isGameOver, isGrandFinal } from '@/utils/validators'
 
@@ -94,8 +95,8 @@ export const useGameStore = defineStore('game', {
       const allPicks = [...picks.player1, ...picks.player2]
       const unavailable = [...allBans, ...allPicks]
 
-      // 过滤掉不可用的植物
-      return PLANTS.filter(plant => !unavailable.includes(plant.id))
+      // 过滤掉不可用的植物（使用合并后的植物列表）
+      return getAllPlantsSync().filter(plant => !unavailable.includes(plant.id))
     },
 
     /**
@@ -103,13 +104,6 @@ export const useGameStore = defineStore('game', {
      */
     currentStageName: (state) => {
       return STAGE_NAMES[state.currentRound.stage]
-    },
-
-    /**
-     * 获取植物信息
-     */
-    getPlantById: () => (id) => {
-      return PLANTS.find(p => p.id === id)
     },
 
     /**
@@ -151,7 +145,8 @@ export const useGameStore = defineStore('game', {
      * 随机禁用5个植物
      */
     randomBanPlants() {
-      const shuffled = [...PLANTS].sort(() => Math.random() - 0.5)
+      const allPlants = getAllPlantsSync()
+      const shuffled = [...allPlants].sort(() => Math.random() - 0.5)
       this.globalBans = shuffled.slice(0, 5).map(p => p.id)
     },
 

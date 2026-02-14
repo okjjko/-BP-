@@ -105,6 +105,13 @@
             </button>
 
             <button
+              @click="showPlantManager = true"
+              class="px-8 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition-all duration-300 border border-purple-400 hover:border-purple-300 shadow-lg hover:shadow-purple-500/20 flex items-center gap-2"
+            >
+              <span>🌱</span> 植物管理
+            </button>
+
+            <button
               @click="resetGame"
               class="px-8 py-3 bg-gray-700 hover:bg-ban-red text-gray-300 hover:text-white font-bold rounded-lg transition-all duration-300 border border-gray-600 hover:border-ban-red shadow-lg hover:shadow-red-500/20"
             >
@@ -118,14 +125,18 @@
       <transition name="fade">
         <RoundResult v-if="gameStatus === 'result'" />
       </transition>
+
+      <!-- 植物管理模态框 -->
+      <PlantManager v-model:show="showPlantManager" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useGameStore } from './store/gameStore'
 import { getPlantById } from './data/plants'
+import { initializeCache } from './data/customPlants'
 import GameSetup from './components/GameSetup.vue'
 import PlayerInfo from './components/PlayerInfo.vue'
 import StageIndicator from './components/StageIndicator.vue'
@@ -135,11 +146,23 @@ import UsedPlants from './components/UsedPlants.vue'
 import PlantSelector from './components/PlantSelector.vue'
 import PositionSetup from './components/PositionSetup.vue'
 import RoundResult from './components/RoundResult.vue'
+import PlantManager from './components/PlantManager/index.vue'
 
 const store = useGameStore()
 
+// 植物管理模态框状态
+const showPlantManager = ref(false)
+
 // 页面加载时尝试从localStorage恢复进度
-onMounted(() => {
+onMounted(async () => {
+  // 初始化自定义植物缓存
+  try {
+    await initializeCache()
+  } catch (error) {
+    console.error('初始化自定义植物缓存失败:', error)
+  }
+
+  // 恢复游戏状态
   store.loadFromLocalStorage()
 })
 

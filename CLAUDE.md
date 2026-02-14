@@ -18,6 +18,18 @@ npm run build
 npm run preview
 ```
 
+## Development Guidelines
+
+**Code-Documentation Sync:**
+
+- **MANDATORY**: When modifying code, update this documentation (CLAUDE.md) simultaneously
+- Examples of documentation updates:
+  - Adding new features → Document functionality in appropriate sections
+  - Modifying components → Update "Key Files & Responsibilities"
+  - Changing rules → Update "Rules Implementation"
+  - Adding data formats → Update "Customization Points"
+- Keep documentation and code in sync to ensure maintainability
+
 ## Project Architecture
 
 This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle system for a modified Plants vs. Zombies game. The tool handles complex tournament rules with dynamic player-road assignments.
@@ -55,7 +67,13 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 ### Key Files & Responsibilities
 
 **Data Layer:**
-- `src/data/plants.js` - Plant data structure (currently placeholder images)
+
+- `src/data/plants.js` - Built-in plant data structure (currently placeholder images)
+- `src/data/customPlants.js` - Custom plant management using IndexedDB storage
+  - Supports adding/editing/deleting custom plants
+  - Images stored as Blob objects in IndexedDB
+  - Provides memory cache for synchronous access (`getAllPlantsSync()`)
+  - Export/Import functionality (JSON with Base64 images)
 - `src/utils/bpRules.js` - BP order templates and dynamic sequence generation
 - `src/utils/validators.js` - Rule validation (ban checks, usage limits, etc.)
 
@@ -74,6 +92,11 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 - `src/components/BanArea.vue` - Displays banned plants per player
 - `src/components/PickArea.vue` - Displays picked plants per player
 - `src/components/PlantSelector.vue` - Grid for selecting plants to ban/pick
+- `src/components/PlantManager/` - Custom plant management module
+  - `index.vue` - Main plant management interface
+  - `PlantForm.vue` - Add/edit plant form
+  - `ImageUploader.vue` - Image upload with auto-compression
+  - `ImportExport.vue` - Export/import plants as JSON
 - `src/components/PositionSetup.vue` - Road and position configuration (not yet implemented)
 - `src/components/RoundResult.vue` - Round winner & next round road selection
 
@@ -99,7 +122,21 @@ This is implemented via `getBPSequence()` which takes actual player IDs as param
 
 ## Customization Points
 
-**Plant Data:**
+**Custom Plants (via UI):**
+The application supports importing custom plants through the PlantManager UI:
+
+- **Supported Image Formats**: PNG, JPG/JPEG, WEBP
+- **Image Requirements**:
+  - Original file size: Maximum 2MB
+  - Auto-compression: Images automatically resized to 100×100 pixels
+  - Compressed format: JPEG at 70% quality
+  - Compressed size limit: Maximum 500KB
+- **Storage**: Images stored as Blob objects in IndexedDB
+- **Export/Import**: Custom plants can be exported to JSON (images as Base64) and imported across devices
+
+Access custom plant management through the "植物管理" (Plant Management) interface.
+
+**Built-in Plant Data:**
 Edit `src/data/plants.js` to replace placeholder images/data:
 ```javascript
 {
@@ -129,6 +166,8 @@ Custom colors defined in `tailwind.config.js`:
 - ✅ Score tracking (first to 4 wins)
 - ✅ Loser picks road for next round
 - ✅ First-round special case: if loser chose road initially, no re-selection needed
+- ✅ Custom plant management (add, edit, delete, export, import)
+- ✅ IndexedDB storage for custom plants with memory cache
 
 **Not Yet Implemented:**
 - ⚠️ Position validation rules (副C/大C requirements)
