@@ -116,7 +116,7 @@
 
         <button
           type="submit"
-          :disabled="!player1Name || !player2Name || (!player1Road && !player2Road)"
+          :disabled="!player1Name || !player2Name || !player1Road || !player2Road"
           class="w-full py-4 bg-gradient-to-r from-plant-green-dark to-plant-green hover:from-plant-green hover:to-plant-green-neon disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed rounded-lg font-bold text-xl text-white transition-all duration-300 transform active:scale-95 shadow-lg overflow-hidden relative group"
         >
           <span class="relative z-10 flex items-center justify-center gap-2">
@@ -127,7 +127,7 @@
       </form>
 
       <div class="mt-8 text-center" role="note">
-        <p class="text-xs text-gray-500 font-mono tracking-widest">先得5分者胜 • 每个植物最多使用2次</p>
+        <p class="text-xs text-gray-500 font-mono tracking-widest">先得4分者胜 • 每个植物最多使用2次</p>
       </div>
     </div>
   </div>
@@ -161,9 +161,9 @@ const startGame = () => {
     return
   }
 
-  // 如果都没有选路，提示至少选一个
-  if (!player1Road.value && !player2Road.value) {
-    alert('请至少一名选手选择开局道路')
+  // 检查两名选手是否都选了路
+  if (!player1Road.value || !player2Road.value) {
+    alert('请两名选手都选择开局道路（2路或4路）')
     return
   }
 

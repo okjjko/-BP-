@@ -63,6 +63,7 @@
                   :plant="plant"
                   @edit="editPlant"
                   @delete="confirmDelete"
+                  @hide="confirmHide"
                 />
 
                 <!-- 新建按钮卡片 -->
@@ -91,7 +92,7 @@
                 <div v-else class="h-full flex items-center justify-center text-gray-500">
                   <div class="text-center">
                     <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2m15 3.5.5.5 6.268-2.943 9.543 7a10.025 10.025 0 01-1.995-1.858L5.732 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     <p>选择左侧植物进行编辑<br/>或点击新建按钮</p>
                   </div>
@@ -102,10 +103,84 @@
 
           <!-- 底部工具栏 -->
           <div class="p-4 border-t border-gray-700/50 flex justify-between items-center">
-            <div class="text-sm text-gray-400">
-              内置: {{ builtinCount }} | 自定义: {{ customCount }}
+            <div class="flex items-center gap-4 text-sm text-gray-400">
+              <span>内置: {{ builtinCount }} | 自定义: {{ customCount }}</span>
+              <span v-if="hiddenCount > 0" class="text-orange-400">
+                | 已隐藏: {{ hiddenCount }}
+                <button
+                  @click="showRecycleBin = true"
+                  class="ml-2 px-2 py-1 bg-orange-600/20 hover:bg-orange-600/40 rounded transition-colors"
+                >
+                  查看回收站
+                </button>
+              </span>
             </div>
             <ImportExport @import="handleImport" @export="handleExport" />
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 回收站弹窗 -->
+    <Transition name="fade">
+      <div v-if="showRecycleBin" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showRecycleBin = false"></div>
+        <div class="relative glass-card rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <!-- 标题栏 -->
+          <div class="flex items-center justify-between p-6 border-b border-gray-700/50">
+            <h2 class="text-2xl font-bold text-orange-400">♻️ 回收站（已隐藏的内置植物）</h2>
+            <button @click="showRecycleBin = false" class="p-2 hover:bg-gray-700/50 rounded-lg">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- 内容区域 -->
+          <div class="flex-1 overflow-y-auto p-6">
+            <div v-if="hiddenPlants.length === 0" class="text-center text-gray-500 py-12">
+              <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4" />
+              </svg>
+              <p>回收站为空</p>
+            </div>
+
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <div
+                v-for="plant in hiddenPlants"
+                :key="plant.id"
+                class="relative group bg-gray-800/60 rounded-xl overflow-hidden border border-orange-600/50 hover:border-orange-400 transition-all"
+              >
+                <img :src="getPlantImage(plant)" class="w-full aspect-square object-cover opacity-60" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent flex flex-col justify-end p-3">
+                  <h4 class="font-bold text-white">{{ plant.name }}</h4>
+                  <p class="text-xs text-gray-400 truncate">{{ plant.description }}</p>
+                </div>
+                <button
+                  @click="restorePlant(plant)"
+                  class="absolute top-2 right-2 p-2 bg-green-600/90 hover:bg-green-500 rounded backdrop-blur opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="恢复"
+                >
+                  <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.586m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357 2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部操作 -->
+          <div class="p-4 border-t border-gray-700/50 flex justify-between items-center">
+            <div class="text-sm text-gray-400">
+              共 {{ hiddenPlants.length }} 个已隐藏植物
+            </div>
+            <button
+              v-if="hiddenPlants.length > 0"
+              @click="restoreAll"
+              class="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-medium transition-colors"
+            >
+              恢复全部
+            </button>
           </div>
         </div>
       </div>
@@ -114,8 +189,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { getAllPlantsSync } from '@/data/customPlants'
+import { ref, computed } from 'vue'
+import { getAllPlantsSync, getHiddenBuiltinPlants, hideBuiltinPlant, unhideBuiltinPlant, checkPlantInGame, getPlantImage } from '@/data/customPlants'
+import { useGameStore } from '@/store/gameStore'
 import PlantCard from './PlantCard.vue'
 import PlantForm from './PlantForm.vue'
 import ImportExport from './ImportExport.vue'
@@ -125,10 +201,13 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:show'])
 
+const store = useGameStore()
+
 const selectedType = ref('all')
 const searchQuery = ref('')
 const editingPlant = ref(null)
 const isEditMode = ref(false)
+const showRecycleBin = ref(false)
 
 const plantTypes = [
   { value: 'all', label: '全部' },
@@ -162,12 +241,14 @@ const filteredPlants = computed(() => {
 // 统计
 const builtinCount = computed(() => getAllPlantsSync().filter(p => p.builtin !== false).length)
 const customCount = computed(() => getAllPlantsSync().filter(p => p.builtin === false).length)
+const hiddenCount = computed(() => getHiddenBuiltinPlants().length)
+const hiddenPlants = computed(() => getHiddenBuiltinPlants())
 
 // 操作方法
 const close = () => emit('update:show', false)
 
 const createNew = () => {
-  editingPlant.value = {}  // 设置为空对象，让v-if="editingPlant"为true
+  editingPlant.value = {}
   isEditMode.value = false
 }
 
@@ -182,11 +263,67 @@ const editPlant = (plant) => {
 
 const confirmDelete = (plant) => {
   if (plant.builtin !== false) {
-    alert('内置植物无法删除')
+    alert('内置植物无法删除，请使用"隐藏"功能')
     return
   }
   if (confirm(`确定删除植物"${plant.name}"？`)) {
     handleDelete(plant.id)
+  }
+}
+
+const confirmHide = (plant) => {
+  // 检查是否在游戏中使用
+  const checkResult = checkPlantInGame(plant.id, store)
+  if (checkResult.inUse) {
+    const message = `该植物正在被使用：\n${checkResult.locations.join('、')}\n\n仍然要隐藏吗？`
+    if (!confirm(message)) {
+      return
+    }
+  }
+
+  if (confirm(`确定隐藏内置植物"${plant.name}"？\n\n隐藏后不会出现在植物列表中，但可以在回收站恢复。`)) {
+    try {
+      hideBuiltinPlant(plant.id)
+      // 强制刷新列表
+      const currentType = selectedType.value
+      selectedType.value = ''
+      setTimeout(() => selectedType.value = currentType, 0)
+    } catch (error) {
+      console.error('隐藏植物失败:', error)
+      alert('隐藏植物失败')
+    }
+  }
+}
+
+const restorePlant = async (plant) => {
+  if (confirm(`确定恢复植物"${plant.name}"？`)) {
+    try {
+      unhideBuiltinPlant(plant.id)
+      // 强制刷新列表
+      const currentType = selectedType.value
+      selectedType.value = ''
+      setTimeout(() => selectedType.value = currentType, 0)
+    } catch (error) {
+      console.error('恢复植物失败:', error)
+      alert('恢复植物失败')
+    }
+  }
+}
+
+const restoreAll = async () => {
+  if (confirm('确定恢复所有已隐藏的内置植物？')) {
+    try {
+      // 导入 localStorage 清除函数
+      const { unhideAllBuiltinPlants } = await import('@/data/customPlants')
+      unhideAllBuiltinPlants()
+      // 强制刷新列表
+      const currentType = selectedType.value
+      selectedType.value = ''
+      setTimeout(() => selectedType.value = currentType, 0)
+    } catch (error) {
+      console.error('恢复所有植物失败:', error)
+      alert('恢复所有植物失败')
+    }
   }
 }
 
@@ -215,7 +352,7 @@ const handleSave = async (plantData) => {
     }
 
     cancelEdit()
-    // 强制刷新列表（通过先清空再恢复触发响应式更新）
+    // 强制刷新列表
     const currentType = selectedType.value
     selectedType.value = ''
     setTimeout(() => selectedType.value = currentType, 0)

@@ -11,6 +11,9 @@ const DB_NAME = 'BP_PlantManager'
 const DB_VERSION = 1
 const STORE_NAME = 'customPlants'
 
+// 内置植物隐藏列表 localStorage key
+const HIDDEN_PLANTS_KEY = 'hiddenBuiltinPlants'
+
 // 内存缓存（用于同步访问）
 let customPlantsCache = []
 let isCacheLoaded = false
@@ -39,6 +42,119 @@ const updateCache = async () => {
 }
 
 /**
+ * 获取已隐藏的内置植物ID列表
+ * @returns {Array<string>}
+ */
+export const getHiddenPlants = () => {
+  const hidden = localStorage.getItem(HIDDEN_PLANTS_KEY)
+  return hidden ? JSON.parse(hidden) : []
+}
+
+/**
+ * 隐藏内置植物
+ * @param {string} plantId - 植物ID
+ * @returns {boolean} 是否成功隐藏
+ */
+export const hideBuiltinPlant = (plantId) => {
+  const hidden = getHiddenPlants()
+  if (!hidden.includes(plantId)) {
+    hidden.push(plantId)
+    localStorage.setItem(HIDDEN_PLANTS_KEY, JSON.stringify(hidden))
+    console.log(`已隐藏内置植物: ${plantId}`)
+    return true
+  }
+  return false
+}
+
+/**
+ * 恢复已隐藏的内置植物
+ * @param {string} plantId - 植物ID
+ * @returns {boolean} 是否成功恢复
+ */
+export const unhideBuiltinPlant = (plantId) => {
+  const hidden = getHiddenPlants()
+  const index = hidden.indexOf(plantId)
+  if (index > -1) {
+    hidden.splice(index, 1)
+    localStorage.setItem(HIDDEN_PLANTS_KEY, JSON.stringify(hidden))
+    console.log(`已恢复内置植物: ${plantId}`)
+    return true
+  }
+  return false
+}
+
+/**
+ * 恢复所有已隐藏的内置植物
+ */
+export const unhideAllBuiltinPlants = () => {
+  localStorage.removeItem(HIDDEN_PLANTS_KEY)
+  console.log('已恢复所有内置植物')
+}
+
+/**
+ * 检查植物是否已隐藏
+ * @param {string} plantId
+ * @returns {boolean}
+ */
+export const isPlantHidden = (plantId) => {
+  return getHiddenPlants().includes(plantId)
+}
+
+/**
+ * 检查植物是否在游戏中被引用
+ * @param {string} plantId
+ * @param {Object} gameState - 游戏状态对象
+ * @returns {Object} { inUse: boolean, locations: string[] }
+ */
+export const checkPlantInGame = (plantId, gameState) => {
+  const locations = []
+
+  // 检查全局禁用
+  if (gameState.globalBans?.includes(plantId)) {
+    locations.push('全局禁用列表')
+  }
+
+  // 检查当前局禁用
+  if (gameState.currentRound?.bans) {
+    if (gameState.currentRound.bans.player1?.includes(plantId) ||
+        gameState.currentRound.bans.player2?.includes(plantId)) {
+      locations.push('当前局禁用列表')
+    }
+  }
+
+  // 检查当前局选择
+  if (gameState.currentRound?.picks) {
+    if (gameState.currentRound.picks.player1?.includes(plantId) ||
+        gameState.currentRound.picks.player2?.includes(plantId)) {
+      locations.push('当前局选择列表')
+    }
+  }
+
+  // 检查使用记录
+  if (gameState.plantUsage) {
+    const keys1 = Object.keys(gameState.plantUsage).filter(k => k.startsWith(`player1_${plantId}`))
+    const keys2 = Object.keys(gameState.plantUsage).filter(k => k.startsWith(`player2_${plantId}`))
+    if (keys1.length > 0 || keys2.length > 0) {
+      locations.push('历史使用记录')
+    }
+  }
+
+  return {
+    inUse: locations.length > 0,
+    locations
+  }
+}
+
+/**
+ * 获取所有已隐藏的内置植物对象（用于回收站显示）
+ * @returns {Array}
+ */
+export const getHiddenBuiltinPlants = () => {
+  const hiddenIds = getHiddenPlants()
+  return PLANTS.filter(p => hiddenIds.includes(p.id))
+}
+
+/**
  * 同步获取所有植物（内置+自定义）
  * 供组件同步调用
  * 注意：首次调用前需要先调用 initializeCache()
@@ -48,7 +164,12 @@ export const getAllPlantsSync = () => {
     console.warn('自定义植物缓存未初始化，将只返回内置植物')
     return [...PLANTS]
   }
-  return [...PLANTS, ...customPlantsCache]
+
+  const hiddenPlants = getHiddenPlants()
+  // 过滤掉已隐藏的内置植物
+  const visibleBuiltin = PLANTS.filter(p => !hiddenPlants.includes(p.id))
+
+  return [...visibleBuiltin, ...customPlantsCache]
 }
 
 /**
@@ -56,8 +177,9 @@ export const getAllPlantsSync = () => {
  * 供组件同步调用
  */
 export const getPlantByIdSync = (id) => {
-  // 先从内置植物中查找
-  const builtin = PLANTS.find(p => p.id === id)
+  // 先从内置植物中查找（排除已隐藏的）
+  const hiddenPlants = getHiddenPlants()
+  const builtin = PLANTS.find(p => p.id === id && !hiddenPlants.includes(id))
   if (builtin) return builtin
 
   // 从缓存中查找

@@ -40,7 +40,7 @@
       >
         <!-- 植物图片 -->
         <img
-          :src="plant.image"
+          :src="getPlantImageUrl(plant)"
           :alt="plant.name"
           class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
@@ -66,7 +66,7 @@
     <div class="mt-4 h-16 glass-card rounded-lg p-2 flex items-center justify-between px-4">
       <div v-if="selectedPlantInfo" class="flex items-center gap-3 animate-fade-in w-full">
          <img
-          :src="selectedPlantInfo.image"
+          :src="getPlantImageUrl(selectedPlantInfo)"
           class="w-12 h-12 rounded border border-gray-500/50"
         />
         <div class="flex-1 min-w-0">
@@ -90,7 +90,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '@/store/gameStore'
-import { getPlantByIdSync } from '@/data/customPlants'
+import { getPlantByIdSync, getPlantImage } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
 
 const store = useGameStore()
@@ -104,6 +104,11 @@ const currentPlayer = computed(() => store.currentRound?.currentPlayer)
 const availablePlants = computed(() => {
   return store.availablePlants || []
 })
+
+// 处理植物图片显示（支持 Blob 和 URL）
+const getPlantImageUrl = (plant) => {
+  return getPlantImage(plant)
+}
 
 const selectedPlantInfo = computed(() => {
   const selectedId = store.currentRound?.selectedPlant

@@ -1,8 +1,8 @@
 <template>
   <div class="bg-black/20 rounded-xl px-4 py-2 border border-white/5 backdrop-blur-sm" role="region" :aria-label="`${playerName}已使用植物列表`">
-    <div class="flex items-center gap-2 mb-2">
-      <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-ban-red'"></span>
+    <div class="flex items-center mb-2">
+      <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-pick-red'"></span>
         {{ playerName }} 历史
       </h3>
     </div>
@@ -17,13 +17,14 @@
         :key="item.id"
         class="inline-flex items-center text-xs px-2 py-1 rounded border transition-all duration-200 cursor-help group"
         :class="{
-          'bg-yellow-900/30 border-yellow-700/50 text-yellow-200 hover:bg-yellow-900/50': item.count === 1,
-          'bg-red-900/30 border-red-700/50 text-red-200 hover:bg-red-900/50': item.count >= 2
+          'bg-yellow-900/30 border-yellow-700/50 text-yellow-200 hover:bg-yellow-900/50': item.count === 1 && !item.isHidden,
+          'bg-red-900/30 border-red-700/50 text-red-200 hover:bg-red-900/50': item.count >= 2 && !item.isHidden,
+          'bg-gray-700/30 border-gray-600/50 text-gray-400 line-through': item.isHidden
         }"
-        :title="`${getPlantName(item.id)}，已使用${item.count}/2次`"
+        :title="`${getPlantName(item.id)}${item.isHidden ? '（已隐藏）' : ''}，已使用${item.count}/2次`"
       >
-        <span class="font-medium">{{ getPlantName(item.id) }}</span>
-        <span class="ml-1.5 text-[10px] px-1 rounded bg-black/30 font-bold" :class="item.count >= 2 ? 'text-red-400' : 'text-yellow-400'">{{ item.count }}</span>
+        <span class="font-medium" :class="{ 'line-through': item.isHidden }">{{ getPlantName(item.id) }}</span>
+        <span class="ml-1.5 text-[10px] px-1 rounded bg-black/30 font-bold" :class="item.isHidden ? 'text-gray-500' : (item.count >= 2 ? 'text-red-400' : 'text-yellow-400')">{{ item.count }}</span>
       </span>
     </div>
   </div>
@@ -32,7 +33,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '@/store/gameStore'
-import { getPlantByIdSync, getAllPlantsSync } from '@/data/customPlants'
+import { getPlantByIdSync, getAllPlantsSync, getHiddenBuiltinPlants } from '@/data/customPlants'
 
 const props = defineProps({
   player: {
@@ -52,20 +53,30 @@ const usedPlants = computed(() => {
   const plantUsage = store.plantUsage || {}
   const used = []
 
-  // 遍历所有可能的植物（内置+自定义）
-  for (const plant of getAllPlantsSync()) {
+  // 遍历所有可能的植物（内置+自定义+已隐藏）
+  const allPlants = [
+    ...getAllPlantsSync(),
+    ...getHiddenBuiltinPlants() // 包含已隐藏的植物
+  ]
+
+  for (const plant of allPlants) {
     const key = `${props.player}_${plant.id}`
     const count = plantUsage[key] || 0
     if (count > 0) {
+      const isVisible = getAllPlantsSync().find(p => p.id === plant.id)
       used.push({
         id: plant.id,
-        count: count
+        count: count,
+        isHidden: !isVisible // 标记是否已隐藏
       })
     }
   }
 
-  // 按使用次数降序排序，次数相同的按ID排序
+  // 按使用次数降序排序，已隐藏的排在最后
   return used.sort((a, b) => {
+    if (a.isHidden !== b.isHidden) {
+      return a.isHidden ? 1 : -1 // 未隐藏的在前
+    }
     if (b.count !== a.count) {
       return b.count - a.count
     }
@@ -74,6 +85,13 @@ const usedPlants = computed(() => {
 })
 
 const getPlantName = (id) => {
-  return getPlantById(id)?.name || ''
+  const plant = getPlantByIdSync(id)
+  if (!plant) {
+    // 从已隐藏列表中查找
+    const hiddenPlants = getHiddenBuiltinPlants()
+    const hidden = hiddenPlants.find(p => p.id === id)
+    return hidden ? `${hidden.name}（已隐藏）` : '未知植物'
+  }
+  return plant.name
 }
 </script>
