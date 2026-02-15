@@ -43,7 +43,10 @@ export const useGameStore = defineStore('game', {
         player2: { road: null, plants: [] }
       },
       selectedPlant: null, // 当前选中但未确认的植物
-      bpSequence: [] // 当前局的动态BP序列
+      bpSequence: [], // 当前局的动态BP序列
+      extraPick: null, // 额外选择：{ player: 'player1'|'player2', remaining: number }
+      pumpkinProtection: {}, // 南瓜保护追踪：key = `${player}_${plantIndex}`, value = { protectedBy: 'pumpkin', pumpkinIndex: number }
+      lastPumpkinIndex: null // 最后选择的南瓜头索引（临时，用于关联保护）
     },
 
     // 全局记录
@@ -321,33 +324,111 @@ export const useGameStore = defineStore('game', {
           return
         }
 
-        // 执行pick操作
-        this.currentRound.picks[player].push(plantId)
-        this.currentRound.selectedPlant = null
-
-        // 南瓜头特殊规则：选南瓜后获得一次额外选择机会
+        // 南瓜头特殊处理
         if (plantId === 'pumpkin') {
-          // 设置额外选择标记（但不推进步骤）
+          // 步骤1: 暂时添加南瓜头到 picks（获取索引）
+          const pumpkinIndex = this.currentRound.picks[player].length
+          this.currentRound.picks[player].push(plantId)
+
+          // 步骤2: 记录南瓜头索引（用于后续关联保护）
+          this.currentRound.lastPumpkinIndex = pumpkinIndex
+
+          // 步骤3: 设置额外选择标记
           this.currentRound.extraPick = {
             player: player,
             remaining: 1
           }
+
+          this.currentRound.selectedPlant = null
           this.saveToLocalStorage()
-          console.log('🎃 南瓜头已选择！当前玩家可以额外再选择一个植物')
-        } else if (this.currentRound.extraPick && this.currentRound.extraPick.player === player) {
-          // 正在使用额外选择
+          console.log('🎃 南瓜头已选择！下一个植物将获得南瓜保护')
+          console.log('📍 [调试] 南瓜头信息:', {
+            player,
+            pumpkinIndex,
+            lastPumpkinIndex: this.currentRound.lastPumpkinIndex,
+            extraPick: this.currentRound.extraPick,
+            currentStep: this.currentRound.step,
+            currentStage: this.currentRound.stage
+          })
+          return
+        }
+
+        // 非南瓜头植物的正常处理
+        this.currentRound.picks[player].push(plantId)
+        const newPlantIndex = this.currentRound.picks[player].length - 1
+
+        // 检查是否需要应用南瓜保护
+        console.log('🔍 [调试] 检查南瓜保护条件:', {
+          hasExtraPick: !!this.currentRound.extraPick,
+          extraPickPlayer: this.currentRound.extraPick?.player,
+          currentPlayer: player,
+          hasLastPumpkinIndex: this.currentRound.lastPumpkinIndex !== undefined,
+          lastPumpkinIndex: this.currentRound.lastPumpkinIndex,
+          newPlantId: plantId,
+          newPlantIndex: newPlantIndex,
+          picksBeforeRemove: [...this.currentRound.picks[player]]
+        })
+
+        if (this.currentRound.extraPick &&
+            this.currentRound.extraPick.player === player &&
+            this.currentRound.lastPumpkinIndex !== undefined) {
+
+          // 先从 picks 数组中移除南瓜头（这样后续植物索引会前移）
+          const removedPlant = this.currentRound.picks[player][this.currentRound.lastPumpkinIndex]
+          this.currentRound.picks[player].splice(this.currentRound.lastPumpkinIndex, 1)
+
+          console.log('🗑️ [调试] 已移除植物:', removedPlant, '从索引:', this.currentRound.lastPumpkinIndex)
+
+          // 计算移除南瓜后，新植物的实际索引
+          // 如果南瓜在新植物前面，新植物索引会减1
+          let actualIndex = newPlantIndex
+          if (this.currentRound.lastPumpkinIndex < newPlantIndex) {
+            actualIndex = newPlantIndex - 1
+          }
+
+          console.log('📍 [调试] 索引调整:', {
+            原始索引: newPlantIndex,
+            南瓜索引: this.currentRound.lastPumpkinIndex,
+            调整后索引: actualIndex
+          })
+
+          // 初始化保护对象（如果不存在）
+          if (!this.currentRound.pumpkinProtection) {
+            this.currentRound.pumpkinProtection = {}
+          }
+
+          // 使用移除南瓜后的实际索引建立保护关系
+          const protectionKey = `${player}_${actualIndex}`
+          this.currentRound.pumpkinProtection[protectionKey] = {
+            protectedBy: 'pumpkin',
+            pumpkinIndex: this.currentRound.lastPumpkinIndex
+          }
+
+          console.log('✅ [调试] 保护关系已建立:', protectionKey, this.currentRound.pumpkinProtection[protectionKey])
+          console.log('📋 [调试] 移除后的 picks:', this.currentRound.picks[player])
+
+          // 清理临时标记
+          delete this.currentRound.lastPumpkinIndex
+
+          // 减少额外选择次数
           this.currentRound.extraPick.remaining--
           if (this.currentRound.extraPick.remaining <= 0) {
-            // 额外选择用完，清除标记并推进步骤
             this.currentRound.extraPick = null
             this.moveToNextStep()
           }
+
+          this.currentRound.selectedPlant = null
           this.saveToLocalStorage()
+          console.log('🛡️ 南瓜保护已激活！')
+          return
         } else {
-          // 普通选择，正常推进步骤
-          this.moveToNextStep()
-          this.saveToLocalStorage()
+          console.log('❌ [调试] 南瓜保护条件不满足，跳过')
         }
+
+        // 普通选择，无保护
+        this.currentRound.selectedPlant = null
+        this.moveToNextStep()
+        this.saveToLocalStorage()
       }
     },
 
@@ -382,6 +463,13 @@ export const useGameStore = defineStore('game', {
       } else {
         // BP流程结束，进入站位阶段
         this.gameStatus = 'positioning'
+      }
+
+      // 清理任何遗留的南瓜头索引（防御性编程）
+      if (this.currentRound.lastPumpkinIndex !== undefined) {
+        console.warn('⚠️ [清理] 推进步骤时检测到未处理的南瓜头索引，已清理')
+        delete this.currentRound.lastPumpkinIndex
+        this.saveToLocalStorage()
       }
     },
 
@@ -531,6 +619,7 @@ export const useGameStore = defineStore('game', {
 
           // 向后兼容：转换旧格式数据
           this.migrateLegacyPositions()
+          this.migrateLegacyPumpkinProtection()
 
           return true
         } catch (e) {
@@ -595,6 +684,30 @@ export const useGameStore = defineStore('game', {
           this.currentRound.positions[player].plants = newPlants
           this.saveToLocalStorage()
           console.log(`[迁移] 已转换 ${player} 的 positions 数据格式`)
+        }
+      })
+    },
+
+    /**
+     * 迁移旧存档中的南瓜保护数据
+     * 旧版本：picks 数组中可能包含南瓜头
+     * 新版本：南瓜头从 picks 移除，使用 pumpkinProtection 追踪
+     */
+    migrateLegacyPumpkinProtection() {
+      ['player1', 'player2'].forEach(player => {
+        const picks = this.currentRound?.picks?.[player] || []
+
+        // 检查是否有南瓜头在 picks 中
+        const pumpkinIndices = []
+        picks.forEach((plantId, index) => {
+          if (plantId === 'pumpkin') {
+            pumpkinIndices.push(index)
+          }
+        })
+
+        if (pumpkinIndices.length > 0) {
+          console.warn(`[迁移] 检测到 ${player} 的 picks 中有 ${pumpkinIndices.length} 个南瓜头`)
+          // 可选：自动移除南瓜头或保留标记
         }
       })
     }

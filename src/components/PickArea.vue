@@ -32,10 +32,16 @@
               :alt="getPlantName(plantId)"
               class="w-full h-full object-cover rounded border border-gray-600 group-hover:border-pick-blue-neon transition-colors"
             />
-            <!-- 使用次数标记 (如果>1) -->
-             <div v-if="getUsageCount(plantId) > 1" class="absolute -top-1 -right-1 bg-yellow-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full border border-gray-800 shadow">
+            <!-- 使用次数标记 (如果>1) - 左上角 -->
+             <div v-if="getUsageCount(plantId) > 1" class="absolute -top-1 -left-1 bg-yellow-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full border border-gray-800 shadow">
                {{ getUsageCount(plantId) }}
              </div>
+            <!-- 南瓜保护标记 - 右上角 -->
+            <div v-if="isProtectedByPumpkin(index)"
+                 class="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-orange-300 shadow-[0_0_8px_rgba(255,165,0,0.8)] animate-pulse"
+                 title="被南瓜头保护">
+              南
+            </div>
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-bold text-gray-200 group-hover:text-pick-blue-neon transition-colors truncate">{{ getPlantName(plantId) }}</div>
@@ -137,6 +143,13 @@ const isCurrentDragging = (plantId) => {
 // 辅助函数：统计植物出现次数
 const countPlantOccurrences = (plantId) => {
   return picks.value.filter(id => id === plantId).length
+}
+
+// 检查植物是否被南瓜保护（新增）
+const isProtectedByPumpkin = (index) => {
+  const protectionKey = `${props.player}_${index}`
+  const protection = store.currentRound?.pumpkinProtection?.[protectionKey]
+  return protection && protection.protectedBy === 'pumpkin'
 }
 </script>
 

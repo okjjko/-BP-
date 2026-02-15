@@ -39,6 +39,15 @@
           <span class="opacity-80 text-sm uppercase bg-black/20 px-2 py-0.5 rounded">{{ actionText }}</span>
         </div>
       </div>
+
+      <!-- 南瓜保护提示 -->
+      <transition name="fade">
+        <div v-if="hasPumpkinProtection"
+             class="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/50 flex items-center gap-2 animate-pulse">
+          <span class="text-lg">南</span>
+          <span class="text-sm font-bold text-orange-300">南瓜保护已激活！下一个植物将获得保护</span>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -97,5 +106,12 @@ const progressBarClass = computed(() => {
   if (action.value === 'ban') return 'bg-gradient-to-r from-ban-red-dark to-ban-red-neon shadow-[0_0_10px_rgba(244,67,54,0.5)]'
   if (action.value === 'pick') return 'bg-gradient-to-r from-pick-blue-dark to-pick-blue-neon shadow-[0_0_10px_rgba(33,150,243,0.5)]'
   return 'bg-gray-500'
+})
+
+// 检查是否有南瓜保护激活（新增）
+const hasPumpkinProtection = computed(() => {
+  const extraPick = store.currentRound?.extraPick
+  const lastPumpkinIndex = store.currentRound?.lastPumpkinIndex
+  return extraPick && extraPick.remaining > 0 && lastPumpkinIndex !== undefined
 })
 </script>

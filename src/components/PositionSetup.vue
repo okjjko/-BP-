@@ -54,6 +54,12 @@
                 <div class="absolute -bottom-1 -right-1 bg-black/60 text-white text-[8px] px-1 rounded">
                   #{{ getPlantAtPosition(player, index).sourceIndex + 1 }}
                 </div>
+
+                <!-- 南瓜保护标记 - 右上角 -->
+                <div v-if="isPositionProtectedByPumpkin(player, index)"
+                     class="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] px-1.5 py-0.5 rounded border-2 border-orange-300 shadow-[0_0_6px_rgba(255,165,0,0.8)]">
+                  南
+                </div>
               </div>
             </template>
             <template v-else>
@@ -282,6 +288,17 @@ const countPlantOccurrences = (player, plantId) => {
 const isPlantUsed = (player, plantId, sourceIndex) => {
   const plants = store.currentRound?.positions?.[player]?.plants || []
   return plants.some(p => p && p.plantId === plantId && p.sourceIndex === sourceIndex)
+}
+
+// 检查战场位置的植物是否被保护（新增）
+const isPositionProtectedByPumpkin = (player, positionIndex) => {
+  const plantInfo = getPlantAtPosition(player, positionIndex)
+  if (!plantInfo) return false
+
+  const sourceIndex = plantInfo.sourceIndex
+  const protectionKey = `${player}_${sourceIndex}`
+  const protection = store.currentRound?.pumpkinProtection?.[protectionKey]
+  return protection && protection.protectedBy === 'pumpkin'
 }
 
 // ========== 拖拽事件处理函数 ==========
