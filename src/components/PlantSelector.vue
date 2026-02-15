@@ -136,10 +136,13 @@ const getUsageCount = (plantId) => {
   const player = currentPlayer.value
   if (!player) return 0
 
-  // 历史使用次数
-  const historicalUsage = store.getPlantUsageCount(player, plantId)
+  // 南瓜头特殊处理：使用 pumpkinUsage
+  if (store.isPumpkinPlant(plantId)) {
+    return store.pumpkinUsage?.[player] || 0
+  }
 
-  // 当前小分已选次数
+  // 其他植物：历史使用次数 + 当前小分已选次数
+  const historicalUsage = store.getPlantUsageCount(player, plantId)
   const ownPicks = store.currentRound?.picks[player] || []
   const currentRoundUsage = ownPicks.filter(id => id === plantId).length
 

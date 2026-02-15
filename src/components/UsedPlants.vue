@@ -51,23 +51,57 @@ const playerName = computed(() => {
 // 获取该选手已使用过的植物及使用次数
 const usedPlants = computed(() => {
   const plantUsage = store.plantUsage || {}
+  const pumpkinUsage = store.pumpkinUsage || {}
   const used = []
 
   // 遍历所有可能的植物（内置+自定义+已隐藏）
+  const visiblePlants = getAllPlantsSync()
+  const hiddenPlants = getHiddenBuiltinPlants()
+
   const allPlants = [
-    ...getAllPlantsSync(),
-    ...getHiddenBuiltinPlants() // 包含已隐藏的植物
+    ...visiblePlants,
+    ...hiddenPlants
   ]
 
+  // 用于去重的 Set（避免重复显示）
+  const processedIds = new Set()
+
   for (const plant of allPlants) {
-    const key = `${props.player}_${plant.id}`
-    const count = plantUsage[key] || 0
+    // 南瓜头特殊处理：跳过隐藏列表中的南瓜头（避免重复）
+    if (store.isPumpkinPlant(plant.id)) {
+      if (hiddenPlants.includes(plant)) {
+        continue // 跳过隐藏的南瓜头
+      }
+    }
+
+    // 去重：如果已经处理过这个植物ID，跳过
+    if (processedIds.has(plant.id)) {
+      continue
+    }
+    processedIds.add(plant.id)
+
+    let count = 0
+
+    // 南瓜头特殊处理：使用 pumpkinUsage
+    if (store.isPumpkinPlant(plant.id)) {
+      count = pumpkinUsage[props.player] || 0
+    } else {
+      // 其他植物：使用 plantUsage
+      const key = `${props.player}_${plant.id}`
+      count = plantUsage[key] || 0
+    }
+
     if (count > 0) {
-      const isVisible = getAllPlantsSync().find(p => p.id === plant.id)
+      const isVisible = visiblePlants.find(p => p.id === plant.id)
+
+      // 南瓜头特殊处理：即使被隐藏，也视为可见（不显示删除线）
+      const isPumpkin = store.isPumpkinPlant(plant.id)
+      const isActuallyHidden = !isVisible && !isPumpkin
+
       used.push({
         id: plant.id,
         count: count,
-        isHidden: !isVisible // 标记是否已隐藏
+        isHidden: isActuallyHidden
       })
     }
   }
@@ -90,6 +124,12 @@ const getPlantName = (id) => {
     // 从已隐藏列表中查找
     const hiddenPlants = getHiddenBuiltinPlants()
     const hidden = hiddenPlants.find(p => p.id === id)
+
+    // 南瓜头特殊处理：即使被隐藏，也不显示"（已隐藏）"后缀
+    if (hidden && (hidden.id === 'pumpkin' || hidden.name === '南瓜头')) {
+      return hidden.name
+    }
+
     return hidden ? `${hidden.name}（已隐藏）` : '未知植物'
   }
   return plant.name
