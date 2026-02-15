@@ -1,0 +1,174 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e5]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e11]: 2路
+        - generic [ref=e13]:
+          - generic [ref=e14]: 选手
+          - generic [ref=e16]: 得分
+      - region "玩家A禁用的植物" [ref=e23]:
+        - heading "玩家A 禁用" [level=3] [ref=e24]: 玩家A 禁用
+        - generic [ref=e27]: 等待禁用...
+    - region "当前游戏阶段" [ref=e35]:
+      - generic [ref=e36]:
+        - heading "ROUND 1" [level=3] [ref=e37]
+        - generic [ref=e38]: 阶段一：禁用
+        - generic [ref=e39]:
+          - progressbar [ref=e40]
+          - generic [ref=e43]:
+            - generic [ref=e44]: 开始
+            - generic [ref=e45]: 1 / 20
+            - generic [ref=e46]: 结束
+        - generic [ref=e48]:
+          - generic [ref=e52]: 玩家A
+          - generic [ref=e53]: 禁用
+    - generic [ref=e54]:
+      - region "玩家B禁用的植物" [ref=e55]:
+        - heading "玩家B 禁用" [level=3] [ref=e56]: 玩家B 禁用
+        - generic [ref=e59]: 等待禁用...
+      - generic [ref=e66]:
+        - generic [ref=e68]: 4路
+        - generic [ref=e70]:
+          - generic [ref=e71]: 选手
+          - generic [ref=e73]: 得分
+  - generic [ref=e80]:
+    - region "玩家A已使用植物列表" [ref=e81]:
+      - heading "玩家A 历史" [level=3] [ref=e83]: 玩家A 历史
+      - generic [ref=e85]: 暂未使用植物
+    - generic [ref=e86]:
+      - heading "永久禁用" [level=3] [ref=e87]: 永久禁用
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - img "永久禁用植物：金盏花" [ref=e92]
+          - generic: 金盏花
+        - generic [ref=e93]:
+          - img "永久禁用植物：裂荚射手" [ref=e94]
+          - generic: 裂荚射手
+        - generic [ref=e95]:
+          - img "永久禁用植物：土豆雷" [ref=e96]
+          - generic: 土豆雷
+        - generic [ref=e97]:
+          - img "永久禁用植物：小喷菇" [ref=e98]
+          - generic: 小喷菇
+        - generic [ref=e99]:
+          - img "永久禁用植物：咖啡豆" [ref=e100]
+          - generic: 咖啡豆
+    - region "玩家B已使用植物列表" [ref=e101]:
+      - heading "玩家B 历史" [level=3] [ref=e103]: 玩家B 历史
+      - generic [ref=e105]: 暂未使用植物
+  - generic [ref=e106]:
+    - region "玩家A选择的植物" [ref=e108]:
+      - heading "玩家A 阵容" [level=3] [ref=e109]: 玩家A 阵容
+      - generic [ref=e111]: 等待选择...
+      - generic [ref=e114]: "已选: 0"
+    - generic [ref=e127]:
+      - generic [ref=e128]:
+        - heading "🚫 禁用阶段" [level=2] [ref=e129]:
+          - generic [ref=e130]: 🚫 禁用阶段
+        - button "确认禁用" [disabled] [ref=e131]:
+          - generic [ref=e132]: 确认禁用
+      - listbox [ref=e133]:
+        - button "豌豆射手 豌豆射手" [ref=e134] [cursor=pointer]:
+          - img "豌豆射手" [ref=e135]
+          - generic [ref=e137]: 豌豆射手
+        - button "向日葵 向日葵" [ref=e138] [cursor=pointer]:
+          - img "向日葵" [ref=e139]
+          - generic [ref=e141]: 向日葵
+        - button "坚果墙 坚果墙" [ref=e142] [cursor=pointer]:
+          - img "坚果墙" [ref=e143]
+          - generic [ref=e145]: 坚果墙
+        - button "樱桃炸弹 樱桃炸弹" [ref=e146] [cursor=pointer]:
+          - img "樱桃炸弹" [ref=e147]
+          - generic [ref=e149]: 樱桃炸弹
+        - button "寒冰射手 寒冰射手" [ref=e150] [cursor=pointer]:
+          - img "寒冰射手" [ref=e151]
+          - generic [ref=e153]: 寒冰射手
+        - button "大嘴花 大嘴花" [ref=e154] [cursor=pointer]:
+          - img "大嘴花" [ref=e155]
+          - generic [ref=e157]: 大嘴花
+        - button "双发射手 双发射手" [ref=e158] [cursor=pointer]:
+          - img "双发射手" [ref=e159]
+          - generic [ref=e161]: 双发射手
+        - button "阳光菇 阳光菇" [ref=e162] [cursor=pointer]:
+          - img "阳光菇" [ref=e163]
+          - generic [ref=e165]: 阳光菇
+        - button "大喷菇 大喷菇" [ref=e166] [cursor=pointer]:
+          - img "大喷菇" [ref=e167]
+          - generic [ref=e169]: 大喷菇
+        - button "胆小菇 胆小菇" [ref=e170] [cursor=pointer]:
+          - img "胆小菇" [ref=e171]
+          - generic [ref=e173]: 胆小菇
+        - button "窝瓜 窝瓜" [ref=e174] [cursor=pointer]:
+          - img "窝瓜" [ref=e175]
+          - generic [ref=e177]: 窝瓜
+        - button "三线射手 三线射手" [ref=e178] [cursor=pointer]:
+          - img "三线射手" [ref=e179]
+          - generic [ref=e181]: 三线射手
+        - button "火爆辣椒 火爆辣椒" [ref=e182] [cursor=pointer]:
+          - img "火爆辣椒" [ref=e183]
+          - generic [ref=e185]: 火爆辣椒
+        - button "高坚果 高坚果" [ref=e186] [cursor=pointer]:
+          - img "高坚果" [ref=e187]
+          - generic [ref=e189]: 高坚果
+        - button "南瓜头 南瓜头" [ref=e190] [cursor=pointer]:
+          - img "南瓜头" [ref=e191]
+          - generic [ref=e193]: 南瓜头
+        - button "花盆 花盆" [ref=e194] [cursor=pointer]:
+          - img "花盆" [ref=e195]
+          - generic [ref=e197]: 花盆
+        - button "大蒜 大蒜" [ref=e198] [cursor=pointer]:
+          - img "大蒜" [ref=e199]
+          - generic [ref=e201]: 大蒜
+        - button "叶子保护伞 叶子保护伞" [ref=e202] [cursor=pointer]:
+          - img "叶子保护伞" [ref=e203]
+          - generic [ref=e205]: 叶子保护伞
+        - button "地刺 地刺" [ref=e206] [cursor=pointer]:
+          - img "地刺" [ref=e207]
+          - generic [ref=e209]: 地刺
+        - button "地刺王 地刺王" [ref=e210] [cursor=pointer]:
+          - img "地刺王" [ref=e211]
+          - generic [ref=e213]: 地刺王
+        - button "玉米加农炮 玉米加农炮" [ref=e214] [cursor=pointer]:
+          - img "玉米加农炮" [ref=e215]
+          - generic [ref=e217]: 玉米加农炮
+        - button "玉米投手 玉米投手" [ref=e218] [cursor=pointer]:
+          - img "玉米投手" [ref=e219]
+          - generic [ref=e221]: 玉米投手
+        - button "西瓜投手 西瓜投手" [ref=e222] [cursor=pointer]:
+          - img "西瓜投手" [ref=e223]
+          - generic [ref=e225]: 西瓜投手
+        - button "冰瓜投手 冰瓜投手" [ref=e226] [cursor=pointer]:
+          - img "冰瓜投手" [ref=e227]
+          - generic [ref=e229]: 冰瓜投手
+        - button "香蒲 香蒲" [ref=e230] [cursor=pointer]:
+          - img "香蒲" [ref=e231]
+          - generic [ref=e233]: 香蒲
+        - button "灯笼草 灯笼草" [ref=e234] [cursor=pointer]:
+          - img "灯笼草" [ref=e235]
+          - generic [ref=e237]: 灯笼草
+        - button "磁力菇 磁力菇" [ref=e238] [cursor=pointer]:
+          - img "磁力菇" [ref=e239]
+          - generic [ref=e241]: 磁力菇
+        - button "魅惑菇 魅惑菇" [ref=e242] [cursor=pointer]:
+          - img "魅惑菇" [ref=e243]
+          - generic [ref=e245]: 魅惑菇
+        - button "睡莲叶 睡莲叶" [ref=e246] [cursor=pointer]:
+          - img "睡莲叶" [ref=e247]
+          - generic [ref=e249]: 睡莲叶
+        - button "海蘑菇 海蘑菇" [ref=e250] [cursor=pointer]:
+          - img "海蘑菇" [ref=e251]
+          - generic [ref=e253]: 海蘑菇
+      - generic [ref=e255]: 请选择一个要禁用的植物...
+    - region "玩家B选择的植物" [ref=e257]:
+      - heading "玩家B 阵容" [level=3] [ref=e258]: 玩家B 阵容
+      - generic [ref=e260]: 等待选择...
+      - generic [ref=e263]: "已选: 0"
+  - generic [ref=e275]:
+    - button "🌱 植物管理" [ref=e276] [cursor=pointer]:
+      - generic [ref=e277]: 🌱
+      - text: 植物管理
+    - button "↺ 重置游戏" [ref=e278] [cursor=pointer]
+```

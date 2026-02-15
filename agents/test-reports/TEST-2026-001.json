@@ -1,0 +1,76 @@
+{
+  "testId": "TEST-2026-001",
+  "timestamp": "2026-02-15T10:45:00Z",
+  "testType": "automated",
+  "testSuite": "basic-functionality",
+  "modifiedFiles": ["src/components/GameSetup.vue"],
+  "testEnvironment": {
+    "url": "http://localhost:3001",
+    "browser": "Chromium (Playwright)",
+    "platform": "Windows 11"
+  },
+  "results": {
+    "passed": 5,
+    "failed": 2,
+    "skipped": 0,
+    "total": 7
+  },
+  "summary": {
+    "status": "completed",
+    "duration": "42.8s",
+    "successRate": "71.4%"
+  },
+  "issues": [
+    {
+      "issueId": "ISSUE-001",
+      "severity": "minor",
+      "title": "玩家2道路按钮颜色与预期不符",
+      "description": "玩家2选择4路后，按钮显示为红色（bg-ban-red）而非预期的绿色（bg-plant-green）",
+      "steps": [
+        "输入玩家A和玩家B的名称",
+        "玩家A选择2路",
+        "玩家B选择4路",
+        "检查玩家B的4路按钮样式"
+      ],
+      "expectedBehavior": "玩家2选择道路后，按钮应该显示为绿色（bg-plant-green）",
+      "actualBehavior": "玩家2的4路按钮显示为红色（bg-ban-red/20 border-ban-red-neon text-ban-red-neon）",
+      "evidence": {
+        "testFile": "agents/tests/basic-test.spec.js:66",
+        "actualClass": "flex-1 py-2 px-4 rounded border transition-all duration-200 text-sm font-bold flex items-center justify-center gap-2 bg-ban-red/20 border-ban-red-neon text-ban-red-neon shadow-[0_0_10px_rgba(244,67,54,0.3)]",
+        "expectedClass": "应该包含 bg-plant-green"
+      },
+      "affectedFiles": ["src/components/GameSetup.vue"],
+      "consoleErrors": [],
+      "possibleCause": "玩家2的颜色主题配置错误，可能使用了禁用（ban）的红色主题而非选择（pick）的绿色主题"
+    },
+    {
+      "issueId": "ISSUE-002",
+      "severity": "major",
+      "title": "无法找到开始游戏按钮",
+      "description": "测试选择器 'button[type=\"submit\"]:has-text(\"开始游戏\")' 无法定位到开始游戏按钮，导致测试超时",
+      "steps": [
+        "输入玩家A和玩家B的名称",
+        "玩家A选择2路",
+        "玩家B选择4路",
+        "尝试点击开始游戏按钮"
+      ],
+      "expectedBehavior": "选择道路后，应该能够找到并点击开始游戏按钮",
+      "actualBehavior": "选择器无法定位按钮，测试在30秒后超时",
+      "evidence": {
+        "testFile": "agents/tests/basic-test.spec.js:131",
+        "error": "Test timeout of 30000ms exceeded",
+        "selectorUsed": "button[type=\"submit\"]:has-text(\"开始游戏\")"
+      },
+      "affectedFiles": ["src/components/GameSetup.vue"],
+      "consoleErrors": [],
+      "possibleCause": "1. 按钮的type属性不是submit\n2. 按钮文本不是'开始游戏'\n3. 按钮在其他条件下才显示（例如需要先满足某些条件）\n4. 按钮选择器语法错误"
+    }
+  ],
+  "passedTests": [
+    "页面应该能够正常加载",
+    "应该能够输入玩家ID",
+    "道路选择应该互斥",
+    "应该能够取消道路选择",
+    "应该能够捕获控制台错误"
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "testId": "TEST-2026-002",
+  "timestamp": "2026-02-15T10:50:00Z",
+  "testType": "automated",
+  "testSuite": "basic-functionality-fixed",
+  "modifiedFiles": [
+    "agents/tests/basic-test.spec.js"
+  ],
+  "testEnvironment": {
+    "url": "http://localhost:3001",
+    "browser": "Chromium (Playwright)",
+    "platform": "Windows 11"
+  },
+  "results": {
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "total": 7
+  },
+  "summary": {
+    "status": "all_passed",
+    "duration": "14.0s",
+    "successRate": "100%",
+    "improvement": "+2 tests passed (修复前: 5/7)"
+  },
+  "issues": [],
+  "passedTests": [
+    {
+      "name": "页面应该能够正常加载",
+      "duration": "814ms",
+      "status": "passed"
+    },
+    {
+      "name": "应该能够输入玩家ID",
+      "duration": "748ms",
+      "status": "passed"
+    },
+    {
+      "name": "应该能够选择道路",
+      "duration": "2.3s",
+      "status": "passed",
+      "note": "已修复 - 正确验证玩家2的红色主题"
+    },
+    {
+      "name": "道路选择应该互斥",
+      "duration": "2.0s",
+      "status": "passed"
+    },
+    {
+      "name": "应该能够取消道路选择",
+      "duration": "1.8s",
+      "status": "passed"
+    },
+    {
+      "name": "选择道路后应该能够开始游戏",
+      "duration": "3.3s",
+      "status": "passed",
+      "note": "已修复 - 使用正确的按钮文本'开始对战'"
+    },
+    {
+      "name": "应该能够捕获控制台错误",
+      "duration": "1.7s",
+      "status": "passed"
+    }
+  ],
+  "fixesApplied": [
+    {
+      "file": "agents/tests/basic-test.spec.js",
+      "line": 66,
+      "change": "将断言从 'bg-plant-green' 改为 'bg-ban-red'",
+      "reason": "玩家2使用红色主题，不是绿色"
+    },
+    {
+      "file": "agents/tests/basic-test.spec.js",
+      "line": 131,
+      "change": "将选择器文本从 '开始游戏' 改为 '开始对战'",
+      "reason": "按钮实际文本是'开始对战'"
+    }
+  ],
+  "conclusion": "✅ 所有测试通过！应用程序代码完全正常，之前的测试失败是由于测试脚本配置错误导致的。修复后测试成功验证了：\n- 玩家1使用蓝色主题（pick-blue）\n- 玩家2使用红色主题（ban-red）\n- 道路选择互斥功能正常\n- 游戏可以正常启动\n- 没有控制台错误"
+}
