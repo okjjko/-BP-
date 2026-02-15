@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { PLANTS } from '@/data/plants'
 import { getAllPlantsSync } from '@/data/customPlants'
 import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
-import { canBan, canPick, validatePosition, isGameOver, isGrandFinal } from '@/utils/validators'
+import { canBan, canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -145,6 +145,15 @@ export const useGameStore = defineStore('game', {
     getPlantUsageCount: (state) => (playerId, plantId) => {
       const key = `${playerId}_${plantId}`
       return state.plantUsage[key] || 0
+    },
+
+    /**
+     * 检查植物是否为南瓜头（通过ID或名称）
+     * @param {string} plantId - 植物ID
+     * @returns {boolean}
+     */
+    isPumpkinPlant: (state) => (plantId) => {
+      return isPumpkin(plantId, getAllPlantsSync())
     }
   },
 
@@ -324,8 +333,8 @@ export const useGameStore = defineStore('game', {
           return
         }
 
-        // 南瓜头特殊处理
-        if (plantId === 'pumpkin') {
+        // 南瓜头特殊处理（检查ID或名称）
+        if (this.isPumpkinPlant(plantId)) {
           // 步骤1: 暂时添加南瓜头到 picks（获取索引）
           const pumpkinIndex = this.currentRound.picks[player].length
           this.currentRound.picks[player].push(plantId)
@@ -700,7 +709,7 @@ export const useGameStore = defineStore('game', {
         // 检查是否有南瓜头在 picks 中
         const pumpkinIndices = []
         picks.forEach((plantId, index) => {
-          if (plantId === 'pumpkin') {
+          if (this.isPumpkinPlant(plantId)) {
             pumpkinIndices.push(index)
           }
         })

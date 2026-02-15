@@ -203,11 +203,18 @@ Custom colors defined in `tailwind.config.js`:
 
 **南瓜头特殊规则:**
 
-- **Plant ID**: `'pumpkin'` (src/data/plants.js:120)
+- **判断方式**: 通过植物 ID 为 `'pumpkin'` 或植物名称为 `'南瓜头'` 来识别
 - **效果**: Pick 阶段选择南瓜头不消耗 BP 步骤，允许选手继续选择
 - **限制**: 仍受使用次数限制（最多 2 次），需通过 `canPick()` 验证
 - **生效范围**: 仅在 Pick 阶段生效，Ban 阶段按原有逻辑处理
-- **实现位置**: `src/store/gameStore.js:231-262` (confirmSelection 函数)
+- **实现位置**:
+  - `src/utils/validators.js:206-220` (isPumpkin 函数 - 支持 ID 和名称判断)
+  - `src/store/gameStore.js:149-152` (isPumpkinPlant getter)
+  - `src/store/gameStore.js:328` (confirmSelection 函数中的特殊处理)
+  - `src/store/gameStore.js:703` (migrateLegacyPumpkinProtection 迁移逻辑)
+
+**自定义南瓜头植物**:
+用户可以通过植物管理界面添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
 
 ## Rules Implementation
 

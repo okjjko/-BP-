@@ -201,8 +201,22 @@ export const isGrandFinal = (score1, score2) => {
 /**
  * 判断植物是否为南瓜头
  * @param {string} plantId - 植物ID
+ * @param {Array} allPlants - 所有植物列表（可选，用于按名称判断）
  * @returns {boolean}
  */
-export const isPumpkin = (plantId) => {
-  return plantId === 'pumpkin'
+export const isPumpkin = (plantId, allPlants = null) => {
+  // 检查1: ID 为 'pumpkin'
+  if (plantId === 'pumpkin') {
+    return true
+  }
+
+  // 检查2: 植物名称为 '南瓜头'
+  if (allPlants && allPlants.length > 0) {
+    const plant = allPlants.find(p => p.id === plantId)
+    if (plant && plant.name === '南瓜头') {
+      return true
+    }
+  }
+
+  return false
 }
