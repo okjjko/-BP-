@@ -151,7 +151,7 @@
                 :key="plant.id"
                 class="relative group bg-gray-800/60 rounded-xl overflow-hidden border border-orange-600/50 hover:border-orange-400 transition-all"
               >
-                <img :src="getPlantImage(plant)" class="w-full aspect-square object-cover opacity-60" />
+                <img :src="getPlantImage(plant.id)" class="w-full aspect-square object-cover opacity-60" />
                 <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent flex flex-col justify-end p-3">
                   <h4 class="font-bold text-white">{{ plant.name }}</h4>
                   <p class="text-xs text-gray-400 truncate">{{ plant.description }}</p>
@@ -272,18 +272,41 @@ const confirmDelete = (plant) => {
 }
 
 const confirmHide = (plant) => {
-  // 检查是否在游戏中使用
-  const checkResult = checkPlantInGame(plant.id, store)
-  if (checkResult.inUse) {
-    const message = `该植物正在被使用：\n${checkResult.locations.join('、')}\n\n仍然要隐藏吗？`
-    if (!confirm(message)) {
-      return
-    }
-  }
+  // 检查用户是否已经确认过隐藏操作（全局标记）
+  const CONFIRMED_ANY_HIDDEN_KEY = 'userConfirmedAnyHide'
+  const hasConfirmedBefore = localStorage.getItem(CONFIRMED_ANY_HIDDEN_KEY) === 'true'
 
-  if (confirm(`确定隐藏内置植物"${plant.name}"？\n\n隐藏后不会出现在植物列表中，但可以在回收站恢复。`)) {
+  if (hasConfirmedBefore) {
+    // 用户已经确认过一次，之后所有隐藏都不再提示
     try {
       hideBuiltinPlant(plant.id)
+      // 强制刷新列表
+      const currentType = selectedType.value
+      selectedType.value = ''
+      setTimeout(() => selectedType.value = currentType, 0)
+    } catch (error) {
+      console.error('隐藏植物失败:', error)
+      alert('隐藏植物失败')
+    }
+    return
+  }
+
+  // 检查是否在游戏中使用
+  const checkResult = checkPlantInGame(plant.id, store)
+
+  // 构造提示消息
+  let message = `确定隐藏内置植物"${plant.name}"？\n\n隐藏后不会出现在植物列表中，但可以在回收站恢复。`
+  if (checkResult.inUse) {
+    message = `该植物正在被使用：\n${checkResult.locations.join('、')}\n\n${message}`
+  }
+  message += '\n\n（确认后，后续隐藏内置植物将不再提示）'
+
+  // 首次隐藏，需要确认
+  if (confirm(message)) {
+    try {
+      hideBuiltinPlant(plant.id)
+      // 标记用户已经确认过隐藏操作（全局）
+      localStorage.setItem(CONFIRMED_ANY_HIDDEN_KEY, 'true')
       // 强制刷新列表
       const currentType = selectedType.value
       selectedType.value = ''

@@ -137,6 +137,7 @@
 import { ref, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import { getPlantById, PLANTS } from '@/data/plants'
+import { getPlantImage, getPlantName } from '@/data/customPlants'
 
 const store = useGameStore()
 
@@ -146,14 +147,6 @@ const globalBans = ref([])
 const firstPlayer = ref('player1') // 记录谁先输入ID
 const player1Road = ref(null)
 const player2Road = ref(null)
-
-const getPlantImage = (id) => {
-  return getPlantById(id)?.image || ''
-}
-
-const getPlantName = (id) => {
-  return getPlantById(id)?.name || ''
-}
 
 const startGame = () => {
   if (!player1Name.value || !player2Name.value) {

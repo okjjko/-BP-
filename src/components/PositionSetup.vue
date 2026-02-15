@@ -152,7 +152,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useGameStore } from '@/store/gameStore'
-import { getPlantById } from '@/data/plants'
+import { getPlantImage, getPlantName } from '@/data/customPlants'
 
 const store = useGameStore()
 
@@ -180,14 +180,6 @@ const getPicks = (player) => {
 const getPlantAtPosition = (player, position) => {
   const plants = store.currentRound?.positions?.[player]?.plants || []
   return plants[position - 1] || null
-}
-
-const getPlantImage = (id) => {
-  return getPlantById(id)?.image || ''
-}
-
-const getPlantName = (id) => {
-  return getPlantById(id)?.name || ''
 }
 
 const openPlantSelector = (player, position) => {

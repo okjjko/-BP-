@@ -70,12 +70,12 @@
         </svg>
       </button>
 
-      <!-- 删除按钮（自定义植物 或 已隐藏的内置植物） -->
+      <!-- 自定义植物：删除按钮 -->
       <button
+        v-if="plant.builtin === false"
         @click.stop="$emit('delete', plant)"
-        class="p-1.5 rounded backdrop-blur transition-colors"
-        :class="plant.builtin === false ? 'bg-red-600/90 hover:bg-red-500' : 'bg-gray-600/90 hover:bg-gray-500'"
-        :title="plant.builtin === false ? '删除' : '隐藏'"
+        class="p-1.5 bg-red-600/90 hover:bg-red-500 rounded backdrop-blur transition-colors"
+        title="删除"
       >
         <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5.732 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -98,7 +98,7 @@ const props = defineProps({
 
 defineEmits(['edit', 'delete', 'hide'])
 
-const plantImage = computed(() => getPlantImage(props.plant))
+const plantImage = computed(() => getPlantImage(props.plant.id))
 const isHidden = computed(() => props.plant.builtin !== false && isPlantHidden(props.plant.id))
 
 const plantClass = computed(() => {

@@ -135,8 +135,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useGameStore } from './store/gameStore'
-import { getPlantById } from './data/plants'
-import { initializeCache } from './data/customPlants'
+import { getPlantImage, getPlantName, initializeCache } from './data/customPlants'
 import GameSetup from './components/GameSetup.vue'
 import PlayerInfo from './components/PlayerInfo.vue'
 import StageIndicator from './components/StageIndicator.vue'
@@ -168,14 +167,6 @@ onMounted(async () => {
 
 const gameStatus = computed(() => store.gameStatus)
 const globalBans = computed(() => store.globalBans)
-
-const getPlantImage = (id) => {
-  return getPlantById(id)?.image || ''
-}
-
-const getPlantName = (id) => {
-  return getPlantById(id)?.name || ''
-}
 
 const finishRound = () => {
   store.finishRound()
