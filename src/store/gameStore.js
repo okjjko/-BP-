@@ -86,19 +86,25 @@ export const useGameStore = defineStore('game', {
     /**
      * 获取当前可选择的植物列表
      * 改进：选手可以在同一小分中选择同一植物多次（最多2次），但对手已选的植物不可选
+     * 进一步改进：禁用阶段显示所有未被禁用的植物（包括对手已选的）
      */
     availablePlants: (state) => {
       const { currentRound, globalBans, plantUsage } = state
-      const { bans, picks, currentPlayer } = currentRound
+      const { bans, picks, currentPlayer, action } = currentRound
 
       // 所有已禁用的植物
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
 
-      // 对手已选的植物（不可选）
+      // 禁用阶段：显示所有未被禁用的植物（包括对手已选的）
+      if (action === 'ban') {
+        return getAllPlantsSync().filter(plant => {
+          return !allBans.includes(plant.id)
+        })
+      }
+
+      // 选择阶段：使用原有的过滤逻辑
       const opponent = currentPlayer === 'player1' ? 'player2' : 'player1'
       const opponentPicks = [...picks[opponent]]
-
-      // 自己本局已选的植物
       const ownPicks = [...picks[currentPlayer]]
 
       return getAllPlantsSync().filter(plant => {

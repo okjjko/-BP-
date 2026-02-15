@@ -112,7 +112,7 @@ export const canBan = (plantId, gameState) => {
   const { bans } = currentRound
   const allBans = [...bans.player1, ...bans.player2]
 
-  // 检查是否已被禁用
+  // 唯一限制：植物不能已经被禁用
   if (isBanned(plantId, globalBans, allBans)) {
     return {
       valid: false,
@@ -120,13 +120,8 @@ export const canBan = (plantId, gameState) => {
     }
   }
 
-  // 检查是否已被选择
-  if (isPicked(plantId, currentRound.picks.player1, currentRound.picks.player2)) {
-    return {
-      valid: false,
-      reason: '该植物已被选择'
-    }
-  }
+  // 移除原有逻辑：不再检查植物是否已被选择或使用次数
+  // 允许禁用任何未被禁用的植物（包括已被选择或已达使用上限的植物）
 
   return {
     valid: true
