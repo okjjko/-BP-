@@ -107,7 +107,7 @@ const availablePlants = computed(() => {
 
 // 处理植物图片显示（支持 Blob 和 URL）
 const getPlantImageUrl = (plant) => {
-  return getPlantImage(plant)
+  return getPlantImage(plant.id)
 }
 
 const selectedPlantInfo = computed(() => {
