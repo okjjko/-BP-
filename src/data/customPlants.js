@@ -101,6 +101,46 @@ export const isPlantHidden = (plantId) => {
 }
 
 /**
+ * 检查植物ID是否已存在（包含内置和自定义植物）
+ * @param {string} plantId - 要检查的植物ID
+ * @param {string} excludeId - 要排除的ID（用于编辑时排除自身）
+ * @returns {Promise<boolean>}
+ */
+export const checkPlantIdExists = async (plantId, excludeId = null) => {
+  // 检查内置植物
+  if (PLANTS.some(p => p.id === plantId && p.id !== excludeId)) {
+    return true
+  }
+
+  // 检查自定义植物
+  try {
+    const db = await openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], 'readonly')
+      const store = transaction.objectStore(STORE_NAME)
+
+      // 尝试获取该ID的植物
+      const request = store.get(plantId)
+
+      request.onsuccess = () => {
+        const exists = request.result && request.result.id !== excludeId
+        resolve(exists)
+        db.close()
+      }
+
+      request.onerror = () => {
+        console.error('检查植物ID失败:', request.error)
+        reject(request.error)
+        db.close()
+      }
+    })
+  } catch (error) {
+    console.error('检查植物ID失败:', error)
+    return false
+  }
+}
+
+/**
  * 检查植物是否在游戏中被引用
  * @param {string} plantId
  * @param {Object} gameState - 游戏状态对象
@@ -344,6 +384,89 @@ export const updateCustomPlant = async (id, updates) => {
     })
   } catch (error) {
     console.error('更新植物失败:', error)
+    throw error
+  }
+}
+
+/**
+ * 更新植物ID（包含验证和迁移）
+ * @param {string} oldId - 原植物ID
+ * @param {string} newId - 新植物ID
+ * @param {Object} updates - 其他要更新的字段
+ * @returns {Promise<boolean>}
+ */
+export const updateCustomPlantId = async (oldId, newId, updates = {}) => {
+  try {
+    // 验证新ID格式
+    if (!newId || typeof newId !== 'string' || !newId.trim()) {
+      throw new Error('新ID不能为空')
+    }
+
+    // 验证新ID是否已存在
+    const exists = await checkPlantIdExists(newId, oldId)
+    if (exists) {
+      throw new Error(`植物ID "${newId}" 已存在，请使用其他ID`)
+    }
+
+    const db = await openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+
+      // 先获取现有数据
+      const getRequest = store.get(oldId)
+
+      getRequest.onsuccess = () => {
+        const existing = getRequest.result
+        if (!existing) {
+          reject(new Error(`植物 ${oldId} 不存在`))
+          db.close()
+          return
+        }
+
+        // 创建新ID的植物对象
+        const updated = {
+          ...existing,
+          ...updates,
+          id: newId, // 使用新ID
+          updatedAt: new Date().toISOString()
+        }
+
+        // 添加新记录
+        const addRequest = store.add(updated)
+
+        addRequest.onsuccess = () => {
+          // 删除旧记录
+          const deleteRequest = store.delete(oldId)
+
+          deleteRequest.onsuccess = async () => {
+            await updateCache() // 重新加载缓存
+            resolve(true)
+            db.close()
+          }
+
+          deleteRequest.onerror = () => {
+            console.error('删除旧植物记录失败:', deleteRequest.error)
+            reject(deleteRequest.error)
+            db.close()
+          }
+        }
+
+        addRequest.onerror = () => {
+          console.error('添加新植物记录失败:', addRequest.error)
+          reject(addRequest.error)
+          db.close()
+        }
+      }
+
+      getRequest.onerror = () => {
+        console.error('获取植物失败:', getRequest.error)
+        reject(getRequest.error)
+        db.close()
+      }
+    })
+  } catch (error) {
+    console.error('更新植物ID失败:', error)
     throw error
   }
 }

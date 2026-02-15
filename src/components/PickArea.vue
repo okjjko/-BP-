@@ -84,7 +84,13 @@ const picks = computed(() => {
 })
 
 const getUsageCount = (plantId) => {
-  return store.getPlantUsageCount(props.player, plantId)
+  // 历史使用次数
+  const historicalUsage = store.getPlantUsageCount(props.player, plantId)
+
+  // 当前小分中该植物的出现次数
+  const currentRoundUsage = picks.value.filter(id => id === plantId).length
+
+  return historicalUsage + currentRoundUsage
 }
 
 // ========== 拖拽事件处理函数 ==========

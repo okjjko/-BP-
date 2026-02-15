@@ -85,18 +85,41 @@ export const useGameStore = defineStore('game', {
 
     /**
      * 获取当前可选择的植物列表
+     * 改进：选手可以在同一小分中选择同一植物多次（最多2次），但对手已选的植物不可选
      */
     availablePlants: (state) => {
-      const { currentRound, globalBans } = state
-      const { bans, picks, currentPlayer, action } = currentRound
+      const { currentRound, globalBans, plantUsage } = state
+      const { bans, picks, currentPlayer } = currentRound
 
-      // 获取所有已禁用和已选的植物
+      // 所有已禁用的植物
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
-      const allPicks = [...picks.player1, ...picks.player2]
-      const unavailable = [...allBans, ...allPicks]
 
-      // 过滤掉不可用的植物（使用合并后的植物列表）
-      return getAllPlantsSync().filter(plant => !unavailable.includes(plant.id))
+      // 对手已选的植物（不可选）
+      const opponent = currentPlayer === 'player1' ? 'player2' : 'player1'
+      const opponentPicks = [...picks[opponent]]
+
+      // 自己本局已选的植物
+      const ownPicks = [...picks[currentPlayer]]
+
+      return getAllPlantsSync().filter(plant => {
+        const plantId = plant.id
+
+        // 1. 已禁用的植物不可选
+        if (allBans.includes(plantId)) return false
+
+        // 2. 对手已选的植物不可选
+        if (opponentPicks.includes(plantId)) return false
+
+        // 3. 自己本局已选2次的植物不可选
+        const ownPickCount = ownPicks.filter(id => id === plantId).length
+        if (ownPickCount >= 2) return false
+
+        // 4. 加上历史使用次数，总使用次数不能超过2次
+        const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
+        if (ownPickCount + historicalUsage >= 2) return false
+
+        return true
+      })
     },
 
     /**
@@ -241,7 +264,13 @@ export const useGameStore = defineStore('game', {
       if (action === 'ban') {
         // 执行ban操作
         this.currentRound.bans[player].push(plantId)
-      } else if (action === 'pick') {
+        this.currentRound.selectedPlant = null
+        this.moveToNextStep()
+        this.saveToLocalStorage()
+        return
+      }
+
+      if (action === 'pick') {
         // 验证是否可以pick
         const canPickResult = canPick(plantId, player, this.$state)
         if (!canPickResult.valid) {
@@ -251,14 +280,18 @@ export const useGameStore = defineStore('game', {
 
         // 执行pick操作
         this.currentRound.picks[player].push(plantId)
+        this.currentRound.selectedPlant = null
+
+        // 南瓜头特殊规则：不推进BP步骤
+        if (plantId === 'pumpkin') {
+          // 保存状态但不移动到下一步
+          this.saveToLocalStorage()
+        } else {
+          // 其他植物正常推进到下一步
+          this.moveToNextStep()
+          this.saveToLocalStorage()
+        }
       }
-
-      // 清空选中
-      this.currentRound.selectedPlant = null
-
-      // 移动到下一步
-      this.moveToNextStep()
-      this.saveToLocalStorage()
     },
 
     /**

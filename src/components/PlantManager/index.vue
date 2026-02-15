@@ -366,10 +366,22 @@ const handleDelete = async (id) => {
 
 const handleSave = async (plantData) => {
   try {
-    const { addCustomPlant, updateCustomPlant } = await import('@/data/customPlants')
+    const { addCustomPlant, updateCustomPlant, updateCustomPlantId } = await import('@/data/customPlants')
 
     if (isEditMode.value) {
-      await updateCustomPlant(editingPlant.value.id, plantData)
+      const oldId = editingPlant.value.id
+      const newId = plantData.id
+
+      // 检查ID是否改变
+      if (oldId !== newId) {
+        // 提取除了id之外的其他字段
+        const { id, ...updates } = plantData
+        await updateCustomPlantId(oldId, newId, updates)
+      } else {
+        // ID未变，使用普通更新
+        const { id, ...updates } = plantData
+        await updateCustomPlant(oldId, updates)
+      }
     } else {
       await addCustomPlant(plantData)
     }
@@ -381,7 +393,7 @@ const handleSave = async (plantData) => {
     setTimeout(() => selectedType.value = currentType, 0)
   } catch (error) {
     console.error('保存植物失败:', error)
-    alert('保存植物失败')
+    alert('保存植物失败: ' + error.message)
   }
 }
 

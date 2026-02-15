@@ -135,7 +135,15 @@ const canSelect = (plantId) => {
 const getUsageCount = (plantId) => {
   const player = currentPlayer.value
   if (!player) return 0
-  return store.getPlantUsageCount(player, plantId)
+
+  // 历史使用次数
+  const historicalUsage = store.getPlantUsageCount(player, plantId)
+
+  // 当前小分已选次数
+  const ownPicks = store.currentRound?.picks[player] || []
+  const currentRoundUsage = ownPicks.filter(id => id === plantId).length
+
+  return historicalUsage + currentRoundUsage
 }
 
 const usageCount = computed(() => {

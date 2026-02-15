@@ -135,6 +135,7 @@ export const canBan = (plantId, gameState) => {
 
 /**
  * 综合验证：检查是否可以进行pick操作
+ * 改进：允许选手在同一小分中选择同一植物多次（最多2次）
  * @param {string} plantId - 植物ID
  * @param {string} playerId - 选手ID
  * @param {Object} gameState - 游戏状态
@@ -157,27 +158,26 @@ export const canPick = (plantId, playerId, gameState) => {
     }
   }
 
-  // 检查是否已被选择（包括双方）
-  if (isPicked(plantId, picks.player1, picks.player2)) {
-    return {
-      valid: false,
-      reason: '该植物已被选择'
-    }
-  }
-
-  // 检查使用次数
-  if (!checkUsageLimit(plantId, playerId, plantUsage)) {
-    return {
-      valid: false,
-      reason: '该植物使用次数已达上限（2次）'
-    }
-  }
-
-  // 检查是否选择对方已选的植物
-  if (!canPickOpponentPlant(plantId, playerId, picks.player1, picks.player2)) {
+  // 检查对手是否已选择该植物
+  const opponent = playerId === 'player1' ? 'player2' : 'player1'
+  const opponentPicks = picks[opponent] || []
+  if (opponentPicks.includes(plantId)) {
     return {
       valid: false,
       reason: '不能选择对方已选的植物'
+    }
+  }
+
+  // 检查自己本局已选次数 + 历史使用次数
+  const ownPicks = picks[playerId] || []
+  const ownPickCount = ownPicks.filter(id => id === plantId).length
+  const historicalUsage = plantUsage[`${playerId}_${plantId}`] || 0
+  const totalUsage = ownPickCount + historicalUsage
+
+  if (totalUsage >= 2) {
+    return {
+      valid: false,
+      reason: `该植物已使用${totalUsage}次，达到上限（2次）`
     }
   }
 
@@ -201,4 +201,13 @@ export const isGameOver = (score1, score2, maxScore = 4) => {
  */
 export const isGrandFinal = (score1, score2) => {
   return score1 === 3 && score2 === 3
+}
+
+/**
+ * 判断植物是否为南瓜头
+ * @param {string} plantId - 植物ID
+ * @returns {boolean}
+ */
+export const isPumpkin = (plantId) => {
+  return plantId === 'pumpkin'
 }

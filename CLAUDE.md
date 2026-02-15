@@ -201,13 +201,25 @@ Custom colors defined in `tailwind.config.js`:
 - `ban-red` - Ban action color
 - `pick-blue` - Pick action color
 
+**南瓜头特殊规则:**
+
+- **Plant ID**: `'pumpkin'` (src/data/plants.js:120)
+- **效果**: Pick 阶段选择南瓜头不消耗 BP 步骤，允许选手继续选择
+- **限制**: 仍受使用次数限制（最多 2 次），需通过 `canPick()` 验证
+- **生效范围**: 仅在 Pick 阶段生效，Ban 阶段按原有逻辑处理
+- **实现位置**: `src/store/gameStore.js:231-262` (confirmSelection 函数)
+
 ## Rules Implementation
 
 **Implemented:**
 - ✅ Dynamic BP order based on road selection
 - ✅ Mutual exclusion in road selection (players can't choose same road)
 - ✅ Toggle road selection (click to deselect)
-- ✅ Usage limit tracking (max 2 times per plant per player)
+- ✅ **Same-round duplicate picks** - 选手可以在同一小分中选择同一植物多次（最多2次），但对手已选的植物不可选
+  - 实现位置：`src/store/gameStore.js:89-128` (availablePlants getter)
+  - 验证逻辑：`src/utils/validators.js:142-187` (canPick 函数)
+  - UI显示：植物卡片和阵容区域会显示总使用次数（历史+当前小分）
+- ✅ Usage limit tracking (max 2 times per plant per player, **including same-round picks**)
 - ✅ Cannot pick opponent's already-selected plants
 - ✅ Global bans (5 plants per match)
 - ✅ Score tracking (first to 4 wins)
@@ -215,6 +227,7 @@ Custom colors defined in `tailwind.config.js`:
 - ✅ First-round special case: if loser chose road initially, no re-selection needed
 - ✅ Custom plant management (add, edit, delete, export, import)
 - ✅ IndexedDB storage for custom plants with memory cache
+- ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤）
 
 **Not Yet Implemented:**
 - ⚠️ Position validation rules (副C/大C requirements)
