@@ -60,7 +60,8 @@ export const useGameStore = defineStore('game', {
       draggedPlantId: null,
       draggedFromPlayer: null,         // 'player1' | 'player2'
       draggedFromType: null,           // 'pickArea' | 'availableList' | 'battlefield'
-      draggedFromPosition: null        // 战场位置拖拽时：1-5
+      draggedFromPosition: null,       // 战场位置拖拽时：1-5
+      draggedSourceIndex: null         // 实例在picks数组中的索引
     }
   }),
 
@@ -146,6 +147,41 @@ export const useGameStore = defineStore('game', {
 
   actions: {
     /**
+     * 生成植物实例的唯一ID
+     * @param {string} player - 'player1' 或 'player2'
+     * @param {string} plantId - 植物ID
+     * @param {number} sourceIndex - 在picks数组中的索引
+     * @returns {string} 实例ID
+     */
+    generatePlantInstanceId(player, plantId, sourceIndex) {
+      return `${player}_${plantId}_${sourceIndex}_${Date.now()}`
+    },
+
+    /**
+     * 获取植物在picks数组中的所有可用实例
+     * @param {string} player - 'player1' 或 'player2'
+     * @param {string} plantId - 植物ID
+     * @returns {Array<{instanceId: string, sourceIndex: number}>}
+     */
+    getAvailablePlantInstances(player, plantId) {
+      const picks = this.currentRound.picks[player] || []
+      const positions = this.currentRound.positions[player].plants || []
+
+      // 找出所有已使用的实例索引
+      const usedSourceIndices = positions
+        .filter(p => p && p.plantId === plantId)
+        .map(p => p.sourceIndex)
+
+      return picks
+        .map((pid, index) => ({ plantId: pid, sourceIndex: index }))
+        .filter(item => item.plantId === plantId && !usedSourceIndices.includes(item.sourceIndex))
+        .map(item => ({
+          instanceId: this.generatePlantInstanceId(player, plantId, item.sourceIndex),
+          sourceIndex: item.sourceIndex
+        }))
+    },
+
+    /**
      * 初始化游戏
      */
     initGame(player1Id, player2Id, firstPlayer, player1Road, player2Road) {
@@ -210,7 +246,8 @@ export const useGameStore = defineStore('game', {
         },
         selectedPlant: null,
         isRoundComplete: false,
-        bpSequence // 保存动态BP序列
+        bpSequence, // 保存动态BP序列
+        extraPick: null // 南瓜头额外选择：{player: 'player1'|'player2', remaining: number}
       }
 
       // 设置第一个操作选手
@@ -288,12 +325,26 @@ export const useGameStore = defineStore('game', {
         this.currentRound.picks[player].push(plantId)
         this.currentRound.selectedPlant = null
 
-        // 南瓜头特殊规则：不推进BP步骤
+        // 南瓜头特殊规则：选南瓜后获得一次额外选择机会
         if (plantId === 'pumpkin') {
-          // 保存状态但不移动到下一步
+          // 设置额外选择标记（但不推进步骤）
+          this.currentRound.extraPick = {
+            player: player,
+            remaining: 1
+          }
+          this.saveToLocalStorage()
+          console.log('🎃 南瓜头已选择！当前玩家可以额外再选择一个植物')
+        } else if (this.currentRound.extraPick && this.currentRound.extraPick.player === player) {
+          // 正在使用额外选择
+          this.currentRound.extraPick.remaining--
+          if (this.currentRound.extraPick.remaining <= 0) {
+            // 额外选择用完，清除标记并推进步骤
+            this.currentRound.extraPick = null
+            this.moveToNextStep()
+          }
           this.saveToLocalStorage()
         } else {
-          // 其他植物正常推进到下一步
+          // 普通选择，正常推进步骤
           this.moveToNextStep()
           this.saveToLocalStorage()
         }
@@ -477,6 +528,10 @@ export const useGameStore = defineStore('game', {
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
           this.roundWinner = state.roundWinner || null
+
+          // 向后兼容：转换旧格式数据
+          this.migrateLegacyPositions()
+
           return true
         } catch (e) {
           console.error('加载存档失败', e)
@@ -502,8 +557,46 @@ export const useGameStore = defineStore('game', {
         draggedPlantId: null,
         draggedFromPlayer: null,
         draggedFromType: null,
-        draggedFromPosition: null
+        draggedFromPosition: null,
+        draggedSourceIndex: null
       }
+    },
+
+    /**
+     * 迁移旧格式的positions数据
+     * 旧格式: plants: ['peashooter', null, 'sunflower']
+     * 新格式: plants: [{plantId, instanceId, sourceIndex}, null, {...}]
+     */
+    migrateLegacyPositions() {
+      ['player1', 'player2'].forEach(player => {
+        const plants = this.currentRound?.positions?.[player]?.plants
+        if (!plants || plants.length === 0) return
+
+        // 检查是否需要迁移（如果第一个元素是字符串，说明是旧格式）
+        const firstElement = plants.find(p => p !== null && p !== undefined)
+        if (typeof firstElement === 'string') {
+          const newPlants = plants.map((plantId, index) => {
+            if (plantId === null || plantId === undefined) return null
+
+            // 找到该植物在picks中的索引（考虑重复情况）
+            const picks = this.currentRound.picks[player] || []
+            const samePlantIds = plants.slice(0, index).filter(p => p === plantId)
+            const sourceIndex = picks.findIndex((pid, i) =>
+              pid === plantId && i >= samePlantIds.length
+            )
+
+            return {
+              plantId: plantId,
+              instanceId: this.generatePlantInstanceId(player, plantId, sourceIndex),
+              sourceIndex: sourceIndex >= 0 ? sourceIndex : 0
+            }
+          })
+
+          this.currentRound.positions[player].plants = newPlants
+          this.saveToLocalStorage()
+          console.log(`[迁移] 已转换 ${player} 的 positions 数据格式`)
+        }
+      })
     }
   }
 })

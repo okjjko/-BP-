@@ -46,10 +46,14 @@
             <template v-if="getPlantAtPosition(player, index)">
               <div class="w-full h-full p-1">
                 <img
-                  :src="getPlantImage(getPlantAtPosition(player, index))"
-                  :alt="getPlantName(getPlantAtPosition(player, index))"
+                  :src="getPlantImage(getPlantAtPosition(player, index).plantId)"
+                  :alt="getPlantName(getPlantAtPosition(player, index).plantId)"
                   class="w-full h-full object-cover rounded-lg shadow-sm"
                 />
+                <!-- 显示实例序号 -->
+                <div class="absolute -bottom-1 -right-1 bg-black/60 text-white text-[8px] px-1 rounded">
+                  #{{ getPlantAtPosition(player, index).sourceIndex + 1 }}
+                </div>
               </div>
             </template>
             <template v-else>
@@ -72,10 +76,10 @@
         <div class="text-xs text-gray-400 mb-3 uppercase tracking-wider">可选植物</div>
         <div class="flex flex-wrap gap-2">
           <div
-            v-for="plantId in getPicks(player)"
-            :key="plantId"
+            v-for="(plantId, index) in getPicks(player)"
+            :key="`${player}-${plantId}-${index}`"
             draggable="true"
-            @dragstart="handleDragStart($event, plantId, player)"
+            @dragstart="handleDragStart($event, plantId, player, index)"
             @dragend="handleDragEnd"
             class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border text-sm cursor-grab active:cursor-grabbing transition-all duration-200"
             :class="{
@@ -87,7 +91,13 @@
               :src="getPlantImage(plantId)"
               class="w-6 h-6 rounded border border-gray-600 pointer-events-none"
             />
-            <span class="text-gray-300 font-medium pointer-events-none">{{ getPlantName(plantId) }}</span>
+            <span class="text-gray-300 font-medium pointer-events-none">
+              {{ getPlantName(plantId) }}
+              <!-- 如果有重复，显示序号 -->
+              <span v-if="countPlantOccurrences(player, plantId) > 1" class="text-xs text-gray-500">
+                (#{{ index + 1 }})
+              </span>
+            </span>
           </div>
         </div>
       </div>
@@ -114,16 +124,25 @@
           
           <div class="grid grid-cols-5 sm:grid-cols-6 gap-3 max-h-[400px] overflow-y-auto mb-6 custom-scrollbar pr-2">
             <button
-              v-for="plantId in getPicks(selectingPlayer)"
-              :key="plantId"
-              @click="placePlant(plantId)"
+              v-for="(plantId, index) in getPicks(selectingPlayer)"
+              :key="`${selectingPlayer}-${plantId}-${index}`"
+              @click="placePlant(plantId, index)"
               class="group relative flex flex-col items-center gap-2 p-2 rounded-xl border border-transparent hover:bg-gray-800 transition-all duration-200"
             >
               <div class="relative w-16 h-16 group-hover:scale-110 transition-transform duration-200">
                 <img
                   :src="getPlantImage(plantId)"
-                  class="w-full h-full object-cover rounded-lg border-2 border-gray-600 group-hover:border-plant-green-neon shadow-lg"
+                  class="w-full h-full object-cover rounded-lg border-2 shadow-lg"
+                  :class="{
+                    'border-gray-600': !isPlantUsed(selectingPlayer, plantId, index),
+                    'border-green-500': isPlantUsed(selectingPlayer, plantId, index)
+                  }"
                 />
+                <!-- 如果重复，显示序号 -->
+                <div v-if="countPlantOccurrences(selectingPlayer, plantId) > 1"
+                     class="absolute -top-1 -left-1 bg-plant-green text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                  {{ index + 1 }}
+                </div>
               </div>
               <div class="text-xs font-bold text-gray-400 group-hover:text-white transition-colors text-center w-full truncate">{{ getPlantName(plantId) }}</div>
             </button>
@@ -179,7 +198,14 @@ const getPicks = (player) => {
 
 const getPlantAtPosition = (player, position) => {
   const plants = store.currentRound?.positions?.[player]?.plants || []
-  return plants[position - 1] || null
+  const plant = plants[position - 1]
+
+  // 向后兼容：如果是字符串，转换为新格式
+  if (typeof plant === 'string') {
+    return { plantId: plant, instanceId: null, sourceIndex: -1 }
+  }
+
+  return plant || null
 }
 
 const openPlantSelector = (player, position) => {
@@ -194,7 +220,7 @@ const closePlantSelector = () => {
   selectingPosition.value = null
 }
 
-const placePlant = (plantId) => {
+const placePlant = (plantId, sourceIndex = null) => {
   const player = selectingPlayer.value
   const position = selectingPosition.value
 
@@ -202,17 +228,34 @@ const placePlant = (plantId) => {
     store.currentRound.positions[player].plants = []
   }
 
-  // 检查该植物是否已经放置在其他位置
   const plants = store.currentRound.positions[player].plants
-  const existingIndex = plants.indexOf(plantId)
+
+  // 如果未指定sourceIndex，自动选择第一个可用的
+  let finalSourceIndex = sourceIndex
+  if (finalSourceIndex === null) {
+    const availableInstances = store.getAvailablePlantInstances(player, plantId)
+    if (availableInstances.length === 0) {
+      alert('该植物的所有实例都已布置')
+      return
+    }
+    finalSourceIndex = availableInstances[0].sourceIndex
+  }
+
+  // 查找是否已存在该sourceIndex的实例
+  const existingIndex = plants.findIndex(p =>
+    p && p.plantId === plantId && p.sourceIndex === finalSourceIndex
+  )
 
   if (existingIndex !== -1) {
-    // 已存在，先移除
     plants[existingIndex] = null
   }
 
   // 放置到新位置
-  plants[position - 1] = plantId
+  plants[position - 1] = {
+    plantId: plantId,
+    instanceId: store.generatePlantInstanceId(player, plantId, finalSourceIndex),
+    sourceIndex: finalSourceIndex
+  }
 
   closePlantSelector()
   store.saveToLocalStorage()
@@ -230,25 +273,38 @@ const clearPosition = () => {
   store.saveToLocalStorage()
 }
 
+// 辅助函数：统计植物出现次数
+const countPlantOccurrences = (player, plantId) => {
+  return getPicks(player).filter(id => id === plantId).length
+}
+
+// 辅助函数：检查特定实例是否已使用
+const isPlantUsed = (player, plantId, sourceIndex) => {
+  const plants = store.currentRound?.positions?.[player]?.plants || []
+  return plants.some(p => p && p.plantId === plantId && p.sourceIndex === sourceIndex)
+}
+
 // ========== 拖拽事件处理函数 ==========
 
 // 从战场位置开始拖拽
 const handleDragStartFromPosition = (event, player, position) => {
-  const plantId = getPlantAtPosition(player, position)
-  if (!plantId) return
+  const plant = getPlantAtPosition(player, position)
+  if (!plant) return
 
   // 更新全局拖拽状态
   store.setDragState({
     isDragging: true,
-    draggedPlantId: plantId,
+    draggedPlantId: plant.plantId,
     draggedFromPlayer: player,
     draggedFromType: 'battlefield',
-    draggedFromPosition: position
+    draggedFromPosition: position,
+    draggedSourceIndex: plant.sourceIndex
   })
 
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', JSON.stringify({
-    plantId,
+    plantId: plant.plantId,
+    sourceIndex: plant.sourceIndex,
     source: 'battlefield',
     player,
     position
@@ -256,19 +312,21 @@ const handleDragStartFromPosition = (event, player, position) => {
 }
 
 // 从可选列表开始拖拽
-const handleDragStart = (event, plantId, player) => {
+const handleDragStart = (event, plantId, player, sourceIndex = null) => {
   // 更新全局拖拽状态
   store.setDragState({
     isDragging: true,
     draggedPlantId: plantId,
     draggedFromPlayer: player,
     draggedFromType: 'availableList',
-    draggedFromPosition: null
+    draggedFromPosition: null,
+    draggedSourceIndex: sourceIndex
   })
 
   event.dataTransfer.effectAllowed = 'copy'
   event.dataTransfer.setData('text/plain', JSON.stringify({
     plantId,
+    sourceIndex,
     source: 'availableList',
     player
   }))
@@ -312,6 +370,7 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
   }
 
   const plantId = dragState.draggedPlantId
+  const sourceIndex = dragState.draggedSourceIndex
 
   // 根据拖拽源类型执行不同逻辑
   if (dragState.draggedFromType === 'battlefield') {
@@ -320,12 +379,11 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
       dragState.draggedFromPlayer,
       dragState.draggedFromPosition,
       targetPlayer,
-      targetPosition,
-      plantId
+      targetPosition
     )
   } else {
     // 从 PickArea 或可选列表复制
-    placePlantToPosition(targetPlayer, targetPosition, plantId)
+    placePlantToPosition(targetPlayer, targetPosition, plantId, sourceIndex)
   }
 
   store.saveToLocalStorage()
@@ -334,32 +392,48 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
 }
 
 // 战场位置间移动植物
-const movePlantBetweenPositions = (fromPlayer, fromPosition, toPlayer, toPosition, plantId) => {
+const movePlantBetweenPositions = (fromPlayer, fromPosition, toPlayer, toPosition) => {
   const plants = store.currentRound.positions[fromPlayer].plants
 
-  // 移除原位置
+  // 移除原位置（保存整个对象）
+  const plantInstance = plants[fromPosition - 1]
   plants[fromPosition - 1] = null
 
-  // 放置到新位置（覆盖已有植物）
-  plants[toPosition - 1] = plantId
+  // 放置到新位置
+  plants[toPosition - 1] = plantInstance
 }
 
 // 从 PickArea/可选列表放置植物
-const placePlantToPosition = (player, position, plantId) => {
+const placePlantToPosition = (player, position, plantId, sourceIndex = null) => {
   if (!store.currentRound.positions[player].plants) {
     store.currentRound.positions[player].plants = []
   }
 
   const plants = store.currentRound.positions[player].plants
-  const existingIndex = plants.indexOf(plantId)
+
+  // 如果未指定sourceIndex，自动选择
+  let finalSourceIndex = sourceIndex
+  if (finalSourceIndex === null) {
+    const availableInstances = store.getAvailablePlantInstances(player, plantId)
+    if (availableInstances.length === 0) return
+    finalSourceIndex = availableInstances[0].sourceIndex
+  }
+
+  // 移除相同sourceIndex的旧位置
+  const existingIndex = plants.findIndex(p =>
+    p && p.plantId === plantId && p.sourceIndex === finalSourceIndex
+  )
 
   if (existingIndex !== -1) {
-    // 已存在，先移除原位置（重复放置行为）
     plants[existingIndex] = null
   }
 
   // 放置到新位置
-  plants[position - 1] = plantId
+  plants[position - 1] = {
+    plantId: plantId,
+    instanceId: store.generatePlantInstanceId(player, plantId, finalSourceIndex),
+    sourceIndex: finalSourceIndex
+  }
 }
 
 // 验证是否可放置

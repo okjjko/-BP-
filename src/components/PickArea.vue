@@ -13,14 +13,19 @@
       <transition-group name="list">
         <div
           v-for="(plantId, index) in picks"
-          :key="plantId"
+          :key="`${player}-${plantId}-${index}`"
           draggable="true"
-          @dragstart="handleDragStart($event, plantId)"
+          @dragstart="handleDragStart($event, plantId, index)"
           @dragend="handleDragEnd"
           :class="{ 'dragging': isCurrentDragging(plantId) }"
           class="group flex items-center gap-3 bg-gray-800/40 p-2 rounded-lg border border-gray-700 hover:border-pick-blue/50 hover:bg-gray-800/80 transition-all duration-300"
         >
           <span class="text-gray-500 text-xs font-mono w-4 text-center">#{{ index + 1 }}</span>
+          <!-- 如果是重复植物，高亮显示序号 -->
+          <span v-if="countPlantOccurrences(plantId) > 1"
+                class="text-xs text-pick-blue-neon ml-1">
+            ({{ index + 1 }})
+          </span>
           <div class="relative w-12 h-12 flex-shrink-0">
             <img
               :src="getPlantImage(plantId)"
@@ -95,7 +100,7 @@ const getUsageCount = (plantId) => {
 
 // ========== 拖拽事件处理函数 ==========
 
-const handleDragStart = (event, plantId) => {
+const handleDragStart = (event, plantId, sourceIndex) => {
   localDraggingPlantId.value = plantId
 
   // 更新全局拖拽状态
@@ -104,13 +109,15 @@ const handleDragStart = (event, plantId) => {
     draggedPlantId: plantId,
     draggedFromPlayer: props.player,
     draggedFromType: 'pickArea',
-    draggedFromPosition: null
+    draggedFromPosition: null,
+    draggedSourceIndex: sourceIndex
   })
 
   // 设置拖拽数据
   event.dataTransfer.effectAllowed = 'copy'
   event.dataTransfer.setData('text/plain', JSON.stringify({
     plantId,
+    sourceIndex,
     source: 'pickArea',
     player: props.player
   }))
@@ -125,6 +132,11 @@ const isCurrentDragging = (plantId) => {
   return store.dragState?.isDragging &&
          store.dragState?.draggedPlantId === plantId &&
          store.dragState?.draggedFromType === 'pickArea'
+}
+
+// 辅助函数：统计植物出现次数
+const countPlantOccurrences = (plantId) => {
+  return picks.value.filter(id => id === plantId).length
 }
 </script>
 
