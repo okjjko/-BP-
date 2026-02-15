@@ -32,6 +32,14 @@
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-xl font-bold">植物列表</h3>
                 <div class="flex gap-2">
+                  <!-- 批量操作按钮 -->
+                  <button
+                    @click="batchMode = !batchMode"
+                    class="px-3 py-1 rounded text-sm transition-colors"
+                    :class="batchMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
+                  >
+                    {{ batchMode ? '退出批量' : '批量选择' }}
+                  </button>
                   <!-- 分类标签 -->
                   <button
                     v-for="type in plantTypes"
@@ -44,6 +52,47 @@
                   </button>
                 </div>
               </div>
+
+              <!-- 批量操作工具栏 -->
+              <Transition name="fade">
+                <div v-if="batchMode" class="mb-4 p-3 bg-purple-900/30 border border-purple-600/50 rounded-lg">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                      <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          :checked="isAllSelected"
+                          @change="toggleSelectAll"
+                          class="w-4 h-4 rounded accent-purple-500"
+                        />
+                        全选
+                      </label>
+                      <span class="text-sm text-purple-300">
+                        已选择 {{ selectedPlants.size }} 个植物
+                      </span>
+                    </div>
+                    <div class="flex gap-2">
+                      <button
+                        v-if="selectedPlants.size > 0"
+                        @click="batchDelete"
+                        class="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-colors flex items-center gap-1"
+                      >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5.732 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        删除选中
+                      </button>
+                      <button
+                        v-if="selectedPlants.size > 0"
+                        @click="clearSelection"
+                        class="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors"
+                      >
+                        清空选择
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
 
               <!-- 搜索框 -->
               <div class="mb-4">
@@ -61,9 +110,12 @@
                   v-for="plant in filteredPlants"
                   :key="plant.id"
                   :plant="plant"
+                  :batch-mode="batchMode"
+                  :selected="selectedPlants.has(plant.id)"
                   @edit="editPlant"
                   @delete="confirmDelete"
                   @hide="confirmHide"
+                  @toggle-select="toggleSelectPlant"
                 />
 
                 <!-- 新建按钮卡片 -->
@@ -189,7 +241,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { getAllPlantsSync, getHiddenBuiltinPlants, hideBuiltinPlant, unhideBuiltinPlant, checkPlantInGame, getPlantImage } from '@/data/customPlants'
 import { useGameStore } from '@/store/gameStore'
 import PlantCard from './PlantCard.vue'
@@ -208,6 +260,8 @@ const searchQuery = ref('')
 const editingPlant = ref(null)
 const isEditMode = ref(false)
 const showRecycleBin = ref(false)
+const batchMode = ref(false)
+const selectedPlants = ref(new Set())
 
 const plantTypes = [
   { value: 'all', label: '全部' },
@@ -401,6 +455,75 @@ const cancelEdit = () => {
   editingPlant.value = null
   isEditMode.value = false
 }
+
+// 批量操作方法
+const isAllSelected = computed(() => {
+  const customPlants = filteredPlants.value.filter(p => p.builtin === false)
+  return customPlants.length > 0 && customPlants.every(p => selectedPlants.value.has(p.id))
+})
+
+const toggleSelectPlant = (plant) => {
+  if (selectedPlants.value.has(plant.id)) {
+    selectedPlants.value.delete(plant.id)
+  } else {
+    selectedPlants.value.add(plant.id)
+  }
+  // 强制更新（因为 Set 的更新不会触发响应式）
+  selectedPlants.value = new Set(selectedPlants.value)
+}
+
+const toggleSelectAll = () => {
+  const customPlants = filteredPlants.value.filter(p => p.builtin === false)
+  if (isAllSelected.value) {
+    // 取消全选
+    selectedPlants.value.clear()
+  } else {
+    // 全选（只能选自定义植物）
+    customPlants.forEach(p => selectedPlants.value.add(p.id))
+  }
+  selectedPlants.value = new Set(selectedPlants.value)
+}
+
+const clearSelection = () => {
+  selectedPlants.value.clear()
+  selectedPlants.value = new Set(selectedPlants.value)
+}
+
+const batchDelete = async () => {
+  if (selectedPlants.value.size === 0) return
+
+  const count = selectedPlants.value.size
+  if (!confirm(`确定删除选中的 ${count} 个自定义植物？`)) return
+
+  try {
+    const { deleteCustomPlant } = await import('@/data/customPlants')
+
+    for (const plantId of selectedPlants.value) {
+      await deleteCustomPlant(plantId)
+    }
+
+    selectedPlants.value.clear()
+    selectedPlants.value = new Set(selectedPlants.value)
+
+    // 强制刷新列表
+    const currentType = selectedType.value
+    selectedType.value = ''
+    setTimeout(() => selectedType.value = currentType, 0)
+
+    alert(`成功删除 ${count} 个植物`)
+  } catch (error) {
+    console.error('批量删除失败:', error)
+    alert('批量删除失败')
+  }
+}
+
+// 监听批量模式变化，退出时清空选择
+watch(batchMode, (newVal) => {
+  if (!newVal) {
+    selectedPlants.value.clear()
+    selectedPlants.value = new Set(selectedPlants.value)
+  }
+})
 
 const handleExport = () => {
   // 导出逻辑（在ImportExport组件中实现）

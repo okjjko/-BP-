@@ -2,8 +2,22 @@
   <div
     class="relative group bg-gray-800/40 rounded-xl overflow-hidden border transition-all hover:scale-105 cursor-pointer"
     :class="plantClass"
-    @click="$emit('edit', plant)"
+    @click="handleCardClick"
   >
+    <!-- 批量选择复选框 -->
+    <div
+      v-if="batchMode"
+      class="absolute top-2 left-2 z-20"
+      @click.stop
+    >
+      <input
+        type="checkbox"
+        :checked="selected"
+        @change="$emit('toggle-select', plant)"
+        class="w-5 h-5 rounded cursor-pointer accent-purple-500"
+      />
+    </div>
+
     <!-- 图片 -->
     <div class="aspect-square relative">
       <img
@@ -15,7 +29,7 @@
       />
 
       <!-- 已隐藏标识 -->
-      <div v-if="isHidden" class="absolute top-2 left-2 px-2 py-0.5 bg-gray-600/90 text-xs text-white rounded backdrop-blur">
+      <div v-if="isHidden" class="absolute top-2 left-2 px-2 py-0.5 bg-gray-600/90 text-xs text-white rounded backdrop-blur" :class="{ 'ml-7': batchMode }">
         已隐藏
       </div>
 
@@ -23,13 +37,13 @@
       <div
         v-else-if="plant.builtin !== false"
         class="absolute top-2 left-2 px-2 py-0.5 text-xs text-white rounded backdrop-blur"
-        :class="isHidden ? 'bg-gray-600/90' : 'bg-blue-600/90'"
+        :class="[isHidden ? 'bg-gray-600/90' : 'bg-blue-600/90', { 'ml-7': batchMode }]"
       >
         {{ isHidden ? '已隐藏' : '内置' }}
       </div>
 
       <!-- 自定义标识 -->
-      <div v-else class="absolute top-2 left-2 px-2 py-0.5 bg-purple-600/90 text-xs text-white rounded backdrop-blur">
+      <div v-else class="absolute top-2 left-2 px-2 py-0.5 bg-purple-600/90 text-xs text-white rounded backdrop-blur" :class="{ 'ml-7': batchMode }">
         自定义
       </div>
     </div>
@@ -42,7 +56,7 @@
 
     <!-- 操作按钮 -->
     <div
-      v-if="plant.builtin === false || (plant.builtin !== false && !isHidden)"
+      v-if="!batchMode && (plant.builtin === false || (plant.builtin !== false && !isHidden))"
       class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
       @click.stop
     >
@@ -93,24 +107,41 @@ const props = defineProps({
   plant: {
     type: Object,
     required: true
+  },
+  batchMode: {
+    type: Boolean,
+    default: false
+  },
+  selected: {
+    type: Boolean,
+    default: false
   }
 })
 
-defineEmits(['edit', 'delete', 'hide'])
+const emit = defineEmits(['edit', 'delete', 'hide', 'toggle-select'])
 
 const plantImage = computed(() => getPlantImage(props.plant.id))
 const isHidden = computed(() => props.plant.builtin !== false && isPlantHidden(props.plant.id))
 
 const plantClass = computed(() => {
-  if (props.plant.builtin !== false) {
-    return isHidden.value
-      ? 'border-gray-700 opacity-60'
-      : 'border-gray-600 hover:border-gray-500'
-  }
-  return isHidden.value
-    ? 'border-gray-700/50 hover:border-gray-500 opacity-60'
-    : 'border-purple-600/50 hover:border-purple-400 hover:shadow-purple-500/20 hover:shadow-lg'
+  const baseClass = props.selected
+    ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
+    : props.plant.builtin !== false
+      ? isHidden.value
+        ? 'border-gray-700 opacity-60'
+        : 'border-gray-600 hover:border-gray-500'
+      : isHidden.value
+        ? 'border-gray-700/50 hover:border-gray-500 opacity-60'
+        : 'border-purple-600/50 hover:border-purple-400 hover:shadow-purple-500/20 hover:shadow-lg'
+
+  return baseClass
 })
+
+const handleCardClick = () => {
+  if (!props.batchMode) {
+    emit('edit', props.plant)
+  }
+}
 
 const handleImageError = (event) => {
   event.target.src = 'https://placehold.co/100x100/9370DB/white?text=图片丢失'
