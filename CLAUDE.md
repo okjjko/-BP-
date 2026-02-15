@@ -237,8 +237,6 @@ Custom colors defined in `tailwind.config.js`:
 - ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤）
 
 **Not Yet Implemented:**
-- ⚠️ Position validation rules (副C/大C requirements)
-- ⚠️ Pumpkin shell rules (南瓜套规则)
 - ⚠️ 巅峰对决 mode (3:3 tiebreaker)
 
 ## Testing Flows

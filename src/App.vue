@@ -126,6 +126,11 @@
         <RoundResult v-if="gameStatus === 'result'" />
       </transition>
 
+      <!-- 游戏胜利结算 -->
+      <transition name="fade">
+        <GameVictory v-if="gameStatus === 'finished'" />
+      </transition>
+
       <!-- 植物管理模态框 -->
       <PlantManager v-model:show="showPlantManager" />
     </div>
@@ -145,6 +150,7 @@ import UsedPlants from './components/UsedPlants.vue'
 import PlantSelector from './components/PlantSelector.vue'
 import PositionSetup from './components/PositionSetup.vue'
 import RoundResult from './components/RoundResult.vue'
+import GameVictory from './components/GameVictory.vue'
 import PlantManager from './components/PlantManager/index.vue'
 
 const store = useGameStore()

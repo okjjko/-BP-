@@ -52,6 +52,10 @@ export const useGameStore = defineStore('game', {
     // 全局记录
     globalBans: [], // 永久禁用的5个植物
     plantUsage: {}, // 每个植物每个选手的使用次数 { 'player1_plantId': count }
+    pumpkinUsage: { // 南瓜头使用记录（单独追踪，因为南瓜头从picks中移除）
+      player1: 0,
+      player2: 0
+    },
 
     // 游戏状态
     gameStatus: 'setup', // 'setup', 'banning', 'positioning', 'result', 'finished'
@@ -93,7 +97,7 @@ export const useGameStore = defineStore('game', {
      * 进一步改进：禁用阶段显示所有未被禁用的植物（包括对手已选的）
      */
     availablePlants: (state) => {
-      const { currentRound, globalBans, plantUsage } = state
+      const { currentRound, globalBans, plantUsage, pumpkinUsage } = state
       const { bans, picks, currentPlayer, action } = currentRound
 
       // 所有已禁用的植物
@@ -120,13 +124,24 @@ export const useGameStore = defineStore('game', {
         // 2. 对手已选的植物不可选
         if (opponentPicks.includes(plantId)) return false
 
-        // 3. 自己本局已选2次的植物不可选
+        // 3. 对手已选南瓜头不可选（新增）
+        if (isPumpkin(plantId, getAllPlantsSync()) && (pumpkinUsage[opponent] || 0) > 0) {
+          return false
+        }
+
+        // 4. 自己本局已选2次的植物不可选
         const ownPickCount = ownPicks.filter(id => id === plantId).length
         if (ownPickCount >= 2) return false
 
-        // 4. 加上历史使用次数，总使用次数不能超过2次
+        // 5. 加上历史使用次数，总使用次数不能超过2次
         const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
         if (ownPickCount + historicalUsage >= 2) return false
+
+        // 6. 南瓜头特殊检查：自己使用次数不能超过2次（新增）
+        if (isPumpkin(plantId, getAllPlantsSync())) {
+          const ownPumpkinUsage = pumpkinUsage[currentPlayer] || 0
+          if (ownPumpkinUsage >= 2) return false
+        }
 
         return true
       })
@@ -339,10 +354,13 @@ export const useGameStore = defineStore('game', {
           const pumpkinIndex = this.currentRound.picks[player].length
           this.currentRound.picks[player].push(plantId)
 
-          // 步骤2: 记录南瓜头索引（用于后续关联保护）
+          // 步骤2: 记录南瓜头使用次数（新增）
+          this.pumpkinUsage[player] = (this.pumpkinUsage[player] || 0) + 1
+
+          // 步骤3: 记录南瓜头索引（用于后续关联保护）
           this.currentRound.lastPumpkinIndex = pumpkinIndex
 
-          // 步骤3: 设置额外选择标记
+          // 步骤4: 设置额外选择标记
           this.currentRound.extraPick = {
             player: player,
             remaining: 1
@@ -350,7 +368,7 @@ export const useGameStore = defineStore('game', {
 
           this.currentRound.selectedPlant = null
           this.saveToLocalStorage()
-          console.log('🎃 南瓜头已选择！下一个植物将获得南瓜保护')
+          console.log('🎃 南瓜头已选择！记录使用次数:', this.pumpkinUsage[player])
           console.log('📍 [调试] 南瓜头信息:', {
             player,
             pumpkinIndex,
@@ -590,6 +608,11 @@ export const useGameStore = defineStore('game', {
     resetGame() {
       this.$reset()
       localStorage.removeItem('bpGameState')
+      // 重置后需要重新初始化 pumpkinUsage（因为 $reset 会恢复默认值）
+      this.pumpkinUsage = {
+        player1: 0,
+        player2: 0
+      }
     },
 
     /**
@@ -601,6 +624,7 @@ export const useGameStore = defineStore('game', {
         player2: this.player2,
         globalBans: this.globalBans,
         plantUsage: this.plantUsage,
+        pumpkinUsage: this.pumpkinUsage,
         currentRound: this.currentRound,
         gameStatus: this.gameStatus,
         firstPlayer: this.firstPlayer,
@@ -621,6 +645,10 @@ export const useGameStore = defineStore('game', {
           this.player2 = state.player2
           this.globalBans = state.globalBans
           this.plantUsage = state.plantUsage
+          this.pumpkinUsage = state.pumpkinUsage || {
+            player1: 0,
+            player2: 0
+          }
           this.currentRound = state.currentRound
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
