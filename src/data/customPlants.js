@@ -431,13 +431,14 @@ export const getAllPlants = async () => {
 }
 
 /**
- * 获取植物图片URL
+ * 获取植物图片URL（同步版本）
  * 用于UI显示，处理Blob和URL两种格式
- * @param {Object} plant - 植物对象
+ * @param {string} id - 植物ID
  * @returns {string}
  */
-export const getPlantImage = (plant) => {
-  if (!plant) return ''
+export const getPlantImage = (id) => {
+  const plant = getPlantByIdSync(id)
+  if (!plant) return 'https://placehold.co/100x100/9370DB/white?text=未知'
 
   // 如果是Blob对象，转换为URL
   if (plant.imageData instanceof Blob) {
@@ -454,22 +455,22 @@ export const getPlantImage = (plant) => {
 }
 
 /**
- * 获取植物名称
+ * 获取植物名称（同步版本）
  * @param {string} id - 植物ID
- * @returns {Promise<string>}
+ * @returns {string}
  */
-export const getPlantName = async (id) => {
-  const plant = await getPlantById(id)
+export const getPlantName = (id) => {
+  const plant = getPlantByIdSync(id)
   return plant?.name || '未知植物'
 }
 
 /**
- * 获取植物描述
+ * 获取植物描述（同步版本）
  * @param {string} id - 植物ID
- * @returns {Promise<string>}
+ * @returns {string}
  */
-export const getPlantDesc = async (id) => {
-  const plant = await getPlantById(id)
+export const getPlantDesc = (id) => {
+  const plant = getPlantByIdSync(id)
   return plant?.description || '未知描述'
 }
 

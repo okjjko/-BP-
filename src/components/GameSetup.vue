@@ -127,7 +127,7 @@
       </form>
 
       <div class="mt-8 text-center" role="note">
-        <p class="text-xs text-gray-500 font-mono tracking-widest">先得4分者胜 • 每个植物最多使用2次</p>
+        <p class="text-xs text-gray-500 font-mono tracking-widest">本系统由@okjjko制作，GitHub仓库地址：https://github.com/okjjko/-BP-/tree/master</p>
       </div>
     </div>
   </div>

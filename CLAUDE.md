@@ -18,6 +18,53 @@ npm run build
 npm run preview
 ```
 
+## Testing & Quality Assurance
+
+**Agent Testing System:**
+
+This project includes an automated testing system using Agent architecture with Playwright:
+
+```bash
+# Run all agent tests
+npm run test:agents
+
+# Run quick tests (game initialization)
+npm run test:quick
+
+# Run Playwright tests only
+npm run test
+
+# Run tests in headed mode (for debugging)
+npm run test:headed
+```
+
+**Agent Architecture:**
+
+- **Test Coordinator** (`agents/test-coordinator.js`) - Main orchestration script
+- **Tester Agent** (`agents/tester-agent.md`) - Executes Playwright automated tests
+- **Error Analyst Agent** (`agents/error-analyst-agent.md`) - Analyzes test failures and provides fix suggestions
+
+**Test Suites:**
+
+- `agents/tests/basic-test.spec.js` - Game initialization, road selection, validation
+- `agents/tests/plant-display-test.spec.js` - Plant image/name display verification
+- `agents/tests/example.spec.js` - BP flow and state persistence tests
+
+**Test Reports:**
+
+- Test reports saved to `agents/test-reports/TEST-xxx.json`
+- Error analysis saved to `agents/error-reports/ERROR-xxx.md`
+- Screenshots saved to `agents/screenshots/`
+
+**Quick Start with Agents:**
+
+1. Start dev server: `npm run dev`
+2. Run tests: `npm run test:quick`
+3. Review reports in `agents/` directory
+4. Fix issues and re-run tests
+
+For detailed usage, see `agents/README.md` and `agents/QUICKSTART.md`
+
 ## Development Guidelines
 
 **Code-Documentation Sync:**
