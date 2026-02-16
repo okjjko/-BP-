@@ -126,10 +126,25 @@
         </button>
       </form>
 
-      <div class="mt-8 text-center" role="note">
+      <!-- 植物管理按钮 -->
+      <div class="mt-6 mb-6 flex justify-center">
+        <button
+          type="button"
+          @click="showPlantManager = true"
+          class="px-6 py-2.5 bg-purple-600/80 hover:bg-purple-500 text-white font-semibold rounded-lg transition-all duration-300 border border-purple-400/50 hover:border-purple-300 shadow-lg hover:shadow-purple-500/20 flex items-center gap-2"
+        >
+          <span>🌱</span>
+          <span>植物管理</span>
+        </button>
+      </div>
+
+      <div class="text-center" role="note">
         <p class="text-xs text-gray-500 font-mono tracking-widest">本系统由@okjjko制作，GitHub仓库地址：https://github.com/okjjko/-BP-/tree/master</p>
       </div>
     </div>
+
+    <!-- 植物管理模态框 -->
+    <PlantManager v-model:show="showPlantManager" />
   </div>
 </template>
 
@@ -138,6 +153,7 @@ import { ref, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import { getPlantById, PLANTS } from '@/data/plants'
 import { getPlantImage, getPlantName } from '@/data/customPlants'
+import PlantManager from '@/components/PlantManager/index.vue'
 
 const store = useGameStore()
 
@@ -147,6 +163,7 @@ const globalBans = ref([])
 const firstPlayer = ref('player1') // 记录谁先输入ID
 const player1Road = ref(null)
 const player2Road = ref(null)
+const showPlantManager = ref(false) // 植物管理模态框状态
 
 const startGame = () => {
   if (!player1Name.value || !player2Name.value) {
