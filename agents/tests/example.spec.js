@@ -6,9 +6,10 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { selectLocalMode, initGame } from '../helpers/test-helpers.js';
 
 // 测试配置
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('游戏初始化测试', () => {
   test.beforeEach(async ({ page }) => {
@@ -16,18 +17,20 @@ test.describe('游戏初始化测试', () => {
     // 清空localStorage
     await page.evaluate(() => localStorage.clear());
     await page.reload();
+    // 选择本地对战模式
+    await selectLocalMode(page);
   });
 
   test('应该能够输入两个玩家ID', async ({ page }) => {
     // 输入玩家1的ID
-    await page.fill('#player1-id', '玩家A');
+    await page.fill('#player1-input', '玩家A');
 
     // 输入玩家2的ID
-    await page.fill('#player2-id', '玩家B');
+    await page.fill('#player2-input', '玩家B');
 
     // 验证输入成功
-    const player1Value = await page.inputValue('#player1-id');
-    const player2Value = await page.inputValue('#player2-id');
+    const player1Value = await page.inputValue('#player1-input');
+    const player2Value = await page.inputValue('#player2-input');
 
     expect(player1Value).toBe('玩家A');
     expect(player2Value).toBe('玩家B');
@@ -35,14 +38,14 @@ test.describe('游戏初始化测试', () => {
 
   test('道路选择应该互斥', async ({ page }) => {
     // 玩家1选择2路
-    await page.click('button[data-player="player1"][data-road="2"]');
+    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    await road2Buttons[0].click();
 
     // 等待状态更新
     await page.waitForTimeout(100);
 
     // 检查玩家2的2路按钮是否禁用
-    const player2Road2Button = page.locator('button[data-player="player2"][data-road="2"]');
-    await expect(player2Road2Button).toBeDisabled();
+    await expect(road2Buttons[1]).toBeDisabled();
 
     // 截图
     await page.screenshot({ path: 'agents/screenshots/road-selection-mutex.png' });
@@ -50,33 +53,35 @@ test.describe('游戏初始化测试', () => {
 
   test('应该能够切换道路选择', async ({ page }) => {
     // 玩家1选择2路
-    await page.click('button[data-player="player1"][data-road="2"]');
+    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    await road2Buttons[0].click();
     await page.waitForTimeout(100);
 
     // 玩家1再次点击2路，应该取消选择
-    await page.click('button[data-player="player1"][data-road="2"]');
+    await road2Buttons[0].click();
     await page.waitForTimeout(100);
 
     // 验证2路按钮不再被选中
-    const isSelected = await page.locator('button[data-player="player1"][data-road="2"]')
-      .getAttribute('class');
-    expect(isSelected).not.toContain('bg-plant-green');
+    const isSelected = await road2Buttons[0].getAttribute('class');
+    expect(isSelected).not.toContain('bg-pick-blue');
   });
 
   test('选择道路后应该能够开始游戏', async ({ page }) => {
     // 输入玩家ID
-    await page.fill('#player1-id', '玩家A');
-    await page.fill('#player2-id', '玩家B');
+    await page.fill('#player1-input', '玩家A');
+    await page.fill('#player2-input', '玩家B');
 
     // 选择道路
-    await page.click('button[data-player="player1"][data-road="2"]');
-    await page.click('button[data-player="player2"][data-road="4"]');
+    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road4Buttons = await page.locator('button:has-text("4路")').all();
+    await road2Buttons[0].click();
+    await road4Buttons[1].click();
 
-    // 点击开始游戏
-    await page.click('button:has-text("开始游戏")');
+    // 点击开始对战
+    await page.click('button[type="submit"]:has-text("开始对战")');
 
     // 等待页面跳转
-    await page.waitForURL('**/game');
+    await page.waitForTimeout(1000);
 
     // 验证进入游戏页面
     await expect(page.locator('.stage-indicator')).toBeVisible();
@@ -86,16 +91,13 @@ test.describe('游戏初始化测试', () => {
 test.describe('BP流程测试', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL);
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-
-    // 快速初始化游戏
-    await page.fill('#player1-id', '玩家A');
-    await page.fill('#player2-id', '玩家B');
-    await page.click('button[data-player="player1"][data-road="2"]');
-    await page.click('button[data-player="player2"][data-road="4"]');
-    await page.click('button:has-text("开始游戏")');
-    await page.waitForURL('**/game');
+    // 使用辅助函数快速初始化游戏
+    await initGame(page, {
+      player1: '玩家A',
+      player2: '玩家B',
+      player1Road: 2,
+      player2Road: 4
+    });
   });
 
   test('Stage 1应该从二路选手开始禁用', async ({ page }) => {
@@ -142,13 +144,8 @@ test.describe('BP流程测试', () => {
 
 test.describe('状态持久化测试', () => {
   test('刷新页面后应该恢复状态', async ({ page }) => {
-    // 初始化游戏
-    await page.fill('#player1-id', '玩家A');
-    await page.fill('#player2-id', '玩家B');
-    await page.click('button[data-player="player1"][data-road="2"]');
-    await page.click('button[data-player="player2"][data-road="4"]');
-    await page.click('button:has-text("开始游戏")');
-    await page.waitForURL('**/game');
+    // 使用辅助函数初始化游戏
+    await initGame(page);
 
     // 执行一些BP操作
     await page.click('.plant-selector .plant-card:first-child');
@@ -167,6 +164,7 @@ test.describe('状态持久化测试', () => {
 test.describe('自定义植物管理测试', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL);
+    await selectLocalMode(page);
   });
 
   test('应该能够打开植物管理界面', async ({ page }) => {
@@ -211,10 +209,12 @@ test.describe('错误捕获测试', () => {
     });
 
     await page.goto(BASE_URL);
+    await selectLocalMode(page);
 
     // 执行一些操作
-    await page.fill('#player1-id', '玩家A');
-    await page.click('button[data-player="player1"][data-road="2"]');
+    await page.fill('#player1-input', '玩家A');
+    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    await road2Buttons[0].click();
 
     // 等待一下，让JavaScript错误有机会发生
     await page.waitForTimeout(1000);

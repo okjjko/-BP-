@@ -10,8 +10,9 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { selectLocalMode, initGame } from '../helpers/test-helpers.js';
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = 'http://localhost:3000';
 
 // 内置植物列表（从plants.js提取）
 const BUILT_IN_PLANTS = [
@@ -39,32 +40,16 @@ const BUILT_IN_PLANTS = [
 ];
 
 test.describe('植物显示测试 - 游戏初始化', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto(BASE_URL);
-    await page.waitForLoadState('networkidle');
-  });
-
   test('应该能够启动游戏并进入BP阶段', async ({ page }) => {
-    // 输入玩家名称并选择道路
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
+    await page.goto(BASE_URL);
 
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
+    // 使用辅助函数初始化游戏
+    await initGame(page);
 
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    // 点击开始对战
-    await page.click('button[type="submit"]:has-text("开始对战")');
-    await page.waitForTimeout(2000);
-
-    // 验证进入BP阶段
-    const stageText = await page.textContent('.stage-indicator, .current-stage');
+    // 验证进入BP阶段 - 使用正确的选择器
+    const stageIndicator = page.locator('[role="region"][aria-label="当前游戏阶段"]');
+    await expect(stageIndicator).toBeVisible();
+    const stageText = await stageIndicator.textContent();
     expect(stageText).toBeTruthy();
 
     await page.screenshot({ path: 'agents/screenshots/plant-display-01-game-started.png' });
@@ -74,28 +59,13 @@ test.describe('植物显示测试 - 游戏初始化', () => {
 test.describe('植物显示测试 - 禁用阶段', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL);
-
-    // 快速初始化游戏
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
-
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
-
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    await page.click('button[type="submit"]:has-text("开始对战")');
-    await page.waitForTimeout(2000);
+    // 使用辅助函数快速初始化游戏
+    await initGame(page);
   });
 
   test('植物选择器应该显示所有内置植物', async ({ page }) => {
     // 查找所有植物卡片
-    const plantCards = await page.locator('button[role="listbox"] button, .plant-selector button').all();
+    const plantCards = await page.locator('div[role="listbox"] button').all();
 
     // 验证至少有40个植物（内置25+自定义可能有）
     expect(plantCards.length).toBeGreaterThanOrEqual(25);
@@ -142,7 +112,7 @@ test.describe('植物显示测试 - 禁用阶段', () => {
 
   test('悬停时应该显示植物名字', async ({ page }) => {
     // 获取第一个植物卡片
-    const firstPlant = page.locator('button[role="listbox"] button, .plant-selector button').first();
+    const firstPlant = page.locator('div[role="listbox"] button').first();
 
     // 悬停在植物卡片上
     await firstPlant.hover();
@@ -162,7 +132,7 @@ test.describe('植物显示测试 - 禁用阶段', () => {
 
   test('选中植物后应该在预览区显示名字和图片', async ({ page }) => {
     // 点击第一个植物
-    const firstPlant = page.locator('button[role="listbox"] button, .plant-selector button').first();
+    const firstPlant = page.locator('div[role="listbox"] button').first();
     await firstPlant.click();
     await page.waitForTimeout(500);
 
@@ -194,23 +164,8 @@ test.describe('植物显示测试 - 禁用阶段', () => {
 test.describe('植物显示测试 - 全局禁用区域', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL);
-
-    // 初始化游戏
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
-
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
-
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    await page.click('button[type="submit"]:has-text("开始对战")');
-    await page.waitForTimeout(2000);
+    // 使用辅助函数快速初始化游戏
+    await initGame(page);
   });
 
   test('全局禁用区域应该显示5个植物', async ({ page }) => {
@@ -269,25 +224,12 @@ test.describe('植物显示测试 - 自定义植物', () => {
 
     await page.goto(BASE_URL);
 
-    // 快速进入游戏
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
-
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
-
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    await page.click('button[type="submit"]:has-text("开始对战")');
+    // 使用辅助函数快速初始化游戏
+    await initGame(page);
     await page.waitForTimeout(2000);
 
     // 获取所有植物卡片
-    const allPlants = await page.locator('button[role="listbox"] button, .plant-selector button').all();
+    const allPlants = await page.locator('div[role="listbox"] button').all();
 
     // 检查是否有超过25个植物（说明有自定义植物）
     if (allPlants.length > 25) {
@@ -311,25 +253,11 @@ test.describe('植物显示测试 - 已使用植物区域', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL);
 
-    // 初始化游戏
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
-
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
-
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    await page.click('button[type="submit"]:has-text("开始对战")');
-    await page.waitForTimeout(2000);
+    // 使用辅助函数初始化游戏
+    await initGame(page);
 
     // 选择一个植物，使其显示在已使用区域
-    const firstPlant = page.locator('button[role="listbox"] button, .plant-selector button').first();
+    const firstPlant = page.locator('div[role="listbox"] button').first();
     await firstPlant.click();
     await page.waitForTimeout(500);
 
@@ -375,25 +303,11 @@ test.describe('植物显示测试 - 禁用植物区域', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL);
 
-    // 初始化游戏
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
-
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
-
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    await page.click('button[type="submit"]:has-text("开始对战")');
-    await page.waitForTimeout(2000);
+    // 使用辅助函数初始化游戏
+    await initGame(page);
 
     // 禁用一个植物
-    const firstPlant = page.locator('button[role="listbox"] button, .plant-selector button').first();
+    const firstPlant = page.locator('div[role="listbox"] button').first();
     await firstPlant.click();
     await page.waitForTimeout(500);
 
@@ -434,22 +348,8 @@ test.describe('植物显示测试 - 图片质量', () => {
   test('所有植物图片都应该有alt属性', async ({ page }) => {
     await page.goto(BASE_URL);
 
-    // 初始化游戏
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
-
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
-
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    await page.click('button[type="submit"]:has-text("开始对战")');
-    await page.waitForTimeout(2000);
+    // 使用辅助函数初始化游戏
+    await initGame(page);
 
     // 获取所有植物图片
     const allImages = await page.locator('img').all();
@@ -479,25 +379,11 @@ test.describe('植物显示测试 - 图片质量', () => {
   test('植物图片URL应该是有效的', async ({ page }) => {
     await page.goto(BASE_URL);
 
-    // 初始化游戏
-    await page.fill('#player1-input', '玩家A');
-    await page.waitForTimeout(500);
-    await page.fill('#player2-input', '玩家B');
-    await page.waitForTimeout(500);
-
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    await road2Buttons[0].click();
-    await page.waitForTimeout(200);
-
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
-    await road4Buttons[1].click();
-    await page.waitForTimeout(200);
-
-    await page.click('button[type="submit"]:has-text("开始对战")');
-    await page.waitForTimeout(2000);
+    // 使用辅助函数初始化游戏
+    await initGame(page);
 
     // 获取前10个植物图片
-    const plantImages = page.locator('button[role="listbox"] button img, .plant-selector img').first();
+    const plantImages = page.locator('div[role="listbox"] button img').first();
 
     const imgSrc = await plantImages.getAttribute('src');
     expect(imgSrc).toBeTruthy();

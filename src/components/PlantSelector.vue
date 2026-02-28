@@ -12,11 +12,11 @@
         @keydown.enter="confirmSelection"
         :disabled="!hasSelectedPlant || !hasBPPermission"
         class="px-8 py-2 rounded-lg font-bold text-lg transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2"
-        :class="isBan 
-          ? 'bg-ban-red hover:bg-ban-red-neon text-white disabled:bg-gray-700 disabled:text-gray-500 hover:shadow-red-500/30' 
+        :class="isBan
+          ? 'bg-ban-red hover:bg-ban-red-neon text-white disabled:bg-gray-700 disabled:text-gray-500 hover:shadow-red-500/30'
           : 'bg-pick-blue hover:bg-pick-blue-neon text-white disabled:bg-gray-700 disabled:text-gray-500 hover:shadow-blue-500/30'"
       >
-        <span>确认{{ isBan ? '禁用' : '选择' }}</span>
+        <span>{{ turnText || (isBan ? '确认禁用' : '确认选择') }}</span>
         <span v-if="selectedPlantInfo" class="text-xs opacity-80 px-1 py-0.5 bg-black/20 rounded ml-1">{{ selectedPlantInfo.name }}</span>
       </button>
     </div>
@@ -95,8 +95,24 @@ import { canBan, canPick } from '@/utils/validators'
 
 const store = useGameStore()
 
-// 本地工具始终允许进行BP操作
-const hasBPPermission = computed(() => true)
+// BP 权限检查：观众只读，多人模式下检查回合制权限
+const hasBPPermission = computed(() => {
+  // 观众：不能操作
+  if (store.isViewOnly) return false
+
+  // 本地模式：可以操作
+  if (store.roomMode === 'local') return true
+
+  // 多人模式：检查是否为当前回合
+  return store.isMyTurn
+})
+
+// 回合提示文本
+const turnText = computed(() => {
+  if (store.roomMode === 'local') return ''
+  if (store.isMyTurn) return '确认' + (isBan.value ? '禁用' : '选择')
+  return store.myTurnDescription
+})
 
 const isBan = computed(() => store.currentRound?.action === 'ban')
 const currentPlayer = computed(() => store.currentRound?.currentPlayer)

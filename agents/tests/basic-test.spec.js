@@ -4,17 +4,32 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { selectLocalMode } from '../helpers/test-helpers.js';
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = 'http://localhost:3000';
 
 test.describe('基础功能测试', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL);
     // 等待页面加载完成
     await page.waitForLoadState('networkidle');
+    // 选择本地对战模式
+    await selectLocalMode(page);
   });
 
   test('页面应该能够正常加载', async ({ page }) => {
+    // 重新加载页面以测试RoomSetup
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+
+    // 检查RoomSetup显示
+    const modeSelection = await page.locator('.mode-selection');
+    await expect(modeSelection).toBeVisible();
+
+    // 选择本地对战
+    await page.click('button:has-text("🏠 本地对战")');
+    await page.waitForSelector('#player1-input', { timeout: 3000 });
+
     // 检查标题
     const title = await page.textContent('h1');
     expect(title).toContain('PvZ B/P 对战');

@@ -198,6 +198,11 @@ const setWinner = (winner) => {
 // 取消完成小分，返回站位阶段
 const cancelFinishRound = () => {
   store.gameStatus = 'positioning'
+
+  // 同步状态到其他客户端
+  if (store.roomMode !== 'local') {
+    store.syncState()
+  }
 }
 
 // 切换败者的道路选择（取消/选择）
@@ -231,6 +236,11 @@ const confirmRoadSelection = () => {
   const nextRound = currentRound.value + 1
   store.startRound(nextRound)
   store.saveToLocalStorage()
+
+  // 同步状态到其他客户端
+  if (store.roomMode !== 'local') {
+    store.syncState()
+  }
 }
 
 const goToNextRound = () => {
@@ -238,6 +248,11 @@ const goToNextRound = () => {
   const nextRound = currentRound.value + 1
   store.startRound(nextRound)
   store.saveToLocalStorage()
+
+  // 同步状态到其他客户端
+  if (store.roomMode !== 'local') {
+    store.syncState()
+  }
 }
 
 const resetGame = () => {

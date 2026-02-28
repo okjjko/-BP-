@@ -1,8 +1,16 @@
 import { defineStore } from 'pinia'
+import { nextTick } from 'vue'
 import { PLANTS } from '@/data/plants'
 import { getAllPlantsSync } from '@/data/customPlants'
 import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
 import { canBan, canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
+import roomManager from '@/utils/roomManager'
+
+// 暴露到 window 以便调试
+if (typeof window !== 'undefined') {
+  window.$roomManager = roomManager
+  console.log('[DEBUG] roomManager 已暴露到 window.$roomManager')
+}
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -21,6 +29,26 @@ export const useGameStore = defineStore('game', {
 
     // 先输入ID的选手
     firstPlayer: null,
+
+    // 多人房间模式
+    roomMode: 'local', // 'local' | 'host' | 'player' | 'spectator'
+    inviteCode: null, // 邀请码
+    myRole: null, // 'host' | 'player' | 'spectator'
+    connectionStatus: 'disconnected', // 'disconnected' | 'connected' | 'connecting'
+    connectedUsers: [], // 已连接的用户列表
+    stateVersion: 0, // 状态版本号（用于冲突解决）
+    lastSyncTime: null, // 最后同步时间
+    isViewOnly: false, // 是否为只读模式（观众）
+    isSyncing: false, // 是否正在同步状态
+    syncError: null, // 同步错误信息
+    lastSyncVersion: 0, // 最后同步的版本号
+    _plantCacheVersion: 0, // 植物缓存版本号（用于强制触发更新）
+    _isSyncing: false, // 是否已设置事件监听器（防止重复设置）
+
+    // 选手身份绑定（用于回合制权限控制）
+    myPlayerId: null, // 'player1' | 'player2' （在多人模式下）
+    myPlayerName: '', // 选手ID/昵称
+    myAssignedPlayer: null, // 分配的实际player标识（与BP回合绑定，值为 'player1' 或 'player2'）
 
     // 当前局状态
     currentRound: {
@@ -97,6 +125,9 @@ export const useGameStore = defineStore('game', {
      * 进一步改进：禁用阶段显示所有未被禁用的植物（包括对手已选的）
      */
     availablePlants: (state) => {
+      // 触发响应式更新：当自定义植物同步时，_plantCacheVersion 会变化
+      const _cacheVersion = state._plantCacheVersion
+
       const { currentRound, globalBans, plantUsage, pumpkinUsage } = state
       const { bans, picks, currentPlayer, action } = currentRound
 
@@ -169,6 +200,46 @@ export const useGameStore = defineStore('game', {
      */
     isPumpkinPlant: (state) => (plantId) => {
       return isPumpkin(plantId, getAllPlantsSync())
+    },
+
+    /**
+     * 判断是否为当前用户的回合（用于回合制权限控制）
+     */
+    isMyTurn: (state) => {
+      // 本地模式：总是可以操作
+      if (state.roomMode === 'local') return true
+
+      // 观众：不能操作
+      if (state.isViewOnly) return false
+
+      // 主办方：可以操作（用于测试或特殊情况）
+      if (state.myRole === 'host') return true
+
+      // 选手：检查是否为当前回合
+      if (!state.currentRound?.currentPlayer) return false
+      if (!state.myAssignedPlayer) return false
+
+      return state.currentRound.currentPlayer === state.myAssignedPlayer
+    },
+
+    /**
+     * 获取当前用户的操作权限描述
+     */
+    myTurnDescription: (state) => {
+      if (state.roomMode === 'local') return ''
+      if (state.isViewOnly) return '观众模式'
+      if (state.myRole === 'host') return '主办方'
+
+      const currentPlayer = state.currentRound?.currentPlayer
+      if (!currentPlayer) return '等待开始'
+
+      if (state.isMyTurn) {
+        const playerLabel = currentPlayer === 'player1' ? '选手1' : '选手2'
+        return `当前回合：${playerLabel}`
+      } else {
+        const playerLabel = currentPlayer === 'player1' ? '选手1' : '选手2'
+        return `对方回合：${playerLabel}`
+      }
     }
   },
 
@@ -220,14 +291,44 @@ export const useGameStore = defineStore('game', {
       this.player2.road = player2Road || null
       this.firstPlayer = firstPlayer
 
-      // 随机禁用5个植物
-      this.randomBanPlants()
+      // 随机禁用5个植物（只有主办方或本地模式生成，选手端等待同步）
+      if (this.roomMode === 'local' || this.roomMode === 'host') {
+        this.randomBanPlants()
+      } else {
+        // 选手端：清空禁用列表，等待接收主办方的状态
+        this.globalBans = []
+      }
 
       // 初始化使用记录
       this.plantUsage = {}
 
+      // 自动分配选手身份（多人模式）
+      if (this.roomMode !== 'local' && this.myRole === 'player') {
+        // 根据输入的ID匹配player1/player2
+        if (this.myPlayerName === player1Id) {
+          this.myAssignedPlayer = 'player1'
+          console.log('[initGame] 自动分配为 player1')
+        } else if (this.myPlayerName === player2Id) {
+          this.myAssignedPlayer = 'player2'
+          console.log('[initGame] 自动分配为 player2')
+        } else {
+          console.warn('[initGame] 无法自动分配身份，ID不匹配:', this.myPlayerName, player1Id, player2Id)
+        }
+      }
+
+      // 主办方通知选手身份分配
+      if (this.roomMode === 'host') {
+        this.assignPlayerIdentity(player1Id, 'player1')
+        this.assignPlayerIdentity(player2Id, 'player2')
+      }
+
       // 开始第一局
       this.startRound(1)
+
+      // 同步初始状态到所有客户端（多人模式）
+      if (this.roomMode !== 'local') {
+        this.syncState()
+      }
 
       // 保存到localStorage
       this.saveToLocalStorage()
@@ -322,6 +423,12 @@ export const useGameStore = defineStore('game', {
      * 确认选择（ban或pick）
      */
     confirmSelection() {
+      // 回合制权限检查
+      if (!this.isMyTurn) {
+        alert(this.myTurnDescription || '现在不是你的回合！')
+        return
+      }
+
       if (!this.currentRound.selectedPlant) {
         alert('请先选择一个植物')
         return
@@ -337,6 +444,7 @@ export const useGameStore = defineStore('game', {
         this.currentRound.selectedPlant = null
         this.moveToNextStep()
         this.saveToLocalStorage()
+        this.syncState() // 同步状态到其他客户端
         return
       }
 
@@ -368,6 +476,7 @@ export const useGameStore = defineStore('game', {
 
           this.currentRound.selectedPlant = null
           this.saveToLocalStorage()
+          this.syncState() // 同步状态到其他客户端
           console.log('🎃 南瓜头已选择！记录使用次数:', this.pumpkinUsage[player])
           console.log('📍 [调试] 南瓜头信息:', {
             player,
@@ -446,6 +555,7 @@ export const useGameStore = defineStore('game', {
 
           this.currentRound.selectedPlant = null
           this.saveToLocalStorage()
+          this.syncState() // 同步状态到其他客户端
           console.log('🛡️ 南瓜保护已激活！')
           return
         } else {
@@ -456,6 +566,7 @@ export const useGameStore = defineStore('game', {
         this.currentRound.selectedPlant = null
         this.moveToNextStep()
         this.saveToLocalStorage()
+        this.syncState() // 同步状态到其他客户端
       }
     },
 
@@ -530,6 +641,11 @@ export const useGameStore = defineStore('game', {
       this.roundWinner = null
       // 标记为对局完成（需要败者选路）
       this.currentRound.isRoundComplete = true
+
+      // 同步状态到其他客户端
+      if (this.roomMode !== 'local') {
+        this.syncState()
+      }
     },
 
     /**
@@ -557,6 +673,11 @@ export const useGameStore = defineStore('game', {
         this.gameStatus = 'finished'
         this.saveToLocalStorage()
       }
+
+      // 同步状态到其他客户端
+      if (this.roomMode !== 'local') {
+        this.syncState()
+      }
     },
 
     /**
@@ -573,6 +694,11 @@ export const useGameStore = defineStore('game', {
       const nextRound = this.currentRound.roundNumber + 1
       this.startRound(nextRound)
       this.saveToLocalStorage()
+
+      // 同步状态到其他客户端
+      if (this.roomMode !== 'local') {
+        this.syncState()
+      }
     },
 
     /**
@@ -747,6 +873,324 @@ export const useGameStore = defineStore('game', {
           // 可选：自动移除南瓜头或保留标记
         }
       })
+    },
+
+    // ==================== 多人房间相关方法 ====================
+
+    /**
+     * 设置用户身份（用于回合制权限控制）
+     * @param {string} role - 'host' | 'player' | 'spectator'
+     * @param {string} playerName - 选手ID/昵称（选手必须提供）
+     */
+    setMyIdentity(role, playerName) {
+      this.myRole = role
+      this.myPlayerName = playerName || ''
+
+      // 主办方设置
+      if (role === 'host') {
+        this.myPlayerId = 'host'
+        return
+      }
+
+      // 选手/观众：等待主办方分配player1/player2身份
+      // 这将在initGame或游戏开始时根据输入的ID匹配
+      this.myPlayerId = null
+      this.myAssignedPlayer = null
+    },
+
+    /**
+     * 根据选手ID分配player1/player2身份（主办方调用）
+     * @param {string} playerName - 选手输入的ID
+     * @param {string} playerNumber - 'player1' | 'player2'
+     */
+    assignPlayerIdentity(playerName, playerNumber) {
+      if (playerNumber !== 'player1' && playerNumber !== 'player2') {
+        console.error('[assignPlayerIdentity] 无效的player编号:', playerNumber)
+        return
+      }
+
+      // 如果当前用户是主办方，分配给连接的选手
+      if (this.roomMode === 'host') {
+        // 找到对应的连接并发送身份分配消息
+        const connections = roomManager.connections
+        connections.forEach((conn, peerId) => {
+          if (conn.metadata?.playerName === playerName && conn.open) {
+            conn.send({
+              type: 'identityAssigned',
+              playerNumber,
+              playerName
+            })
+            console.log(`[assignPlayerIdentity] 分配 ${playerName} 为 ${playerNumber}`)
+          }
+        })
+      }
+    },
+
+    /**
+     * 接收身份分配（选手/观众接收后调用）
+     * @param {string} playerNumber - 'player1' | 'player2'
+     */
+    receiveIdentityAssignment(playerNumber) {
+      this.myAssignedPlayer = playerNumber
+      console.log(`[receiveIdentityAssignment] 被分配为 ${playerNumber}`)
+    },
+
+    /**
+     * 设置房间模式
+     * @param {string} mode - 'local' | 'host' | 'player' | 'spectator'
+     * @param {string} inviteCode - 邀请码（可选）
+     */
+    setRoomMode(mode, inviteCode = null) {
+      this.roomMode = mode
+      this.inviteCode = inviteCode
+      // myRole 应该由 setMyIdentity() 设置，而不是在这里设置
+      // 这行代码会导致多人模式下 myRole='multiplayer' 而不是 'host' 或 'player'
+      // this.myRole = mode === 'local' ? null : mode
+      this.isViewOnly = mode === 'spectator'
+
+      if (mode === 'local') {
+        this.connectionStatus = 'disconnected'
+      }
+    },
+
+    /**
+     * 开始状态同步（在加入房间后调用）
+     */
+    startStateSync() {
+      if (this.roomMode === 'local') {
+        return // 本地模式不需要监听同步
+      }
+
+      // 暴露到 window 以便调试
+      if (typeof window !== 'undefined') {
+        window.$debugStore = this
+        console.log('[DEBUG] gameStore 已暴露到 window.$debugStore')
+        console.log('[DEBUG] roomManager 已暴露到 window.$roomManager')
+        console.log('[DEBUG] 当前状态:', {
+          roomMode: this.roomMode,
+          myRole: this.myRole,
+          stateVersion: this.stateVersion,
+          _isSyncing: this._isSyncing
+        })
+      }
+
+      // 避免重复设置监听器
+      if (this._isSyncing) {
+        console.log('[gameStore] 状态同步已在运行，跳过重复设置')
+        return
+      }
+
+      this._isSyncing = true
+      console.log('[gameStore] 开始状态同步, 角色:', this.myRole)
+
+      // 选手、观众、主办方都需要监听状态更新
+      // 主办方监听是为了在选手操作后看到界面变化
+      roomManager.on('stateUpdate', this.handleStateUpdate)
+
+      // 监听自定义植物同步
+      roomManager.on('customPlants', this.handleCustomPlantsSync)
+
+      // 监听身份分配（选手需要接收此消息）
+      roomManager.on('identityAssigned', (data) => {
+        console.log('[gameStore] 收到身份分配消息:', data)
+        if (data.playerName === this.myPlayerName) {
+          this.receiveIdentityAssignment(data.playerNumber)
+        }
+      })
+    },
+
+    /**
+     * 停止状态同步
+     */
+    stopStateSync() {
+      roomManager.off('stateUpdate', this.handleStateUpdate)
+      roomManager.off('customPlants', this.handleCustomPlantsSync)
+      this._isSyncing = false // 重置监听器标志
+      // 注意：identityAssigned 的匿名函数监听器无法移除，但影响不大
+    },
+
+    /**
+     * 处理状态更新（接收）
+     * @param {Object} message - 状态更新消息
+     */
+    handleStateUpdate(message) {
+      try {
+        const { senderId, senderRole, timestamp, version, gameState } = message
+
+        console.log(`[gameStore] 收到状态更新 v${version}，来自 ${senderRole}`)
+
+        // 版本号检查：拒绝旧版本
+        if (version <= this.stateVersion) {
+          console.log('[gameStore] 拒绝旧版本状态')
+          return
+        }
+
+        // 开始同步
+        this.isSyncing = true
+        this.syncError = null
+
+        // 接受更新
+        this.stateVersion = version
+        this.lastSyncTime = timestamp
+        this.lastSyncVersion = version
+
+        // 使用对象替换确保 Vue 响应式系统能检测到变化
+        // （避免使用 $patch，因为它可能无法检测深层对象的变化）
+        this.player1 = { ...gameState.player1 }
+        this.player2 = { ...gameState.player2 }
+        this.firstPlayer = gameState.firstPlayer
+        this.currentRound = { ...gameState.currentRound }
+        this.globalBans = [...gameState.globalBans]
+        this.plantUsage = { ...gameState.plantUsage }
+        this.pumpkinUsage = { ...gameState.pumpkinUsage }
+        this.gameStatus = gameState.gameStatus
+        this.roundWinner = gameState.roundWinner
+
+        // 重置同步状态
+        nextTick(() => {
+          this.isSyncing = false
+        })
+
+        // 主办方收到选手操作后立即转发给其他所有连接
+        if (this.myRole === 'host' && senderRole !== 'host') {
+          console.log(`[gameStore] 准备转发状态 - myRole: ${this.myRole}, senderRole: ${senderRole}, senderId: ${senderId}`)
+          // 使用 nextTick 确保 DOM 更新后再转发
+          nextTick(() => {
+            console.log(`[gameStore] 执行转发状态 v${version}，排除 ${senderId}`)
+            roomManager.broadcastToOthers(gameState, version, senderId)
+          })
+        } else {
+          console.log(`[gameStore] 不转发状态 - myRole: ${this.myRole}, senderRole: ${senderRole}`)
+        }
+      } catch (error) {
+        console.error('[gameStore] 状态更新失败:', error)
+        this.syncError = error.message
+        this.isSyncing = false
+      }
+    },
+
+    /**
+     * 同步状态到其他客户端（发送）
+     * 在重要操作后调用
+     */
+    syncState() {
+      if (this.roomMode === 'local') {
+        return // 本地模式不需要同步
+      }
+
+      // 增加版本号
+      this.stateVersion++
+
+      const gameState = {
+        player1: this.player1,
+        player2: this.player2,
+        firstPlayer: this.firstPlayer,
+        currentRound: this.currentRound,
+        globalBans: this.globalBans,
+        plantUsage: this.plantUsage,
+        pumpkinUsage: this.pumpkinUsage,
+        gameStatus: this.gameStatus,
+        roundWinner: this.roundWinner
+      }
+
+      if (this.roomMode === 'host') {
+        // 主办方广播到所有连接
+        roomManager.broadcastState(gameState, this.stateVersion)
+      } else {
+        // 选手/观众发送到主办方
+        roomManager.sendStateUpdate(gameState, this.stateVersion)
+      }
+
+      console.log(`[gameStore] 已同步状态 v${this.stateVersion}`)
+    },
+
+    /**
+     * 处理自定义植物同步
+     * @param {Object} message - 自定义植物消息
+     */
+    async handleCustomPlantsSync(message) {
+      const { plants } = message
+
+      console.log(`[gameStore] 收到 ${plants.length} 个自定义植物`)
+
+      try {
+        // 导入自定义植物管理模块
+        const { addCustomPlant, clearCustomPlants, updateCache } = await import('@/data/customPlants')
+
+        // 1. 清空现有自定义植物
+        await clearCustomPlants()
+
+        // 2. 添加收到的自定义植物
+        for (const plant of plants) {
+          await addCustomPlant(plant)
+        }
+
+        // 3. 更新内存缓存（关键：触发响应式更新）
+        await updateCache()
+
+        // 4. 强制触发依赖植物列表的 computed 更新
+        this._plantCacheVersion = Date.now()
+
+        console.log('[gameStore] 自定义植物同步完成（无刷新）')
+      } catch (error) {
+        console.error('[gameStore] 同步自定义植物失败:', error)
+        this.syncError = '植物同步失败: ' + error.message
+      }
+    },
+
+    /**
+     * 导出比赛历史
+     */
+    async exportMatchHistory() {
+      const history = {
+        version: '1.0.0',
+        exportTime: new Date().toISOString(),
+        roomId: this.inviteCode,
+        mode: this.roomMode,
+        players: {
+          player1: { ...this.player1 },
+          player2: { ...this.player2 }
+        },
+        globalBans: this.globalBans,
+        plantUsage: this.plantUsage,
+        pumpkinUsage: this.pumpkinUsage,
+        currentRound: this.currentRound,
+        customPlants: [] // TODO: 添加自定义植物快照
+      }
+
+      // 获取自定义植物
+      try {
+        const customPlants = getAllPlantsSync().filter(p => p.isCustom)
+        history.customPlants = customPlants
+      } catch (error) {
+        console.error('导出自定义植物失败:', error)
+      }
+
+      const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `match-${this.inviteCode || 'local'}-${Date.now()}.json`
+      a.click()
+
+      URL.revokeObjectURL(url)
+    },
+
+    /**
+     * 断开房间连接
+     */
+    disconnectRoom() {
+      this.stopStateSync()
+      roomManager.disconnect()
+
+      // 重置房间状态
+      this.roomMode = 'local'
+      this.inviteCode = null
+      this.myRole = null
+      this.connectionStatus = 'disconnected'
+      this.connectedUsers = []
+      this.isViewOnly = false
     }
   }
 })

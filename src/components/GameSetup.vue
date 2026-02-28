@@ -1,6 +1,15 @@
 <template>
   <div class="min-h-screen flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl p-8 max-w-lg w-full relative overflow-hidden animate-slide-up">
+
+    <!-- 房间设置界面 -->
+    <RoomSetup
+      v-if="showRoomSetup"
+      @startGame="handleRoomStart"
+      @cancel="handleRoomCancel"
+    />
+
+    <!-- 游戏设置界面 -->
+    <div v-else class="glass-card rounded-2xl p-8 max-w-lg w-full relative overflow-hidden animate-slide-up">
       <!-- 装饰背景 -->
       <div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,10 +150,10 @@
       <div class="text-center" role="note">
         <p class="text-xs text-gray-500 font-mono tracking-widest">本系统由@okjjko制作，GitHub仓库地址：https://github.com/okjjko/-BP-/tree/master</p>
       </div>
-    </div>
 
-    <!-- 植物管理模态框 -->
-    <PlantManager v-model:show="showPlantManager" />
+      <!-- 植物管理模态框 -->
+      <PlantManager v-model:show="showPlantManager" />
+    </div>
   </div>
 </template>
 
@@ -154,6 +163,8 @@ import { useGameStore } from '@/store/gameStore'
 import { getPlantById, PLANTS } from '@/data/plants'
 import { getPlantImage, getPlantName } from '@/data/customPlants'
 import PlantManager from '@/components/PlantManager/index.vue'
+import RoomSetup from '@/components/RoomSetup.vue'
+import roomManager from '@/utils/roomManager'
 
 const store = useGameStore()
 
@@ -164,6 +175,74 @@ const firstPlayer = ref('player1') // 记录谁先输入ID
 const player1Road = ref(null)
 const player2Road = ref(null)
 const showPlantManager = ref(false) // 植物管理模态框状态
+const showRoomSetup = ref(true) // 显示房间设置界面
+
+// 处理房间设置开始游戏
+const handleRoomStart = (data) => {
+  showRoomSetup.value = false
+
+  if (data.mode === 'local') {
+    // 本地模式，显示游戏设置界面
+    return
+  }
+
+  // 多人模式，设置房间相关状态
+  store.setRoomMode(data.mode, data.inviteCode)
+
+  // 如果是主办方
+  if (data.role === 'host') {
+    // 获取已连接的选手名字
+    const playerNames = roomManager.getConnectedPlayerNames()
+
+    if (playerNames.length < 2) {
+      alert('需要至少2名选手加入才能开始游戏')
+      showRoomSetup.value = true
+      return
+    }
+
+    // 自动使用已连接选手的ID开始游戏
+    // 第一个连接的是 player1，第二个是 player2
+    player1Name.value = playerNames[0]
+    player2Name.value = playerNames[1]
+
+    // 自动分配道路（第一个选手2路，第二个选手4路）
+    player1Road.value = 2
+    player2Road.value = 4
+
+    // 直接开始游戏，不显示输入界面
+    startGame()
+
+    // 广播游戏开始消息给所有选手
+    roomManager.broadcastGameStart(
+      playerNames[0],  // player1Name
+      playerNames[1],  // player2Name
+      2,              // player1Road
+      4               // player2Road
+    )
+
+  } else {
+    // 选手/观众模式
+    // 检查游戏是否已经开始
+    // ✅ 修复：'idle' 不存在，应该检查 'setup'
+    if (store.gameStatus !== 'setup') {
+      // 游戏已经开始，直接隐藏房间设置界面
+      return
+    }
+    // 游戏未开始，开始状态同步并等待
+    store.startStateSync()
+  }
+}
+
+// 处理房间设置取消
+const handleRoomCancel = () => {
+  showRoomSetup.value = true // 返回到模式选择页面
+  // 清理房间模式状态
+  store.setRoomMode('local', null)
+  store.myRole = null
+  store.myPlayerName = ''
+  store.myPlayerId = null
+  store.myAssignedPlayer = null
+}
 
 const startGame = () => {
   if (!player1Name.value || !player2Name.value) {

@@ -36,6 +36,10 @@ npm run test
 
 # Run tests in headed mode (for debugging)
 npm run test:headed
+
+# Run multiplayer sync tests (多人对战同步测试)
+npm run test:multiplayer           # 无头模式
+npm run test:multiplayer:headed    # 有头模式（可观察浏览器窗口）
 ```
 
 **Agent Architecture:**
@@ -49,6 +53,13 @@ npm run test:headed
 - `agents/tests/basic-test.spec.js` - Game initialization, road selection, validation
 - `agents/tests/plant-display-test.spec.js` - Plant image/name display verification
 - `agents/tests/example.spec.js` - BP flow and state persistence tests
+- `agents/tests/multiplayer-sync-test.spec.js` - **多人对战同步功能自动化测试**
+  - 自动模拟三个浏览器上下文（主办方、选手1、选手2）
+  - 验证 WebRTC 连接建立
+  - 验证身份分配同步
+  - 验证 Ban/Pick 操作实时同步
+  - 收集并分析控制台日志
+  - 自动保存测试截图
 
 **Test Reports:**
 
@@ -62,6 +73,35 @@ npm run test:headed
 2. Run tests: `npm run test:quick`
 3. Review reports in `agents/` directory
 4. Fix issues and re-run tests
+
+**多人对战同步测试:**
+
+项目包含完整的多人对战同步自动化测试，用于验证 WebRTC P2P 连接和实时状态同步功能：
+
+```bash
+# 运行多人对战同步测试（有头模式，推荐）
+npm run test:multiplayer:headed
+
+# 或使用无头模式
+npm run test:multiplayer
+```
+
+测试会自动：
+- 创建三个浏览器上下文（主办方、选手1、选手2）
+- 验证房间创建和加入流程
+- 验证身份分配消息同步
+- 执行 Ban 操作并验证所有客户端状态一致
+- 收集控制台日志验证同步机制
+- 保存关键步骤截图到 `agents/screenshots/multiplayer-sync/`
+
+**测试验证点：**
+- ✅ WebRTC 连接成功建立
+- ✅ 身份分配消息正确发送和接收
+- ✅ 状态同步日志完整（`[gameStore] 收到状态更新 vX`）
+- ✅ UI 实时更新（BanArea、PickArea、StageIndicator）
+- ✅ 同步状态指示器正常工作
+
+详细使用指南请参考 `多人对战同步自动化测试指南.md`
 
 For detailed usage, see `agents/README.md` and `agents/QUICKSTART.md`
 

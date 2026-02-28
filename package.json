@@ -11,9 +11,12 @@
     "test:agents": "node agents/test-coordinator.js --suite all",
     "test:quick": "node agents/test-coordinator.js --suite game-init",
     "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "test:multiplayer": "playwright test agents/tests/multiplayer-sync-test.spec.js",
+    "test:multiplayer:headed": "playwright test agents/tests/multiplayer-sync-test.spec.js --headed"
   },
   "dependencies": {
+    "peerjs": "^1.5.5",
     "pinia": "^2.1.7",
     "vue": "^3.4.0",
     "vuedraggable": "^4.1.0"

@@ -17,7 +17,9 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:3000', // 修改为3000端口
+    actionTimeout: 10000, // 操作超时10秒
+    navigationTimeout: 15000, // 导航超时15秒
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -30,10 +32,13 @@ export default defineConfig({
     },
   ],
 
+  // 全局超时设置
+  timeout: 60000, // 单个测试60秒超时
+
   // 启动开发服务器
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:3000', // 修改为3000端口
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

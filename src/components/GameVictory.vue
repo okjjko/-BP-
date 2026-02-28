@@ -168,6 +168,11 @@ const resetGame = () => {
 // 返回小分结算（用于调试）
 const backToRoundResult = () => {
   store.gameStatus = 'result'
+
+  // 同步状态到其他客户端
+  if (store.roomMode !== 'local') {
+    store.syncState()
+  }
 }
 
 onMounted(() => {
