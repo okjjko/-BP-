@@ -155,20 +155,15 @@ export const useGameStore = defineStore('game', {
         // 2. 对手已选的植物不可选
         if (opponentPicks.includes(plantId)) return false
 
-        // 3. 对手已选南瓜头不可选（新增）
-        if (isPumpkin(plantId, getAllPlantsSync()) && (pumpkinUsage[opponent] || 0) > 0) {
-          return false
-        }
-
-        // 4. 自己本局已选2次的植物不可选
+        // 3. 自己本局已选2次的植物不可选
         const ownPickCount = ownPicks.filter(id => id === plantId).length
         if (ownPickCount >= 2) return false
 
-        // 5. 加上历史使用次数，总使用次数不能超过2次
+        // 4. 加上历史使用次数，总使用次数不能超过2次
         const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
         if (ownPickCount + historicalUsage >= 2) return false
 
-        // 6. 南瓜头特殊检查：自己使用次数不能超过2次（新增）
+        // 5. 南瓜头特殊检查：自己使用次数不能超过2次（新增）
         if (isPumpkin(plantId, getAllPlantsSync())) {
           const ownPumpkinUsage = pumpkinUsage[currentPlayer] || 0
           if (ownPumpkinUsage >= 2) return false

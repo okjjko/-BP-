@@ -43,7 +43,8 @@
               <UsedPlants player="player1" />
 
               <!-- 本局永久禁用植物 -->
-              <div class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)] flex-shrink-0">
+              <!-- 植物数据已就绪：显示植物图片 -->
+              <div v-if="isPlantCacheReady" class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)] flex-shrink-0">
                 <h3 class="text-xs font-bold mb-2 text-center text-ban-red-neon uppercase tracking-wider flex items-center justify-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
                   永久禁用
@@ -65,6 +66,17 @@
                       {{ getPlantName(plantId) }}
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <!-- 植物数据加载中：显示加载提示 -->
+              <div v-else class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)] flex-shrink-0">
+                <div class="flex items-center justify-center gap-2 text-sm text-gray-400">
+                  <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>正在加载植物数据...</span>
                 </div>
               </div>
 
@@ -140,7 +152,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useGameStore } from './store/gameStore'
-import { getPlantImage, getPlantName, initializeCache } from './data/customPlants'
+import { getPlantImage, getPlantName, initializeCache, getPlantByIdSync } from './data/customPlants'
 import GameSetup from './components/GameSetup.vue'
 import PlayerInfo from './components/PlayerInfo.vue'
 import StageIndicator from './components/StageIndicator.vue'
@@ -172,7 +184,38 @@ onMounted(async () => {
 })
 
 const gameStatus = computed(() => store.gameStatus)
-const globalBans = computed(() => store.globalBans)
+
+const globalBans = computed(() => {
+  // 依赖 _plantCacheVersion 以确保缓存更新时重新渲染
+  const _version = store._plantCacheVersion
+
+  const bans = store.globalBans
+
+  // 添加调试日志
+  if (bans.length > 0) {
+    console.log('[App.vue] globalBans computed 更新，版本:', _version, '植物:', bans)
+  }
+
+  return bans
+})
+
+// 检查所有永久禁用植物是否已在缓存中就绪
+const isPlantCacheReady = computed(() => {
+  const bans = store.globalBans
+  if (bans.length === 0) return true // 没有禁用植物，直接显示
+
+  // 检查所有植物是否都能在缓存中找到
+  for (const plantId of bans) {
+    const plant = getPlantByIdSync(plantId)
+    if (!plant) {
+      console.log('[App.vue] 植物未就绪:', plantId)
+      return false
+    }
+  }
+
+  console.log('[App.vue] 所有植物已就绪，数量:', bans.length)
+  return true
+})
 
 const finishRound = () => {
   store.finishRound()
