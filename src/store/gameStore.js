@@ -734,6 +734,7 @@ export const useGameStore = defineStore('game', {
     resetGame() {
       this.$reset()
       localStorage.removeItem('bpGameState')
+      this.clearMultiplayerSession() // 清除多人会话信息
       // 重置后需要重新初始化 pumpkinUsage（因为 $reset 会恢复默认值）
       this.pumpkinUsage = {
         player1: 0,
@@ -757,6 +758,64 @@ export const useGameStore = defineStore('game', {
         roundWinner: this.roundWinner
       }
       localStorage.setItem('bpGameState', JSON.stringify(state))
+    },
+
+    /**
+     * 保存多人房间信息到localStorage（用于自动重连）
+     */
+    saveMultiplayerSession() {
+      if (this.roomMode === 'local') {
+        localStorage.removeItem('bpMultiplayerSession')
+        return
+      }
+
+      const session = {
+        roomMode: this.roomMode,
+        inviteCode: this.inviteCode,
+        myRole: this.myRole,
+        myPlayerName: this.myPlayerName,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('bpMultiplayerSession', JSON.stringify(session))
+      console.log('[gameStore] 保存多人会话信息:', session)
+    },
+
+    /**
+     * 从localStorage加载多人会话信息
+     * @returns {Object|null} 会话信息
+     */
+    loadMultiplayerSession() {
+      const saved = localStorage.getItem('bpMultiplayerSession')
+      if (saved) {
+        try {
+          const session = JSON.parse(saved)
+          // 检查会话是否过期（24小时）
+          const sessionAge = Date.now() - session.timestamp
+          const maxAge = 24 * 60 * 60 * 1000 // 24小时
+
+          if (sessionAge > maxAge) {
+            console.log('[gameStore] 会话已过期')
+            localStorage.removeItem('bpMultiplayerSession')
+            return null
+          }
+
+          console.log('[gameStore] 加载多人会话信息:', session)
+          return session
+        } catch (e) {
+          console.error('加载会话信息失败', e)
+          localStorage.removeItem('bpMultiplayerSession')
+          return null
+        }
+      }
+      return null
+    },
+
+    /**
+     * 清除多人会话信息
+     */
+    clearMultiplayerSession() {
+      localStorage.removeItem('bpMultiplayerSession')
+      console.log('[gameStore] 清除多人会话信息')
     },
 
     /**
@@ -889,6 +948,8 @@ export const useGameStore = defineStore('game', {
       // 主办方设置
       if (role === 'host') {
         this.myPlayerId = 'host'
+        // 保存会话信息用于自动重连
+        this.saveMultiplayerSession()
         return
       }
 
@@ -896,6 +957,9 @@ export const useGameStore = defineStore('game', {
       // 这将在initGame或游戏开始时根据输入的ID匹配
       this.myPlayerId = null
       this.myAssignedPlayer = null
+
+      // 保存会话信息用于自动重连
+      this.saveMultiplayerSession()
     },
 
     /**
@@ -950,6 +1014,11 @@ export const useGameStore = defineStore('game', {
 
       if (mode === 'local') {
         this.connectionStatus = 'disconnected'
+        this.clearMultiplayerSession()
+      } else {
+        // 多人模式，保存会话信息（注意：此时 myRole 可能还没设置）
+        // 这里会在 setMyIdentity() 中再次保存
+        this.saveMultiplayerSession()
       }
     },
 

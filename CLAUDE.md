@@ -100,8 +100,7 @@ npm run test:multiplayer
 - ✅ 状态同步日志完整（`[gameStore] 收到状态更新 vX`）
 - ✅ UI 实时更新（BanArea、PickArea、StageIndicator）
 - ✅ 同步状态指示器正常工作
-
-详细使用指南请参考 `多人对战同步自动化测试指南.md`
+- ✅ 完整20步BP流程同步验证
 
 For detailed usage, see `agents/README.md` and `agents/QUICKSTART.md`
 
@@ -165,12 +164,35 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 - `src/utils/validators.js` - Rule validation (ban checks, usage limits, etc.)
 
 **State Management:**
+
 - `src/store/gameStore.js` - Pinia store with getters, actions, and localStorage persistence
   - `road2Player` getter - identifies who chose road 2
   - `road4Player` getter - identifies who chose road 4
   - `initGame()` - initializes new match with both players' road selections
   - `startRound()` - generates dynamic BP sequence for each round
   - `updateCurrentStep()` - translates road2/road4 to actual player IDs
+  - `saveMultiplayerSession()` - saves multiplayer session info for auto-reconnect
+  - `loadMultiplayerSession()` - loads session with 24-hour expiry check
+  - `clearMultiplayerSession()` - clears session data
+
+**Multiplayer Networking:**
+
+- `src/utils/roomManager.js` - WebRTC P2P connection manager using PeerJS
+  - Host creates room with invite code (6-char alphanumeric)
+  - Players/spectators join via invite code
+  - Star topology: all clients connect to host, host broadcasts state updates
+  - Message types: `stateUpdate`, `customPlants`, `gameStart`, `identityAssigned`
+
+**Multiplayer UI:**
+
+- `src/components/RoomSetup.vue` - Room creation/joining interface
+  - Auto-reconnect prompt on page refresh
+  - Host panel: create room, view connections, broadcast game start
+  - Player/spectator panel: join room with invite code, display name
+  - Auto-reconnect: detects previous session in localStorage (24h expiry)
+    - Host reconnect: creates new room, new invite code, players must rejoin
+    - Player reconnect: auto-joins using stored invite code and name
+    - Cancel option: clear session and start new game
 
 **UI Components:**
 - `src/components/GameSetup.vue` - Player registration & road selection (mutual exclusion between players)

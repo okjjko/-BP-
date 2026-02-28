@@ -1,7 +1,56 @@
 <template>
   <div class="room-setup">
+    <!-- 自动重连提示 -->
+    <div v-if="showReconnectPrompt" class="reconnect-prompt">
+      <div class="reconnect-card glass-panel rounded-xl p-6">
+        <div class="reconnect-icon">🔄</div>
+        <h3 class="text-xl font-bold text-center mb-2">检测到未完成的多人对战</h3>
+        <p class="text-gray-400 text-center mb-4">
+          {{ reconnectSession?.myRole === 'host' ? '你是主办方' : '你是' + reconnectSession?.myPlayerName }}
+        </p>
+        <div class="reconnect-info mb-4">
+          <div class="info-item">
+            <span class="info-label">角色：</span>
+            <span class="info-value">{{ getRoleLabel(reconnectSession?.myRole) }}</span>
+          </div>
+          <div v-if="reconnectSession?.inviteCode" class="info-item">
+            <span class="info-label">邀请码：</span>
+            <span class="info-value">{{ reconnectSession.inviteCode }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">时间：</span>
+            <span class="info-value">{{ getSessionTime(reconnectSession?.timestamp) }}</span>
+          </div>
+        </div>
+        <div v-if="reconnectSession?.myRole === 'host'" class="warning-box mb-4">
+          <p class="text-yellow-400 text-sm text-center">
+            ⚠️ 主办方重连后会生成新的邀请码，需要选手重新加入
+          </p>
+        </div>
+        <div class="flex gap-3">
+          <button
+            @click="performReconnect"
+            :disabled="isReconnecting"
+            class="flex-1 px-6 py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 text-white font-bold rounded-lg transition-all"
+          >
+            {{ isReconnecting ? '重连中...' : '重新连接' }}
+          </button>
+          <button
+            @click="cancelReconnect"
+            :disabled="isReconnecting"
+            class="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 text-white font-semibold rounded-lg transition-all"
+          >
+            开始新对局
+          </button>
+        </div>
+        <div v-if="reconnectError" class="error-message mt-3">
+          {{ reconnectError }}
+        </div>
+      </div>
+    </div>
+
     <!-- 模式选择 -->
-    <div v-if="!mode" class="mode-selection">
+    <div v-else-if="!mode" class="mode-selection">
       <h3 class="text-xl font-bold mb-4 text-center">选择对战模式</h3>
       <div class="flex gap-4 justify-center">
         <button
@@ -238,6 +287,12 @@ const joinError = ref('')
 const copied = ref(false)
 const connectedUsers = ref([])
 
+// 自动重连相关
+const showReconnectPrompt = ref(false)
+const reconnectSession = ref(null)
+const isReconnecting = ref(false)
+const reconnectError = ref('')
+
 // 连接统计
 const connectionStats = computed(() => {
   const stats = { total: 0, players: 0, spectators: 0 }
@@ -389,6 +444,8 @@ const leaveRoom = () => {
   inputInviteCode.value = ''
   isConnected.value = false
   connectedUsers.value = []
+  // 清除重连会话信息
+  store.clearMultiplayerSession()
   emit('cancel')
 }
 
@@ -410,6 +467,98 @@ const getRoleLabel = (r) => {
     spectator: '观众'
   }
   return labels[r] || r
+}
+
+// 获取会话时间显示
+const getSessionTime = (timestamp) => {
+  if (!timestamp) return ''
+  const now = Date.now()
+  const diff = now - timestamp
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(minutes / 60)
+
+  if (hours > 0) {
+    return `${hours}小时前`
+  } else if (minutes > 0) {
+    return `${minutes}分钟前`
+  } else {
+    return '刚刚'
+  }
+}
+
+// 检查是否有需要重连的会话
+const checkReconnectSession = () => {
+  const session = store.loadMultiplayerSession()
+  if (session && session.roomMode && session.roomMode !== 'local') {
+    console.log('[RoomSetup] 检测到需要重连的会话:', session)
+    reconnectSession.value = session
+    showReconnectPrompt.value = true
+  }
+}
+
+// 执行重连
+const performReconnect = async () => {
+  if (!reconnectSession.value) return
+
+  isReconnecting.value = true
+  reconnectError.value = ''
+
+  try {
+    const session = reconnectSession.value
+
+    if (session.myRole === 'host') {
+      // 主办方：重新创建房间
+      console.log('[RoomSetup] 主办方重连，创建新房间...')
+      await createRoom()
+
+      // 房间创建成功后，恢复游戏状态
+      if (store.loadFromLocalStorage()) {
+        console.log('[RoomSetup] 游戏状态已恢复')
+        // 通知选手开始游戏（因为已经开始了）
+        emit('startGame', {
+          mode: 'multiplayer',
+          role: 'host',
+          inviteCode: inviteCode.value
+        })
+      }
+    } else {
+      // 选手/观众：重新加入房间
+      console.log('[RoomSetup] 选手/观众重连，加入房间...')
+      mode.value = 'multiplayer'
+      role.value = session.myRole
+      inputInviteCode.value = session.inviteCode
+      playerName.value = session.myPlayerName
+
+      await joinRoom()
+
+      // 重连成功后，恢复游戏状态
+      if (isConnected.value && store.loadFromLocalStorage()) {
+        console.log('[RoomSetup] 游戏状态已恢复')
+        emit('startGame', {
+          mode: 'multiplayer',
+          role: session.myRole,
+          inviteCode: session.inviteCode
+        })
+      }
+    }
+
+    showReconnectPrompt.value = false
+    reconnectSession.value = null
+  } catch (error) {
+    console.error('[RoomSetup] 重连失败:', error)
+    reconnectError.value = error.message || '重连失败，请检查网络或邀请码是否正确'
+  } finally {
+    isReconnecting.value = false
+  }
+}
+
+// 取消重连，开始新对局
+const cancelReconnect = () => {
+  console.log('[RoomSetup] 取消重连，清除旧会话')
+  store.clearMultiplayerSession()
+  showReconnectPrompt.value = false
+  reconnectSession.value = null
+  reconnectError.value = ''
 }
 
 // 更新已连接用户列表
@@ -482,6 +631,8 @@ const cleanupEventListeners = () => {
 
 onMounted(() => {
   setupEventListeners()
+  // 检查是否有需要重连的会话
+  checkReconnectSession()
 })
 
 onUnmounted(() => {
@@ -683,5 +834,69 @@ button:disabled {
 
 .copy-btn:hover:not(:disabled) {
   background: rgba(107, 114, 128, 0.8);
+}
+
+/* 自动重连提示样式 */
+.reconnect-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 20px;
+}
+
+.reconnect-card {
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+}
+
+.reconnect-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.reconnect-info {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  text-align: left;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.info-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.info-value {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.warning-box {
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 8px;
+  padding: 12px;
 }
 </style>
