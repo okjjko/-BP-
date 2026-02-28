@@ -34,7 +34,7 @@ export const initializeCache = async () => {
  * 更新缓存
  * 在添加、更新、删除操作后调用
  */
-const updateCache = async () => {
+export const updateCache = async () => {
   // 重新加载缓存以立即反映更改
   customPlantsCache = await loadCustomPlants()
   isCacheLoaded = true
@@ -303,7 +303,7 @@ export const addCustomPlant = async (plantData) => {
       // 生成唯一ID
       const newPlant = {
         ...plantData,
-        id: `custom_${Date.now()}`,
+        id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         builtin: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -325,6 +325,57 @@ export const addCustomPlant = async (plantData) => {
     })
   } catch (error) {
     console.error('添加植物失败:', error)
+    throw error
+  }
+}
+
+/**
+ * 导入植物（用于同步，保留原始ID）
+ * @param {Object} plant - 完整的植物对象（包含id，image字段为Base64）
+ * @returns {Promise<Object>} 返回导入的植物对象
+ */
+export const importCustomPlant = async (plant) => {
+  try {
+    const db = await openDB()
+    return new Promise(async (resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+
+      // 将 Base64 图片转换回 Blob
+      let imageData = null
+      if (plant.image) {
+        try {
+          imageData = await base64ToBlob(plant.image)
+        } catch (error) {
+          console.error('转换图片失败:', error)
+        }
+      }
+
+      // 使用 put 而不是 add，保留原始 ID，如果已存在则覆盖
+      const plantToImport = {
+        ...plant,
+        imageData: imageData, // 使用转换后的 Blob
+        image: undefined, // 移除 Base64 字段
+        builtin: false, // 确保标记为自定义植物
+        updatedAt: new Date().toISOString() // 更新修改时间
+      }
+
+      const request = store.put(plantToImport)
+
+      request.onsuccess = async () => {
+        await updateCache() // 重新加载缓存
+        resolve(plantToImport)
+        db.close()
+      }
+
+      request.onerror = () => {
+        console.error('导入植物失败:', request.error)
+        reject(request.error)
+        db.close()
+      }
+    })
+  } catch (error) {
+    console.error('导入植物失败:', error)
     throw error
   }
 }

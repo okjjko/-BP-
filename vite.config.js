@@ -10,6 +10,8 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000
+    host: '0.0.0.0', // 监听所有网络接口，支持局域网访问
+    port: 3000,
+    strictPort: false // 如果端口被占用，自动尝试下一个端口
   }
 })

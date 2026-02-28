@@ -66,6 +66,17 @@
           🌐 多人对战
         </button>
       </div>
+
+      <!-- 植物管理按钮 -->
+      <div class="mt-6 flex justify-center">
+        <button
+          @click="showPlantManager = true"
+          class="px-6 py-2.5 bg-purple-600/80 hover:bg-purple-500 text-white font-semibold rounded-lg transition-all duration-300 border border-purple-400/50 hover:border-purple-300 shadow-lg hover:shadow-purple-500/20 flex items-center gap-2"
+        >
+          <span>🌱</span>
+          <span>植物管理</span>
+        </button>
+      </div>
     </div>
 
     <!-- 多人对战设置 -->
@@ -263,6 +274,9 @@
         </button>
       </div>
     </div>
+
+    <!-- 植物管理模态框 -->
+    <PlantManager v-model:show="showPlantManager" />
   </div>
 </template>
 
@@ -270,9 +284,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import roomManager from '@/utils/roomManager'
 import { useGameStore } from '@/store/gameStore'
+import PlantManager from '@/components/PlantManager/index.vue'
 
 const emit = defineEmits(['startGame', 'cancel'])
 const store = useGameStore()
+
+// 植物管理模态框状态
+const showPlantManager = ref(false)
 
 // 状态
 const mode = ref(null) // 'local' | 'multiplayer'

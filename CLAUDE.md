@@ -116,6 +116,23 @@ For detailed usage, see `agents/README.md` and `agents/QUICKSTART.md`
   - Adding data formats → Update "Customization Points"
 - Keep documentation and code in sync to ensure maintainability
 
+**Development Server:**
+
+- **Default port**: 3000 (<http://localhost:3000>)
+- **Before starting**: Check if port 3000 is already in use
+
+```bash
+# Windows
+netstat -ano | findstr ":3000" | findstr "LISTENING"
+
+# Linux/Mac
+lsof -i :3000
+```
+
+- **If port is occupied**: Either stop the existing process or let Vite auto-select next available port
+- **IMPORTANT**: Do not start multiple dev servers simultaneously - this causes port conflicts and confusion
+- **Check running servers**: Always verify if a development server is already running before starting a new one
+
 ## Project Architecture
 
 This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle system for a modified Plants vs. Zombies game. The tool handles complex tournament rules with dynamic player-road assignments.

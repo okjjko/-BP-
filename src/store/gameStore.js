@@ -1178,31 +1178,40 @@ export const useGameStore = defineStore('game', {
      * @param {Object} message - 自定义植物消息
      */
     async handleCustomPlantsSync(message) {
-      const { plants } = message
+      const { plants, hiddenBuiltinPlants } = message
 
-      console.log(`[gameStore] 收到 ${plants.length} 个自定义植物`)
+      console.log('[gameStore] 收到植物同步:', {
+        customPlants: plants.length,
+        hiddenBuiltin: hiddenBuiltinPlants?.length || 0
+      })
 
       try {
         // 导入自定义植物管理模块
-        const { addCustomPlant, clearCustomPlants, updateCache } = await import('@/data/customPlants')
+        const { importCustomPlant, clearAllCustomPlants, updateCache } = await import('@/data/customPlants')
 
         // 1. 清空现有自定义植物
-        await clearCustomPlants()
+        await clearAllCustomPlants()
 
-        // 2. 添加收到的自定义植物
+        // 2. 导入收到的自定义植物（保留原始ID）
         for (const plant of plants) {
-          await addCustomPlant(plant)
+          await importCustomPlant(plant)
         }
 
-        // 3. 更新内存缓存（关键：触发响应式更新）
+        // 3. 更新隐藏的内置植物设置
+        if (hiddenBuiltinPlants && hiddenBuiltinPlants.length > 0) {
+          localStorage.setItem('hiddenBuiltinPlants', JSON.stringify(hiddenBuiltinPlants))
+          console.log('[gameStore] 已恢复', hiddenBuiltinPlants.length, '个隐藏的内置植物')
+        }
+
+        // 4. 更新内存缓存（关键：触发响应式更新）
         await updateCache()
 
-        // 4. 强制触发依赖植物列表的 computed 更新
+        // 5. 强制触发依赖植物列表的 computed 更新
         this._plantCacheVersion = Date.now()
 
-        console.log('[gameStore] 自定义植物同步完成（无刷新）')
+        console.log('[gameStore] 植物配置同步完成')
       } catch (error) {
-        console.error('[gameStore] 同步自定义植物失败:', error)
+        console.error('[gameStore] 同步植物配置失败:', error)
         this.syncError = '植物同步失败: ' + error.message
       }
     },

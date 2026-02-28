@@ -10,6 +10,7 @@
  */
 
 import Peer from 'peerjs'
+import { getHiddenPlants } from '@/data/customPlants'
 
 class RoomManager {
   constructor() {
@@ -304,21 +305,29 @@ class RoomManager {
 
   /**
    * 广播自定义植物（主办方）
-   * @param {Array} customPlants - 自定义植物列表
+   * @param {Object} config - 植物配置对象
+   * @param {Array} config.plants - 自定义植物列表
+   * @param {Array} config.hiddenBuiltinPlants - 隐藏的内置植物ID列表
    */
-  async broadcastCustomPlants(customPlants) {
+  async broadcastCustomPlants(config) {
     if (this.role !== 'host') {
       console.warn('[RoomManager] 只有主办方可以广播自定义植物')
       return
     }
 
+    const { plants, hiddenBuiltinPlants } = config
+
     const message = {
       type: 'customPlants',
       timestamp: Date.now(),
-      plants: customPlants
+      plants: plants || [],
+      hiddenBuiltinPlants: hiddenBuiltinPlants || []
     }
 
-    console.log(`[RoomManager] 广播 ${customPlants.length} 个自定义植物`)
+    console.log('[RoomManager] 广播植物配置:', {
+      customPlants: plants.length,
+      hiddenBuiltin: hiddenBuiltinPlants.length
+    })
 
     this.connections.forEach((conn, peerId) => {
       if (conn.open) {

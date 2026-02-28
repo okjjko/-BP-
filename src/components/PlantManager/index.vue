@@ -27,10 +27,30 @@
 
           <!-- 主内容区域 -->
           <div class="flex-1 flex overflow-hidden">
-            <!-- 左侧：植物列表 -->
-            <div class="flex-1 overflow-y-auto p-6 border-r border-gray-700/50 custom-scrollbar">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-bold">植物列表</h3>
+            <!-- 左侧：植物列表或配置管理 -->
+            <div class="flex-1 flex flex-col overflow-hidden border-r border-gray-700/50">
+              <!-- 标签页切换 -->
+              <div class="flex items-center gap-2 px-6 py-4 border-b border-gray-700/50">
+                <button
+                  @click="currentTab = 'plants'"
+                  class="px-4 py-2 rounded-lg font-medium transition-all"
+                  :class="currentTab === 'plants' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                >
+                  🌱 植物管理
+                </button>
+                <button
+                  @click="currentTab = 'configs'"
+                  class="px-4 py-2 rounded-lg font-medium transition-all"
+                  :class="currentTab === 'configs' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                >
+                  📁 配置管理
+                </button>
+              </div>
+
+              <!-- 植物管理标签页 -->
+              <div v-if="currentTab === 'plants'" class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-xl font-bold">植物列表</h3>
                 <div class="flex gap-2">
                   <!-- 批量操作按钮 -->
                   <button
@@ -131,8 +151,8 @@
               </div>
             </div>
 
-            <!-- 右侧：表单/预览区 -->
-            <div class="w-[450px] p-6 overflow-y-auto">
+            <!-- 右侧：表单/预览区（仅植物管理标签页显示） -->
+            <div v-if="currentTab === 'plants'" class="w-[450px] p-6 overflow-y-auto">
               <Transition name="fade" mode="out-in">
                 <PlantForm
                   v-if="editingPlant"
@@ -153,8 +173,8 @@
             </div>
           </div>
 
-          <!-- 底部工具栏 -->
-          <div class="p-4 border-t border-gray-700/50 flex justify-between items-center">
+          <!-- 底部工具栏（仅植物管理标签页显示） -->
+          <div v-if="currentTab === 'plants'" class="p-4 border-t border-gray-700/50 flex justify-between items-center">
             <div class="flex items-center gap-4 text-sm text-gray-400">
               <span>内置: {{ builtinCount }} | 自定义: {{ customCount }}</span>
               <span v-if="hiddenCount > 0" class="text-orange-400">
@@ -169,7 +189,13 @@
             </div>
             <ImportExport @import="handleImport" @export="handleExport" />
           </div>
-        </div>
+              </div>
+
+            <!-- 配置管理标签页 -->
+            <div v-if="currentTab === 'configs'" class="flex-1 overflow-hidden">
+              <ConfigManager />
+            </div>
+          </div>
       </div>
     </Transition>
 
@@ -247,6 +273,7 @@ import { useGameStore } from '@/store/gameStore'
 import PlantCard from './PlantCard.vue'
 import PlantForm from './PlantForm.vue'
 import ImportExport from './ImportExport.vue'
+import ConfigManager from './ConfigManager.vue'
 
 const props = defineProps({
   show: Boolean
@@ -262,6 +289,7 @@ const isEditMode = ref(false)
 const showRecycleBin = ref(false)
 const batchMode = ref(false)
 const selectedPlants = ref(new Set())
+const currentTab = ref('plants') // 'plants' | 'configs'
 
 const plantTypes = [
   { value: 'all', label: '全部' },

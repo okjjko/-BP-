@@ -10,6 +10,15 @@
 
     <!-- 游戏设置界面 -->
     <div v-else class="glass-card rounded-2xl p-8 max-w-lg w-full relative overflow-hidden animate-slide-up">
+      <!-- 返回按钮 -->
+      <button
+        @click="goBack"
+        class="absolute top-4 left-4 px-3 py-1.5 bg-gray-700/50 hover:bg-gray-600 text-gray-300 hover:text-white text-sm font-medium rounded-lg transition-all duration-200 border border-gray-600 hover:border-gray-500 flex items-center gap-1.5 z-10"
+      >
+        <span>←</span>
+        <span>返回</span>
+      </button>
+
       <!-- 装饰背景 -->
       <div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -161,7 +170,7 @@
 import { ref, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import { getPlantById, PLANTS } from '@/data/plants'
-import { getPlantImage, getPlantName } from '@/data/customPlants'
+import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToBase64 } from '@/data/customPlants'
 import PlantManager from '@/components/PlantManager/index.vue'
 import RoomSetup from '@/components/RoomSetup.vue'
 import roomManager from '@/utils/roomManager'
@@ -178,7 +187,7 @@ const showPlantManager = ref(false) // 植物管理模态框状态
 const showRoomSetup = ref(true) // 显示房间设置界面
 
 // 处理房间设置开始游戏
-const handleRoomStart = (data) => {
+const handleRoomStart = async (data) => {
   showRoomSetup.value = false
 
   if (data.mode === 'local') {
@@ -212,6 +221,32 @@ const handleRoomStart = (data) => {
     // 直接开始游戏，不显示输入界面
     startGame()
 
+    // 广播自定义植物配置到所有已连接的客户端
+    const allPlants = getAllPlantsSync()
+    const customPlants = allPlants.filter(p => p.builtin === false)
+    const hiddenBuiltinPlants = getHiddenPlants()
+
+    if (customPlants.length > 0 || hiddenBuiltinPlants.length > 0) {
+      // 将 Blob 图片转换为 Base64，以便通过 WebRTC 传输
+      const plantsToBroadcast = await Promise.all(
+        customPlants.map(async (plant) => ({
+          ...plant,
+          image: await blobToBase64(plant.imageData),
+          imageData: undefined // 移除 Blob 字段，传输完成后在接收端重建
+        }))
+      )
+
+      roomManager.broadcastCustomPlants({
+        plants: plantsToBroadcast,
+        hiddenBuiltinPlants: hiddenBuiltinPlants
+      })
+
+      console.log('[GameSetup] 已广播植物配置:', {
+        customPlants: plantsToBroadcast.length,
+        hiddenBuiltin: hiddenBuiltinPlants.length
+      })
+    }
+
     // 广播游戏开始消息给所有选手
     roomManager.broadcastGameStart(
       playerNames[0],  // player1Name
@@ -242,6 +277,17 @@ const handleRoomCancel = () => {
   store.myPlayerName = ''
   store.myPlayerId = null
   store.myAssignedPlayer = null
+}
+
+// 返回到模式选择页面
+const goBack = () => {
+  showRoomSetup.value = true
+  // 清空已输入的数据
+  player1Name.value = ''
+  player2Name.value = ''
+  player1Road.value = null
+  player2Road.value = null
+  firstPlayer.value = 'player1'
 }
 
 const startGame = () => {
