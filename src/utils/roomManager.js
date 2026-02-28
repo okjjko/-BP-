@@ -247,8 +247,9 @@ class RoomManager {
    * @param {string} player2Name - 选手2名字
    * @param {number} player1Road - 选手1道路
    * @param {number} player2Road - 选手2道路
+   * @param {Array<string>} globalBans - 永久禁用的植物ID列表
    */
-  broadcastGameStart(player1Name, player2Name, player1Road, player2Road) {
+  broadcastGameStart(player1Name, player2Name, player1Road, player2Road, globalBans) {
     if (this.role !== 'host') {
       console.warn('[RoomManager] 只有主办方可以广播游戏开始')
       return
@@ -260,10 +261,11 @@ class RoomManager {
       player2Name,
       player1Road,
       player2Road,
+      globalBans: globalBans || [],  // 新增：永久禁用植物列表
       timestamp: Date.now()
     }
 
-    console.log('[RoomManager] 广播游戏开始消息')
+    console.log('[RoomManager] 广播游戏开始消息，包含', globalBans?.length || 0, '个永久禁用植物')
 
     this.connections.forEach((conn, peerId) => {
       if (conn.open) {

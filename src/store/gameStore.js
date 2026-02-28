@@ -292,11 +292,14 @@ export const useGameStore = defineStore('game', {
       this.firstPlayer = firstPlayer
 
       // 随机禁用5个植物（只有主办方或本地模式生成，选手端等待同步）
+      console.log('[initGame] roomMode:', this.roomMode, '准备生成 globalBans')
       if (this.roomMode === 'local' || this.roomMode === 'host') {
         this.randomBanPlants()
+        console.log('[initGame] 已生成 globalBans:', this.globalBans)
       } else {
         // 选手端：清空禁用列表，等待接收主办方的状态
         this.globalBans = []
+        console.log('[initGame] 选手端清空 globalBans')
       }
 
       // 初始化使用记录

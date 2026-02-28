@@ -449,7 +449,7 @@ const copyInviteCode = async () => {
 // 确认开始（主办方）
 const confirmStart = () => {
   emit('startGame', {
-    mode: 'multiplayer',
+    mode: 'host',  // 修复：应该是 'host' 而不是 'multiplayer'
     role: 'host',
     inviteCode: inviteCode.value
   })
@@ -601,9 +601,12 @@ const handleConnected = () => {
 
 const handleGameStart = (data) => {
   console.log('[RoomSetup] 收到游戏开始消息:', data)
-  const { player1Name, player2Name, player1Road, player2Road } = data
+  const { player1Name, player2Name, player1Road, player2Road, globalBans } = data
 
-  // 初始化游戏（选手端跳过 randomBanPlants，等待接收主办方的状态）
+  // 1. 先保存 globalBans（因为 initGame 会清空它）
+  const savedGlobalBans = globalBans || []
+
+  // 2. 初始化游戏（选手端跳过 randomBanPlants，会清空 globalBans）
   store.initGame(
     player1Name,
     player2Name,
@@ -611,6 +614,12 @@ const handleGameStart = (data) => {
     player1Road,
     player2Road
   )
+
+  // 3. 恢复 globalBans
+  if (savedGlobalBans.length > 0) {
+    store.globalBans = [...savedGlobalBans]
+    console.log('[RoomSetup] 已恢复永久禁用植物:', savedGlobalBans.length, '个')
+  }
 
   // 选手端不需要调用 syncState()，会通过 handleStateUpdate() 接收主办方的状态
 

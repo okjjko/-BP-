@@ -221,6 +221,9 @@ const handleRoomStart = async (data) => {
     // 直接开始游戏，不显示输入界面
     startGame()
 
+    // 调试：检查 globalBans 是否已生成
+    console.log('[GameSetup] startGame() 调用完成，roomMode:', store.roomMode, 'globalBans:', store.globalBans)
+
     // 广播自定义植物配置到所有已连接的客户端
     const allPlants = getAllPlantsSync()
     const customPlants = allPlants.filter(p => p.builtin === false)
@@ -248,11 +251,14 @@ const handleRoomStart = async (data) => {
     }
 
     // 广播游戏开始消息给所有选手
+    const globalBans = store.globalBans || []
+
     roomManager.broadcastGameStart(
       playerNames[0],  // player1Name
       playerNames[1],  // player2Name
       2,              // player1Road
-      4               // player2Road
+      4,              // player2Road
+      globalBans      // 新增：永久禁用植物列表
     )
 
   } else {
