@@ -433,16 +433,54 @@ const joinRoom = async () => {
   }
 }
 
-// 复制邀请码
+// 复制邀请码（兼容 HTTP 和 HTTPS）
 const copyInviteCode = async () => {
+  const code = inviteCode.value
+
+  // 方案1: 优先使用现代 Clipboard API（仅 HTTPS）
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(code)
+      copied.value = true
+      setTimeout(() => {
+        copied.value = false
+      }, 2000)
+      return
+    } catch (error) {
+      console.warn('Clipboard API 失败，尝试备用方案:', error)
+    }
+  }
+
+  // 方案2: 使用传统的 document.execCommand（兼容 HTTP）
   try {
-    await navigator.clipboard.writeText(inviteCode.value)
-    copied.value = true
-    setTimeout(() => {
-      copied.value = false
-    }, 2000)
+    // 创建一个临时的 textarea 元素
+    const textarea = document.createElement('textarea')
+    textarea.value = code
+    textarea.style.position = 'fixed'  // 防止页面滚动
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+
+    // 选中并复制
+    textarea.select()
+    textarea.setSelectionRange(0, 99999)  // 兼容移动设备
+
+    const successful = document.execCommand('copy')
+
+    // 清理
+    document.body.removeChild(textarea)
+
+    if (successful) {
+      copied.value = true
+      setTimeout(() => {
+        copied.value = false
+      }, 2000)
+    } else {
+      throw new Error('execCommand 失败')
+    }
   } catch (error) {
     console.error('复制失败:', error)
+    // 提示用户手动复制
+    alert(`复制失败，请手动复制邀请码：${code}`)
   }
 }
 
