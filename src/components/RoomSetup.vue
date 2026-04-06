@@ -171,6 +171,15 @@
             </div>
           </div>
 
+          <!-- ICE 连接状态指示器 -->
+          <div v-if="connectionStatus" class="ice-status-indicator" :class="connectionStatusClass">
+            <div class="status-icon">{{ connectionStatusIcon }}</div>
+            <div class="status-content">
+              <div class="status-text">{{ connectionStatusMessage }}</div>
+              <div v-if="connectionType" class="connection-type">{{ connectionType }}</div>
+            </div>
+          </div>
+
           <!-- 已连接用户列表 -->
           <div v-if="connectedUsers.length > 0" class="users-list">
             <div class="text-sm text-gray-400 mb-2">已连接用户</div>
@@ -292,6 +301,11 @@ const store = useGameStore()
 // 植物管理模态框状态
 const showPlantManager = ref(false)
 
+// 连接状态相关
+const connectionStatus = ref(null)
+const connectionMessage = ref('')
+const connectionType = ref('')
+
 // 状态
 const mode = ref(null) // 'local' | 'multiplayer'
 const role = ref(null) // 'host' | 'player' | 'spectator'
@@ -330,6 +344,28 @@ const canJoin = computed(() => {
   if (role.value === 'player' && !playerName.value.trim()) return false
   return true
 })
+
+// 连接状态相关的计算属性
+const connectionStatusClass = computed(() => ({
+  'status-connecting': connectionStatus.value === 'checking' || connectionStatus.value === 'new',
+  'status-connected': connectionStatus.value === 'connected' || connectionStatus.value === 'completed',
+  'status-failed': connectionStatus.value === 'failed' || connectionStatus.value === 'disconnected'
+}))
+
+const connectionStatusIcon = computed(() => {
+  const icons = {
+    'new': '🔌',
+    'checking': '🔄',
+    'connected': '✅',
+    'completed': '✅',
+    'failed': '❌',
+    'disconnected': '⚠️',
+    'closed': '🔒'
+  }
+  return icons[connectionStatus.value] || ''
+})
+
+const connectionStatusMessage = computed(() => connectionMessage.value)
 
 // 选择模式
 const selectMode = (selectedMode) => {
@@ -676,6 +712,26 @@ const handleError = ({ type, error }) => {
   }
 }
 
+const handleConnectionStatus = ({ status, message }) => {
+  console.log('连接状态变化:', status, message)
+  connectionStatus.value = status
+  connectionMessage.value = message
+
+  // 判断连接类型（简化处理）
+  if (status === 'connected') {
+    connectionType.value = 'P2P 直连'
+    // 3秒后自动隐藏成功消息
+    setTimeout(() => {
+      connectionStatus.value = null
+    }, 3000)
+  } else if (status === 'completed') {
+    connectionType.value = 'P2P 直连（已完成）'
+    setTimeout(() => {
+      connectionStatus.value = null
+    }, 3000)
+  }
+}
+
 // 设置事件监听器（使用命名函数）
 const setupEventListeners = () => {
   roomManager.on('userJoined', handleUserJoined)
@@ -683,6 +739,7 @@ const setupEventListeners = () => {
   roomManager.on('connected', handleConnected)
   roomManager.on('gameStart', handleGameStart)
   roomManager.on('error', handleError)
+  roomManager.on('connectionStatus', handleConnectionStatus)
 }
 
 // 清理事件监听器（传入相同的函数引用）
@@ -692,6 +749,7 @@ const cleanupEventListeners = () => {
   roomManager.off('connected', handleConnected)
   roomManager.off('gameStart', handleGameStart)
   roomManager.off('error', handleError)
+  roomManager.off('connectionStatus', handleConnectionStatus)
 }
 
 onMounted(() => {
@@ -963,5 +1021,73 @@ button:disabled {
   border: 1px solid rgba(234, 179, 8, 0.3);
   border-radius: 8px;
   padding: 12px;
+}
+
+/* ICE 连接状态指示器 */
+.ice-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  margin: 1rem 0;
+  animation: fadeIn 0.3s ease-out;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-content {
+  flex: 1;
+}
+
+.ice-status-indicator .status-icon {
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+}
+
+.ice-status-indicator .status-text {
+  font-size: 0.9375rem;
+  color: #e5e7eb;
+  font-weight: 500;
+}
+
+.ice-status-indicator .connection-type {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+}
+
+.ice-status-indicator.status-connecting .status-icon {
+  animation: spin 1s linear infinite;
+}
+
+.ice-status-indicator.status-connected {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.ice-status-indicator.status-failed {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

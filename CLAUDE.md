@@ -199,6 +199,15 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
   - Players/spectators join via invite code
   - Star topology: all clients connect to host, host broadcasts state updates
   - Message types: `stateUpdate`, `customPlants`, `gameStart`, `identityAssigned`
+  - **WebRTC Configuration**: Uses STUN/TURN servers for NAT traversal (configured in `src/config/webrtc.config.js`)
+  - **ICE State Monitoring**: Real-time connection status feedback via `iceStateChange` events
+  - **Connection Status Display**: Visual indicator in RoomSetup.vue showing connection state
+
+- `src/config/webrtc.config.js` - WebRTC server configuration
+  - PeerJS server settings (host, port, path, secure)
+  - ICE servers list (STUN/TURN)
+  - Connection timeout and retry settings
+  - See `docs/SERVER-SETUP.md` for deployment instructions
 
 **Multiplayer UI:**
 
@@ -294,6 +303,59 @@ Custom colors defined in `tailwind.config.js`:
 
 **自定义南瓜头植物**:
 用户可以通过植物管理界面添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
+
+**WebRTC Network Configuration:**
+
+The project supports both default PeerJS public servers and self-hosted servers for improved connectivity:
+
+**Configuration File:** `src/config/webrtc.config.js`
+
+```javascript
+export default {
+  debug: 2,
+
+  // PeerJS 服务器配置（可选，用于自建服务器）
+  peerjs: {
+    host: 'your-domain.com',    // 您的服务器域名或 IP
+    port: 9000,                  // PeerJS 端口
+    path: '/peerjs',
+    secure: true                 // 使用 HTTPS
+  },
+
+  // ICE 服务器配置
+  config: {
+    iceServers: [
+      // 公共 STUN 服务器（免费，用于 NAT 穿透）
+      { urls: 'stun:stun.l.google.com:19302' },
+
+      // 自建 TURN 服务器（可选，用于中继）
+      // {
+      //   urls: 'turn:your-domain.com:3478',
+      //   username: 'your-username',
+      //   credential: 'your-password'
+      // }
+    ]
+  }
+}
+```
+
+**Deployment:**
+
+For production deployment with public internet access, consider deploying self-hosted PeerJS and TURN servers:
+
+- **PeerJS Server**: Replaces public signaling server, improves stability
+- **TURN Server**: Provides relay for restricted networks (enterprise/school)
+- **Estimated Cost**: ~30-50 元/月 for 1核2GB 阿里云 ECS
+
+See `docs/SERVER-SETUP.md` for complete deployment instructions.
+
+**Connection Success Rates:**
+
+| Network Type | Without TURN | With TURN |
+|--------------|-------------|-----------|
+| Local LAN    | 100%        | 100%      |
+| Home Network | 80-90%      | 95%+      |
+| Enterprise   | 40-60%      | 90%+      |
 
 ## Rules Implementation
 

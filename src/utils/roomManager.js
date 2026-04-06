@@ -11,6 +11,7 @@
 
 import Peer from 'peerjs'
 import { getHiddenPlants } from '@/data/customPlants'
+import webrtcConfig from '@/config/webrtc.config'
 
 class RoomManager {
   constructor() {
@@ -32,7 +33,11 @@ class RoomManager {
 
     // 使用邀请码作为 PeerID，方便选手直接连接
     const peerId = `bp-room-${this.inviteCode.toLowerCase()}`
-    this.peer = new Peer(peerId)
+    this.peer = new Peer(peerId, {
+      ...webrtcConfig.peerjs,
+      config: webrtcConfig.config,
+      debug: webrtcConfig.debug
+    })
     this.role = 'host'
 
     return new Promise((resolve, reject) => {
@@ -48,10 +53,52 @@ class RoomManager {
         this.handleIncomingConnection(conn)
       })
 
+      // 监听 ICE 连接状态
+      this.peer.on('iceStateChange', (iceConnectionState, iceGatheringState) => {
+        console.log('[RoomManager] ICE 状态变化:', iceConnectionState, iceGatheringState)
+
+        const statusMessages = {
+          'new': '正在初始化连接...',
+          'checking': '正在尝试建立网络连接...',
+          'connected': '✅ 网络连接已建立',
+          'completed': '✅ 连接建立完成',
+          'failed': '❌ 网络连接失败，请检查网络设置',
+          'disconnected': '⚠️ 网络连接已断开',
+          'closed': '连接已关闭'
+        }
+
+        if (statusMessages[iceConnectionState]) {
+          this.emit('connectionStatus', {
+            status: iceConnectionState,
+            message: statusMessages[iceConnectionState],
+            timestamp: Date.now()
+          })
+        }
+      })
+
       // 错误处理
       this.peer.on('error', (error) => {
         console.error('[RoomManager] Peer 错误:', error)
-        this.emit('error', { type: 'peer', error })
+
+        // 友好的错误提示
+        const errorMessages = {
+          'peer-unavailable': '无法找到对方，请检查邀请码是否正确',
+          'disconnected': '网络连接已断开，请检查网络设置',
+          'network': '网络错误，请检查您的网络连接',
+          'ssl-unavailable': '需要 HTTPS 连接，请确保使用安全连接',
+          'server-error': '服务器错误，请检查 PeerJS 服务器是否正常运行',
+          'socket-error': '连接错误，请检查服务器地址和端口',
+          'socket-closed': '连接已关闭',
+          'unavailable-id': 'ID 不可用，请尝试重新创建房间'
+        }
+
+        const userMessage = errorMessages[error.type] || `连接错误：${error.message || '未知错误'}`
+
+        this.emit('error', {
+          type: 'peer',
+          error,
+          userFriendlyMessage: userMessage
+        })
         reject(error)
       })
     })
@@ -88,7 +135,11 @@ class RoomManager {
 
     // 为客户端生成唯一的 PeerID
     const clientPeerId = `${hostPeerId}-${role}-${Date.now()}`
-    this.peer = new Peer(clientPeerId)
+    this.peer = new Peer(clientPeerId, {
+      ...webrtcConfig.peerjs,
+      config: webrtcConfig.config,
+      debug: webrtcConfig.debug
+    })
 
     return new Promise((resolve, reject) => {
       this.peer.on('open', (id) => {
@@ -114,9 +165,51 @@ class RoomManager {
         })
       })
 
+      // 监听 ICE 连接状态
+      this.peer.on('iceStateChange', (iceConnectionState, iceGatheringState) => {
+        console.log('[RoomManager] ICE 状态变化:', iceConnectionState, iceGatheringState)
+
+        const statusMessages = {
+          'new': '正在初始化连接...',
+          'checking': '正在尝试建立网络连接...',
+          'connected': '✅ 网络连接已建立',
+          'completed': '✅ 连接建立完成',
+          'failed': '❌ 网络连接失败，请检查网络设置',
+          'disconnected': '⚠️ 网络连接已断开',
+          'closed': '连接已关闭'
+        }
+
+        if (statusMessages[iceConnectionState]) {
+          this.emit('connectionStatus', {
+            status: iceConnectionState,
+            message: statusMessages[iceConnectionState],
+            timestamp: Date.now()
+          })
+        }
+      })
+
       this.peer.on('error', (error) => {
         console.error('[RoomManager] Peer 错误:', error)
-        this.emit('error', { type: 'peer', error })
+
+        // 友好的错误提示
+        const errorMessages = {
+          'peer-unavailable': '无法找到对方，请检查邀请码是否正确',
+          'disconnected': '网络连接已断开，请检查网络设置',
+          'network': '网络错误，请检查您的网络连接',
+          'ssl-unavailable': '需要 HTTPS 连接，请确保使用安全连接',
+          'server-error': '服务器错误，请检查 PeerJS 服务器是否正常运行',
+          'socket-error': '连接错误，请检查服务器地址和端口',
+          'socket-closed': '连接已关闭',
+          'unavailable-id': 'ID 不可用，请尝试重新创建房间'
+        }
+
+        const userMessage = errorMessages[error.type] || `连接错误：${error.message || '未知错误'}`
+
+        this.emit('error', {
+          type: 'peer',
+          error,
+          userFriendlyMessage: userMessage
+        })
         reject(error)
       })
     })
