@@ -138,6 +138,75 @@ bp-plant-war/
 
 游戏进度自动保存到浏览器的localStorage中，刷新页面后会自动恢复。如需重置游戏，点击界面上的"重置游戏"按钮。
 
+## 服务器部署
+
+### 部署环境
+
+- **操作系统**：Linux (Alibaba Cloud Linux / CentOS / Ubuntu)
+- **Web 服务器**：aa_nginx (监听 80 端口)
+- **项目目录**：`/var/www/bp-tool`
+- **静态文件目录**：`/var/www/bp-tool/dist`
+
+### 更新部署步骤
+
+当本地代码推送到 GitHub 后，在服务器上执行以下命令更新：
+
+```bash
+# 1. 进入项目目录
+cd /var/www/bp-tool
+
+# 2. 拉取最新代码
+git pull origin master
+
+# 3. 安装依赖（如有新增）
+npm install
+
+# 4. 构建生产版本
+npm run build
+
+# 5. 重启 aa_nginx
+aa_nginx -s reload
+```
+
+### aa_nginx 配置
+
+配置文件位置：`/etc/aa_nginx/aa_nginx.conf`
+
+```nginx
+server {
+    listen       80;
+    server_name  你的服务器IP;
+
+    root   /var/www/bp-tool/dist;
+    index  index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+### 常用命令
+
+```bash
+# 查看 aa_nginx 状态
+ps aux | grep nginx
+
+# 重启 aa_nginx
+aa_nginx -s reload
+
+# 查看 aa_nginx 配置
+cat /etc/aa_nginx/aa_nginx.conf
+
+# 查看端口占用
+netstat -tlnp | grep :80
+```
+
 ## 注意事项
 
 - 巅峰对决模式（3:3平局）暂未实现，遇到此情况请手动处理
