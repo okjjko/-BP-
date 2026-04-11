@@ -258,7 +258,8 @@ const handleRoomStart = async (data) => {
       playerNames[1],  // player2Name
       2,              // player1Road
       4,              // player2Road
-      globalBans      // 新增：永久禁用植物列表
+      globalBans,     // 永久禁用植物列表
+      hiddenBuiltinPlants  // 隐藏的内置植物列表
     )
 
   } else {

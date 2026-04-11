@@ -130,6 +130,15 @@
           <h3 class="text-xl font-bold text-center text-purple-400">👑 主办方控制台</h3>
         </div>
 
+        <!-- 返回按钮 -->
+        <button
+          @click="backFromHostPanel"
+          class="mb-4 w-full px-4 py-2 text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
+        >
+          <span>←</span>
+          <span>返回对战模式选择</span>
+        </button>
+
         <!-- 房间创建/显示 -->
         <div v-if="!inviteCode" class="creation-section">
           <button
@@ -381,6 +390,19 @@ const selectMode = (selectedMode) => {
 const backToModeSelection = () => {
   mode.value = null
   role.value = null
+}
+
+// 从主办方面板返回
+const backFromHostPanel = () => {
+  // 如果已创建房间，先清理连接
+  if (inviteCode.value) {
+    roomManager.disconnect()
+    inviteCode.value = null
+    connectedUsers.value = []
+    store.clearMultiplayerSession()
+  }
+  // 返回模式选择
+  backToModeSelection()
 }
 
 // 选择角色
@@ -675,7 +697,17 @@ const handleConnected = () => {
 
 const handleGameStart = (data) => {
   console.log('[RoomSetup] 收到游戏开始消息:', data)
-  const { player1Name, player2Name, player1Road, player2Road, globalBans } = data
+  const { player1Name, player2Name, player1Road, player2Road, globalBans, hiddenBuiltinPlants } = data
+
+  // 新增：在游戏开始前先同步隐藏植物设置
+  if (hiddenBuiltinPlants && Array.isArray(hiddenBuiltinPlants)) {
+    localStorage.setItem('hiddenBuiltinPlants', JSON.stringify(hiddenBuiltinPlants))
+    console.log('[RoomSetup] 已同步主办方的隐藏植物设置:', hiddenBuiltinPlants.length, '个')
+  } else {
+    // 如果主办方没有隐藏植物，清除选手端的本地设置
+    localStorage.removeItem('hiddenBuiltinPlants')
+    console.log('[RoomSetup] 主办方没有隐藏植物，已清除本地设置')
+  }
 
   // 1. 先保存 globalBans（因为 initGame 会清空它）
   const savedGlobalBans = globalBans || []

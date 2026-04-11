@@ -265,6 +265,7 @@ const placePlant = (plantId, sourceIndex = null) => {
 
   closePlantSelector()
   store.saveToLocalStorage()
+  store.syncState()
 }
 
 const clearPosition = () => {
@@ -277,6 +278,7 @@ const clearPosition = () => {
 
   closePlantSelector()
   store.saveToLocalStorage()
+  store.syncState()
 }
 
 // 辅助函数：统计植物出现次数
@@ -404,6 +406,7 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
   }
 
   store.saveToLocalStorage()
+  store.syncState()
   store.clearDragState()
   dropTarget.value = null
 }
@@ -418,6 +421,9 @@ const movePlantBetweenPositions = (fromPlayer, fromPosition, toPlayer, toPositio
 
   // 放置到新位置
   plants[toPosition - 1] = plantInstance
+
+  store.saveToLocalStorage()
+  store.syncState()
 }
 
 // 从 PickArea/可选列表放置植物
@@ -451,6 +457,9 @@ const placePlantToPosition = (player, position, plantId, sourceIndex = null) => 
     instanceId: store.generatePlantInstanceId(player, plantId, finalSourceIndex),
     sourceIndex: finalSourceIndex
   }
+
+  store.saveToLocalStorage()
+  store.syncState()
 }
 
 // 验证是否可放置
