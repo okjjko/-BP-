@@ -502,6 +502,78 @@ npm run dev
 
 ---
 
+## 前端项目更新部署
+
+当本地代码推送到 GitHub 后，在服务器上执行以下命令更新前端项目：
+
+### 更新步骤
+
+```bash
+# 1. 进入项目目录
+cd /var/www/bp-tool
+
+# 2. 拉取最新代码
+git pull origin master
+
+# 3. 安装依赖（如有新增）
+npm install
+
+# 4. 构建生产版本
+npm run build
+
+# 5. 重启 aa_nginx
+aa_nginx -s reload
+```
+
+### 完整示例
+
+```bash
+[root@server ~]# cd /var/www/bp-tool
+[root@server bp-tool]# git pull origin master
+remote: Enumerating objects: 20, done.
+remote: Counting objects: 100% (20/20), done.
+remote: Total 13 (delta 6), reused 0 (delta 0)
+Unpacking objects: 100% (13/13), 12.70 KiB | 3.17 MiB/s
+[root@server bp-tool]# npm install
+up to date, audited 122 packages in 4s
+[root@server bp-tool]# npm run build
+vite v5.4.21 building for production...
+✓ 91 modules transformed.
+built in 4.24s
+[root@server bp-tool]# aa_nginx -s reload
+```
+
+### aa_nginx 常用命令
+
+```bash
+# 重载配置（推荐，不中断服务）
+aa_nginx -s reload
+
+# 停止服务
+aa_nginx -s stop
+
+# 启动服务
+aa_nginx
+
+# 测试配置文件
+aa_nginx -t
+
+# 查看版本
+aa_nginx -v
+```
+
+### 验证更新
+
+更新完成后，访问您的网站确认：
+
+```
+http://你的服务器IP
+```
+
+打开浏览器开发者工具（F12），在 Network 标签勾选 "Disable cache"，然后刷新页面验证资源是否更新。
+
+---
+
 ## 维护命令
 
 ### PeerJS 服务器管理

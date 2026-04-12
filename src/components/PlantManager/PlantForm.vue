@@ -53,12 +53,10 @@
           required
           class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none"
         >
-          <option value="shooter">射击</option>
-          <option value="producer">生产</option>
-          <option value="defense">防御</option>
-          <option value="instant">瞬间</option>
-          <option value="melee">近战</option>
-          <option value="support">辅助</option>
+          <option value="副C">副C</option>
+          <option value="大C">大C</option>
+          <option value="辅助">辅助</option>
+          <option value="前排">前排</option>
         </select>
       </div>
 
@@ -112,7 +110,7 @@ const formData = ref({
   imageData: null,
   imageType: 'image/jpeg',
   description: '',
-  type: 'shooter'
+  type: '副C'
 })
 
 // 保存原始ID用于比较
@@ -152,7 +150,7 @@ watch(() => props.plant, (newPlant) => {
       imageData: null,
       imageType: 'image/jpeg',
       description: '',
-      type: 'shooter'
+      type: '副C'
     }
     idChanged.value = false
   }

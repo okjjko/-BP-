@@ -293,12 +293,10 @@ const currentTab = ref('plants') // 'plants' | 'configs'
 
 const plantTypes = [
   { value: 'all', label: '全部' },
-  { value: 'shooter', label: '射击' },
-  { value: 'producer', label: '生产' },
-  { value: 'defense', label: '防御' },
-  { value: 'instant', label: '瞬间' },
-  { value: 'melee', label: '近战' },
-  { value: 'support', label: '辅助' }
+  { value: '副C', label: '副C' },
+  { value: '大C', label: '大C' },
+  { value: '辅助', label: '辅助' },
+  { value: '前排', label: '前排' }
 ]
 
 // 过滤植物列表
@@ -306,7 +304,19 @@ const filteredPlants = computed(() => {
   let plants = getAllPlantsSync()
 
   if (selectedType.value !== 'all') {
-    plants = plants.filter(p => p.type === selectedType.value)
+    plants = plants.filter(p => {
+      // 支持类型为数组或包含多个类型的情况（如忧郁蘑菇既是前排也是大C）
+      const plantType = p.type
+      if (Array.isArray(plantType)) {
+        return plantType.includes(selectedType.value)
+      }
+      // 支持用 "/" 或 "," 分隔的类型字符串
+      if (typeof plantType === 'string' && (plantType.includes('/') || plantType.includes(','))) {
+        const types = plantType.split(/\/|,/).map(t => t.trim())
+        return types.includes(selectedType.value)
+      }
+      return plantType === selectedType.value
+    })
   }
 
   if (searchQuery.value) {
