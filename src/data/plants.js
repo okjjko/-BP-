@@ -168,8 +168,15 @@ export const PLANTS = [
     description: '高速发射豌豆的强力射手',
     type: '大C'
   },
+  {
+    id: 'melon_pult',
+    name: '西瓜投手',
+    image: '/plants/瓜.png',
+    description: '投掷西瓜，造成高额伤害',
+    type: '大C'
+  },
 
-  // ========== 辅助 (14个) ==========
+  // ========== 辅助 (13个) ==========
   {
     id: 'clover',
     name: '三叶草',
@@ -259,13 +266,6 @@ export const PLANTS = [
     name: '火炬树桩',
     image: '/plants/火.png',
     description: '将豌豆火焰化，增加伤害',
-    type: '辅助'
-  },
-  {
-    id: 'melon_pult',
-    name: '西瓜投手',
-    image: '/plants/瓜.png',
-    description: '投掷西瓜，造成高额伤害',
     type: '辅助'
   },
 
