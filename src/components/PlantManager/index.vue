@@ -269,7 +269,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { getAllPlantsSync, getHiddenBuiltinPlants, hideBuiltinPlant, unhideBuiltinPlant, checkPlantInGame, getPlantImage } from '@/data/customPlants'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
 import PlantCard from './PlantCard.vue'
 import PlantForm from './PlantForm.vue'
 import ImportExport from './ImportExport.vue'

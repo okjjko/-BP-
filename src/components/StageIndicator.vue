@@ -73,20 +73,22 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { STAGE_NAMES } from '@/utils/bpRules'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
 
 // 多人模式相关
-const roomMode = computed(() => store.roomMode)
-const myRole = computed(() => store.myRole)
-const myTurnDescription = computed(() => store.myTurnDescription)
-const isMyTurn = computed(() => store.isMyTurn)
+const roomMode = computed(() => connStore.roomMode)
+const myRole = computed(() => connStore.myRole)
+const myTurnDescription = computed(() => connStore.myTurnDescription)
+const isMyTurn = computed(() => connStore.isMyTurn)
 
 // 同步状态指示器
 const syncStatus = computed(() => {
-  if (store.isSyncing) {
+  if (connStore.isSyncing) {
     return {
       icon: '⟳',
       text: '同步中...',
@@ -94,7 +96,7 @@ const syncStatus = computed(() => {
     }
   }
 
-  if (store.syncError) {
+  if (connStore.syncError) {
     return {
       icon: '⚠',
       text: '同步失败',
@@ -132,7 +134,7 @@ const getRoleLabel = () => {
     case 'host': return '主办方'
     case 'player': {
       // 显示选手ID
-      return store.myPlayerName ? `选手 ${store.myPlayerName}` : '选手'
+      return connStore.myPlayerName ? `选手 ${connStore.myPlayerName}` : '选手'
     }
     case 'spectator': return '观众'
     default: return ''

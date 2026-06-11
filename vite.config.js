@@ -10,8 +10,10 @@ export default defineConfig({
     }
   },
   server: {
-    host: '0.0.0.0', // 监听所有网络接口，支持局域网访问
+    host: '0.0.0.0',
     port: 3000,
-    strictPort: false // 如果端口被占用，自动尝试下一个端口
-  }
+    strictPort: false
+  },
+  // 生产环境需要配置服务器将所有路由指向 index.html（SPA history 模式）
+  // Nginx 配置：try_files $uri $uri/ /index.html;
 })

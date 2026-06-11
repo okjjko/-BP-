@@ -33,9 +33,9 @@
               'border-gray-600 hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
               'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index) && (!dropTarget || dropTarget.position !== index),
               'border-plant-green-neon shadow-[0_0_20px_rgba(76,175,80,0.6)] bg-plant-green/10 scale-105 dropzone-active': dropTarget && dropTarget.player === player && dropTarget.position === index,
-              'dragging-from': store.dragState?.draggedFromType === 'battlefield' &&
-                              store.dragState?.draggedFromPlayer === player &&
-                              store.dragState?.draggedFromPosition === index
+              'dragging-from': uiStore.dragState?.draggedFromType === 'battlefield' &&
+                              uiStore.dragState?.draggedFromPlayer === player &&
+                              uiStore.dragState?.draggedFromPosition === index
             }"
           >
             <!-- 序号标记 -->
@@ -89,8 +89,8 @@
             @dragend="handleDragEnd"
             class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border text-sm cursor-grab active:cursor-grabbing transition-all duration-200"
             :class="{
-              'border-gray-700 hover:border-gray-500': !store.dragState?.isDragging || store.dragState?.draggedPlantId !== plantId,
-              'opacity-50 scale-95 border-plant-green-neon shadow-[0_0_15px_rgba(76,175,80,0.5)]': store.dragState?.isDragging && store.dragState?.draggedPlantId === plantId
+              'border-gray-700 hover:border-gray-500': !uiStore.dragState?.isDragging || uiStore.dragState?.draggedPlantId !== plantId,
+              'opacity-50 scale-95 border-plant-green-neon shadow-[0_0_15px_rgba(76,175,80,0.5)]': uiStore.dragState?.isDragging && uiStore.dragState?.draggedPlantId === plantId
             }"
           >
             <img
@@ -176,17 +176,21 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useUIStore } from '@/stores/uiStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { getPlantImage, getPlantName } from '@/data/customPlants'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
+const uiStore = useUIStore()
 
 const showPlantSelector = ref(false)
 const selectingPlayer = ref(null)
 const selectingPosition = ref(null)
 
 // 拖拽状态管理
-// 注意：draggedPlantId, draggedFromPlayer, isDragging 已改用 store.dragState
+// 注意：draggedPlantId, draggedFromPlayer, isDragging 已改用 uiStore.dragState
 const dropTarget = ref(null)             // 当前悬停的目标位置 { player, position }
 
 const getPlayerName = (player) => {
@@ -265,7 +269,7 @@ const placePlant = (plantId, sourceIndex = null) => {
 
   closePlantSelector()
   store.saveToLocalStorage()
-  store.syncState()
+  connStore.syncState()
 }
 
 const clearPosition = () => {
@@ -278,7 +282,7 @@ const clearPosition = () => {
 
   closePlantSelector()
   store.saveToLocalStorage()
-  store.syncState()
+  connStore.syncState()
 }
 
 // 辅助函数：统计植物出现次数
@@ -311,7 +315,7 @@ const handleDragStartFromPosition = (event, player, position) => {
   if (!plant) return
 
   // 更新全局拖拽状态
-  store.setDragState({
+  uiStore.setDragState({
     isDragging: true,
     draggedPlantId: plant.plantId,
     draggedFromPlayer: player,
@@ -333,7 +337,7 @@ const handleDragStartFromPosition = (event, player, position) => {
 // 从可选列表开始拖拽
 const handleDragStart = (event, plantId, player, sourceIndex = null) => {
   // 更新全局拖拽状态
-  store.setDragState({
+  uiStore.setDragState({
     isDragging: true,
     draggedPlantId: plantId,
     draggedFromPlayer: player,
@@ -353,7 +357,7 @@ const handleDragStart = (event, plantId, player, sourceIndex = null) => {
 
 // 拖拽结束清理
 const handleDragEnd = () => {
-  store.clearDragState()
+  uiStore.clearDragState()
   dropTarget.value = null
 }
 
@@ -361,7 +365,7 @@ const handleDragEnd = () => {
 const handleDragOver = (event, player, position) => {
   event.preventDefault()
 
-  const dragState = store.dragState
+  const dragState = uiStore.dragState
   if (!dragState?.isDragging) return
 
   if (canDropAt(player, position, dragState)) {
@@ -381,9 +385,9 @@ const handleDragLeave = () => {
 const handleDrop = (event, targetPlayer, targetPosition) => {
   event.preventDefault()
 
-  const dragState = store.dragState
+  const dragState = uiStore.dragState
   if (!dragState?.isDragging || !canDropAt(targetPlayer, targetPosition, dragState)) {
-    store.clearDragState()
+    uiStore.clearDragState()
     dropTarget.value = null
     return
   }
@@ -406,8 +410,8 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
   }
 
   store.saveToLocalStorage()
-  store.syncState()
-  store.clearDragState()
+  connStore.syncState()
+  uiStore.clearDragState()
   dropTarget.value = null
 }
 
@@ -423,7 +427,7 @@ const movePlantBetweenPositions = (fromPlayer, fromPosition, toPlayer, toPositio
   plants[toPosition - 1] = plantInstance
 
   store.saveToLocalStorage()
-  store.syncState()
+  connStore.syncState()
 }
 
 // 从 PickArea/可选列表放置植物
@@ -459,7 +463,7 @@ const placePlantToPosition = (player, position, plantId, sourceIndex = null) => 
   }
 
   store.saveToLocalStorage()
-  store.syncState()
+  connStore.syncState()
 }
 
 // 验证是否可放置

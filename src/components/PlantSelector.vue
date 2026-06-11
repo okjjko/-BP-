@@ -89,29 +89,31 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { getPlantByIdSync, getPlantImage } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
 
 // BP 权限检查：观众只读，多人模式下检查回合制权限
 const hasBPPermission = computed(() => {
   // 观众：不能操作
-  if (store.isViewOnly) return false
+  if (connStore.isViewOnly) return false
 
   // 本地模式：可以操作
-  if (store.roomMode === 'local') return true
+  if (connStore.roomMode === 'local') return true
 
   // 多人模式：检查是否为当前回合
-  return store.isMyTurn
+  return connStore.isMyTurn
 })
 
 // 回合提示文本
 const turnText = computed(() => {
-  if (store.roomMode === 'local') return ''
-  if (store.isMyTurn) return '确认' + (isBan.value ? '禁用' : '选择')
-  return store.myTurnDescription
+  if (connStore.roomMode === 'local') return ''
+  if (connStore.isMyTurn) return '确认' + (isBan.value ? '禁用' : '选择')
+  return connStore.myTurnDescription
 })
 
 const isBan = computed(() => store.currentRound?.action === 'ban')

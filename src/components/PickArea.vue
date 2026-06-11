@@ -71,7 +71,8 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useUIStore } from '@/stores/uiStore'
 import { getPlantImage, getPlantName, getPlantDesc } from '@/data/customPlants'
 
 const props = defineProps({
@@ -82,6 +83,7 @@ const props = defineProps({
 })
 
 const store = useGameStore()
+const uiStore = useUIStore()
 
 // 本地拖拽状态（用于视觉反馈）
 const localDraggingPlantId = ref(null)
@@ -110,7 +112,7 @@ const handleDragStart = (event, plantId, sourceIndex) => {
   localDraggingPlantId.value = plantId
 
   // 更新全局拖拽状态
-  store.setDragState({
+  uiStore.setDragState({
     isDragging: true,
     draggedPlantId: plantId,
     draggedFromPlayer: props.player,
@@ -131,13 +133,13 @@ const handleDragStart = (event, plantId, sourceIndex) => {
 
 const handleDragEnd = () => {
   localDraggingPlantId.value = null
-  store.clearDragState()
+  uiStore.clearDragState()
 }
 
 const isCurrentDragging = (plantId) => {
-  return store.dragState?.isDragging &&
-         store.dragState?.draggedPlantId === plantId &&
-         store.dragState?.draggedFromType === 'pickArea'
+  return uiStore.dragState?.isDragging &&
+         uiStore.dragState?.draggedPlantId === plantId &&
+         uiStore.dragState?.draggedFromType === 'pickArea'
 }
 
 // 辅助函数：统计植物出现次数

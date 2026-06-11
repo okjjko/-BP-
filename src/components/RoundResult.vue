@@ -127,10 +127,12 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { isGameOver } from '@/utils/validators'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
 
 const roundWinner = computed(() => store.roundWinner)
 const player1Score = computed(() => store.player1.score)
@@ -200,8 +202,8 @@ const cancelFinishRound = () => {
   store.gameStatus = 'positioning'
 
   // 同步状态到其他客户端
-  if (store.roomMode !== 'local') {
-    store.syncState()
+  if (connStore.roomMode !== 'local') {
+    connStore.syncState()
   }
 }
 
@@ -238,8 +240,8 @@ const confirmRoadSelection = () => {
   store.saveToLocalStorage()
 
   // 同步状态到其他客户端
-  if (store.roomMode !== 'local') {
-    store.syncState()
+  if (connStore.roomMode !== 'local') {
+    connStore.syncState()
   }
 }
 
@@ -250,8 +252,8 @@ const goToNextRound = () => {
   store.saveToLocalStorage()
 
   // 同步状态到其他客户端
-  if (store.roomMode !== 'local') {
-    store.syncState()
+  if (connStore.roomMode !== 'local') {
+    connStore.syncState()
   }
 }
 

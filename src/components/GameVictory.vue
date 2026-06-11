@@ -101,9 +101,11 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
 
 // 判断胜利者
 const winner = computed(() => {
@@ -170,8 +172,8 @@ const backToRoundResult = () => {
   store.gameStatus = 'result'
 
   // 同步状态到其他客户端
-  if (store.roomMode !== 'local') {
-    store.syncState()
+  if (connStore.roomMode !== 'local') {
+    connStore.syncState()
   }
 }
 

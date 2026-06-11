@@ -47,7 +47,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
 import { getPlantImage, getPlantName } from '@/data/customPlants'
 
 const props = defineProps({

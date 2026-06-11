@@ -168,7 +168,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { getPlantById, PLANTS } from '@/data/plants'
 import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToBase64 } from '@/data/customPlants'
 import PlantManager from '@/components/PlantManager/index.vue'
@@ -176,6 +177,7 @@ import RoomSetup from '@/components/RoomSetup.vue'
 import roomManager from '@/utils/roomManager'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
 
 const player1Name = ref('')
 const player2Name = ref('')
@@ -196,7 +198,7 @@ const handleRoomStart = async (data) => {
   }
 
   // 多人模式，设置房间相关状态
-  store.setRoomMode(data.mode, data.inviteCode)
+  connStore.setRoomMode(data.mode, data.inviteCode)
 
   // 如果是主办方
   if (data.role === 'host') {
@@ -222,7 +224,7 @@ const handleRoomStart = async (data) => {
     startGame()
 
     // 调试：检查 globalBans 是否已生成
-    console.log('[GameSetup] startGame() 调用完成，roomMode:', store.roomMode, 'globalBans:', store.globalBans)
+    console.log('[GameSetup] startGame() 调用完成，roomMode:', connStore.roomMode, 'globalBans:', store.globalBans)
 
     // 广播自定义植物配置到所有已连接的客户端
     const allPlants = getAllPlantsSync()
@@ -271,7 +273,7 @@ const handleRoomStart = async (data) => {
       return
     }
     // 游戏未开始，开始状态同步并等待
-    store.startStateSync()
+    connStore.startStateSync()
   }
 }
 
@@ -279,11 +281,11 @@ const handleRoomStart = async (data) => {
 const handleRoomCancel = () => {
   showRoomSetup.value = true // 返回到模式选择页面
   // 清理房间模式状态
-  store.setRoomMode('local', null)
-  store.myRole = null
-  store.myPlayerName = ''
-  store.myPlayerId = null
-  store.myAssignedPlayer = null
+  connStore.setRoomMode('local', null)
+  connStore.myRole = null
+  connStore.myPlayerName = ''
+  connStore.myPlayerId = null
+  connStore.myAssignedPlayer = null
 }
 
 // 返回到模式选择页面

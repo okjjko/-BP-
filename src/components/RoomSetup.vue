@@ -301,11 +301,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import roomManager from '@/utils/roomManager'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import PlantManager from '@/components/PlantManager/index.vue'
 
 const emit = defineEmits(['startGame', 'cancel'])
 const store = useGameStore()
+const connStore = useConnectionStore()
 
 // 植物管理模态框状态
 const showPlantManager = ref(false)
@@ -399,7 +401,7 @@ const backFromHostPanel = () => {
     roomManager.disconnect()
     inviteCode.value = null
     connectedUsers.value = []
-    store.clearMultiplayerSession()
+    connStore.clearMultiplayerSession()
   }
   // 返回模式选择
   backToModeSelection()
@@ -428,13 +430,13 @@ const createRoom = async () => {
     console.log('房间已创建，邀请码:', code)
 
     // ✅ 关键修复：主办方也需要设置 roomMode，否则 startStateSync() 会认为这是本地模式
-    store.setRoomMode('host', code)
+    connStore.setRoomMode('host', code)
 
     // ✅ 关键修复：主办方需要设置身份，否则无法转发状态
-    store.setMyIdentity('host', null)
+    connStore.setMyIdentity('host', null)
 
     // 主办方也需要开始状态同步，以便接收选手的消息
-    store.startStateSync()
+    connStore.startStateSync()
   } catch (error) {
     console.error('创建房间失败:', error)
     joinError.value = '创建房间失败，请重试'
@@ -468,21 +470,21 @@ const joinRoom = async () => {
     )
 
     // ✅ 关键修复：在加入房间成功后立即设置 roomMode
-    store.setRoomMode(role.value, inputInviteCode.value.toUpperCase())
+    connStore.setRoomMode(role.value, inputInviteCode.value.toUpperCase())
 
-    // 设置身份到store
+    // 设置身份到connStore
     if (role.value === 'player') {
-      store.setMyIdentity('player', playerName.value.trim())
+      connStore.setMyIdentity('player', playerName.value.trim())
     } else if (role.value === 'spectator') {
-      store.setMyIdentity('spectator', null)
+      connStore.setMyIdentity('spectator', null)
     }
 
     isConnected.value = true
 
     // 开始状态同步，这样才能接收游戏开始消息
-    store.startStateSync()
+    connStore.startStateSync()
 
-    console.log('已加入房间，roomMode 已设置为:', store.roomMode)
+    console.log('已加入房间，roomMode 已设置为:', connStore.roomMode)
   } catch (error) {
     console.error('加入房间失败:', error)
     joinError.value = error.message || '加入房间失败，请检查邀请码是否正确'
@@ -559,7 +561,7 @@ const leaveRoom = () => {
   isConnected.value = false
   connectedUsers.value = []
   // 清除重连会话信息
-  store.clearMultiplayerSession()
+  connStore.clearMultiplayerSession()
   emit('cancel')
 }
 
@@ -602,7 +604,7 @@ const getSessionTime = (timestamp) => {
 
 // 检查是否有需要重连的会话
 const checkReconnectSession = () => {
-  const session = store.loadMultiplayerSession()
+  const session = connStore.loadMultiplayerSession()
   if (session && session.roomMode && session.roomMode !== 'local') {
     console.log('[RoomSetup] 检测到需要重连的会话:', session)
     reconnectSession.value = session
@@ -669,7 +671,7 @@ const performReconnect = async () => {
 // 取消重连，开始新对局
 const cancelReconnect = () => {
   console.log('[RoomSetup] 取消重连，清除旧会话')
-  store.clearMultiplayerSession()
+  connStore.clearMultiplayerSession()
   showReconnectPrompt.value = false
   reconnectSession.value = null
   reconnectError.value = ''
@@ -732,8 +734,8 @@ const handleGameStart = (data) => {
   // 通知父组件隐藏房间设置界面
   emit('startGame', {
     mode: 'multiplayer',
-    role: store.myRole,
-    inviteCode: store.inviteCode
+    role: connStore.myRole,
+    inviteCode: connStore.inviteCode
   })
 }
 

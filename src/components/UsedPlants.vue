@@ -32,7 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/stores/gameStore'
 import { getPlantByIdSync, getAllPlantsSync, getHiddenBuiltinPlants } from '@/data/customPlants'
 
 const props = defineProps({
