@@ -36,7 +36,8 @@ export const useGameStore = defineStore('game', {
       bpSequence: [],
       extraPick: null,
       pumpkinProtection: {},
-      lastPumpkinIndex: null
+      lastPumpkinIndex: null,
+      pumpkinUsedThisRound: { player1: false, player2: false }
     },
 
     // 全局记录
@@ -68,7 +69,7 @@ export const useGameStore = defineStore('game', {
     availablePlants: (state) => {
       const _cacheVersion = state._plantCacheVersion
       const { currentRound, globalBans, plantUsage, pumpkinUsage } = state
-      const { bans, picks, currentPlayer, action } = currentRound
+      const { bans, picks, currentPlayer, action, extraPick, pumpkinUsedThisRound } = currentRound
 
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
 
@@ -91,7 +92,13 @@ export const useGameStore = defineStore('game', {
         const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
         if (ownPickCount + historicalUsage >= 2) return false
 
+        // 南瓜头特殊规则
         if (isPumpkin(plantId, getAllPlantsSync())) {
+          // Bug1修复：对手已在本轮使用过南瓜，不可选
+          if (pumpkinUsedThisRound[opponent]) return false
+          // Bug2修复：正在等待选择被保护植物时，不能再选南瓜
+          if (extraPick && extraPick.player === currentPlayer && extraPick.remaining > 0) return false
+          // 自己的南瓜使用次数上限
           const ownPumpkinUsage = pumpkinUsage[currentPlayer] || 0
           if (ownPumpkinUsage >= 2) return false
         }
@@ -192,7 +199,8 @@ export const useGameStore = defineStore('game', {
         selectedPlant: null,
         isRoundComplete: false,
         bpSequence,
-        extraPick: null
+        extraPick: null,
+        pumpkinUsedThisRound: { player1: false, player2: false }
       }
 
       this.updateCurrentStep()
@@ -277,6 +285,8 @@ export const useGameStore = defineStore('game', {
       this.pumpkinUsage[player] = (this.pumpkinUsage[player] || 0) + 1
       this.currentRound.lastPumpkinIndex = pumpkinIndex
       this.currentRound.extraPick = { player, remaining: 1 }
+      // 标记该玩家本轮已使用南瓜
+      this.currentRound.pumpkinUsedThisRound[player] = true
       this.currentRound.selectedPlant = null
       this.saveToLocalStorage()
       connStore.syncState()
