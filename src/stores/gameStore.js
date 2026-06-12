@@ -94,11 +94,10 @@ export const useGameStore = defineStore('game', {
 
         // 南瓜头特殊规则
         if (isPumpkin(plantId, getAllPlantsSync())) {
-          // Bug1修复：对手已在本轮使用过南瓜，不可选
-          if (pumpkinUsedThisRound[opponent]) return false
-          // Bug2修复：正在等待选择被保护植物时，不能再选南瓜
-          if (extraPick && extraPick.player === currentPlayer && extraPick.remaining > 0) return false
-          // 自己的南瓜使用次数上限
+          // 对手已在本轮使用过南瓜，不可选（空值安全）
+          const usedMap = pumpkinUsedThisRound || {}
+          if (usedMap[opponent]) return false
+          // 自己的南瓜使用次数上限（跨小分累计最多2次）
           const ownPumpkinUsage = pumpkinUsage[currentPlayer] || 0
           if (ownPumpkinUsage >= 2) return false
         }
@@ -283,8 +282,17 @@ export const useGameStore = defineStore('game', {
       const pumpkinIndex = this.currentRound.picks[player].length
       this.currentRound.picks[player].push(plantId)
       this.pumpkinUsage[player] = (this.pumpkinUsage[player] || 0) + 1
-      this.currentRound.lastPumpkinIndex = pumpkinIndex
-      this.currentRound.extraPick = { player, remaining: 1 }
+
+      // 累积 extraPick：每选一个南瓜增加 1 次额外选择
+      const currentRemaining = this.currentRound.extraPick?.remaining || 0
+      this.currentRound.extraPick = { player, remaining: currentRemaining + 1 }
+
+      // 记录所有南瓜索引（数组），用于逐一匹配保护关系
+      if (!this.currentRound.lastPumpkinIndices) {
+        this.currentRound.lastPumpkinIndices = []
+      }
+      this.currentRound.lastPumpkinIndices.push(pumpkinIndex)
+
       // 标记该玩家本轮已使用南瓜
       this.currentRound.pumpkinUsedThisRound[player] = true
       this.currentRound.selectedPlant = null
@@ -297,14 +305,21 @@ export const useGameStore = defineStore('game', {
       this.currentRound.picks[player].push(plantId)
       const newPlantIndex = this.currentRound.picks[player].length - 1
 
+      // 处理南瓜保护：extraPick 激活且有待匹配的南瓜
       if (this.currentRound.extraPick &&
           this.currentRound.extraPick.player === player &&
-          this.currentRound.lastPumpkinIndex !== undefined) {
+          this.currentRound.lastPumpkinIndices &&
+          this.currentRound.lastPumpkinIndices.length > 0) {
 
-        this.currentRound.picks[player].splice(this.currentRound.lastPumpkinIndex, 1)
+        // 取出第一个待匹配的南瓜索引
+        const pumpkinIdx = this.currentRound.lastPumpkinIndices.shift()
 
-        let actualIndex = newPlantIndex
-        if (this.currentRound.lastPumpkinIndex < newPlantIndex) {
+        // 从 picks 中移除南瓜头
+        this.currentRound.picks[player].splice(pumpkinIdx, 1)
+
+        // 计算被保护植物的实际索引
+        let actualIndex = newPlantIndex - 1 // 减1因为南瓜刚被移除
+        if (pumpkinIdx < newPlantIndex) {
           actualIndex = newPlantIndex - 1
         }
 
@@ -315,13 +330,16 @@ export const useGameStore = defineStore('game', {
         const protectionKey = `${player}_${actualIndex}`
         this.currentRound.pumpkinProtection[protectionKey] = {
           protectedBy: 'pumpkin',
-          pumpkinIndex: this.currentRound.lastPumpkinIndex
+          pumpkinIndex: pumpkinIdx
         }
 
-        delete this.currentRound.lastPumpkinIndex
+        // 减少剩余额外选择次数
         this.currentRound.extraPick.remaining--
+
         if (this.currentRound.extraPick.remaining <= 0) {
+          // 所有南瓜都已匹配保护植物，推进步骤
           this.currentRound.extraPick = null
+          delete this.currentRound.lastPumpkinIndices
           this.moveToNextStep()
         }
 
@@ -420,11 +438,14 @@ export const useGameStore = defineStore('game', {
 
     updatePlantUsage() {
       const { picks } = this.currentRound
+      // 遍历 picks 时跳过南瓜头（南瓜头的使用次数由 pumpkinUsage 单独追踪）
       picks.player1.forEach(plantId => {
+        if (isPumpkin(plantId, getAllPlantsSync())) return
         const key = `player1_${plantId}`
         this.plantUsage[key] = (this.plantUsage[key] || 0) + 1
       })
       picks.player2.forEach(plantId => {
+        if (isPumpkin(plantId, getAllPlantsSync())) return
         const key = `player2_${plantId}`
         this.plantUsage[key] = (this.plantUsage[key] || 0) + 1
       })
@@ -461,8 +482,21 @@ export const useGameStore = defineStore('game', {
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
           this.roundWinner = state.roundWinner || null
+          // 向后兼容：补全新增字段
+          if (!this.currentRound.pumpkinUsedThisRound) {
+            this.currentRound.pumpkinUsedThisRound = { player1: false, player2: false }
+          }
+          if (this.currentRound.lastPumpkinIndex !== undefined && !this.currentRound.lastPumpkinIndices) {
+            // 旧数据用 lastPumpkinIndex，迁移到 lastPumpkinIndices
+            this.currentRound.lastPumpkinIndices = [this.currentRound.lastPumpkinIndex]
+            delete this.currentRound.lastPumpkinIndex
+          }
           this.migrateLegacyPositions()
           this.migrateLegacyPumpkinProtection()
+          // 恢复后重新计算当前步骤的 currentPlayer 和 action
+          if (this.gameStatus === 'banning') {
+            this.updateCurrentStep()
+          }
           return true
         } catch (e) {
           console.error('加载存档失败', e)

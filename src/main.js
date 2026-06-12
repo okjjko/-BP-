@@ -19,3 +19,12 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.mount('#app')
+
+// 开发/测试环境：暴露 store 到 window，便于 Playwright 直接读写
+if (import.meta.env.DEV) {
+  import('./stores/gameStore.js').then(({ useGameStore }) => {
+    const gameStore = useGameStore()
+    window.$debugStore = gameStore
+    console.log('[DEV] $debugStore 已挂载到 window')
+  })
+}
