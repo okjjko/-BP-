@@ -130,7 +130,7 @@ export const canBan = (plantId, gameState) => {
 
 /**
  * 综合验证：检查是否可以进行pick操作
- * 改进：允许选手在同一小分中选择同一植物多次（最多2次）
+ * 改进：允许选手在同一小局中选择同一植物多次（最多2次）
  * @param {string} plantId - 植物ID
  * @param {string} playerId - 选手ID
  * @param {Object} gameState - 游戏状态
@@ -182,7 +182,7 @@ export const canPick = (plantId, playerId, gameState) => {
 }
 
 /**
- * 检查游戏是否结束
+ * 检查大局是否结束
  * @param {number} score1 - 选手1得分
  * @param {number} score2 - 选手2得分
  * @param {number} maxScore - 最高分（默认4分）

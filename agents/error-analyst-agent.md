@@ -150,7 +150,7 @@ const isRoadSelectedByOther = (road, currentPlayer) => {
 在store中添加道路选择验证：
 
 ```javascript
-// src/store/gameStore.js
+// src/stores/gameStore.js
 actions: {
   selectRoad(playerId, road) {
     const otherPlayer = playerId === 'player1' ? 'player2' : 'player1'
@@ -174,7 +174,7 @@ actions: {
 
 ## 相关文件
 - `src/components/GameSetup.vue` (主要问题)
-- `src/store/gameStore.js` (可能需要加强验证)
+- `src/stores/gameStore.js` (可能需要加强验证)
 
 ## 预防措施
 1. 添加单元测试覆盖道路选择逻辑

@@ -1,6 +1,6 @@
 /**
  * 游戏核心状态 Store
- * 负责玩家信息、BP流程、计分、轮次管理
+ * 负责玩家信息、BP流程、计分、小局管理
  *
  * 注意：与 connectionStore 的交叉引用是安全的，
  * 因为 Pinia store 在 action 被调用时已完全初始化
@@ -97,7 +97,7 @@ export const useGameStore = defineStore('game', {
           // 对手已在本轮使用过南瓜，不可选（空值安全）
           const usedMap = pumpkinUsedThisRound || {}
           if (usedMap[opponent]) return false
-          // 自己的南瓜使用次数上限（跨小分累计最多2次）
+          // 自己的南瓜使用次数上限（跨小局累计最多2次）
           const ownPumpkinUsage = pumpkinUsage[currentPlayer] || 0
           if (ownPumpkinUsage >= 2) return false
         }

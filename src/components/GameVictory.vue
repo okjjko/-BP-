@@ -67,10 +67,10 @@
         </div>
       </div>
 
-      <!-- 比赛统计 -->
+      <!-- 大局统计 -->
       <div class="grid grid-cols-2 gap-4 mb-8">
         <div class="bg-black/30 rounded-xl p-4 border border-white/10 text-center">
-          <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">总回合数</p>
+          <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">小局总数</p>
           <p class="text-3xl font-black text-white">{{ totalRounds }}</p>
         </div>
         <div class="bg-black/30 rounded-xl p-4 border border-white/10 text-center">
@@ -88,12 +88,12 @@
         <span>重新开始</span>
       </button>
 
-      <!-- 返回小分结算（调试用，可选） -->
+      <!-- 返回小局结算（调试用，可选） -->
       <button
         @click="backToRoundResult"
         class="w-full mt-3 py-2 text-gray-500 hover:text-gray-300 text-sm underline underline-offset-4 transition-colors"
       >
-        查看小分结算详情
+        查看小局结算详情
       </button>
     </div>
   </div>
@@ -167,7 +167,7 @@ const resetGame = () => {
   }
 }
 
-// 返回小分结算（用于调试）
+// 返回小局结算（用于调试）
 const backToRoundResult = () => {
   store.gameStatus = 'result'
 

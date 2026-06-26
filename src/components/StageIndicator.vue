@@ -141,7 +141,7 @@ const getRoleLabel = () => {
   }
 }
 
-// 当前小分数 = 双方分数和 + 1
+// 当前小局序号 = 双方分数和 + 1
 const roundNumber = computed(() => {
   return (store.player1.score || 0) + (store.player2.score || 0) + 1
 })

@@ -162,10 +162,13 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
    - **Stage 3**: Ban order: 四路→二路→四路→二路→四路→二路 (6 bans)
    - **Stage 4**: Pick order: 四路→二路→二路→四路 (4 picks)
 
-5. **Round Flow**
-   - BP阶段 → Positioning (站位设置) → Result (小分结算) → Next Round
-   - Winner gets 1 point, first to 4 points wins the match
-   - Loser selects road for next round (败者选路权)
+5. **Round Flow（小局 / 大局 术语）**
+   - **小局（round）** = 一轮完整 BP 的胜负单位：BP → 站位 → 小局结算
+   - **大局（match）** = 由若干小局组成，率先累计达成约定胜场数即赢得大局
+   - 每赢一小局记 1 分，当前为**先到 4 小局胜**赢得大局（胜场阈值计划改为可自定义）
+   - 流程：BP阶段 → Positioning (站位设置) → Result (小局结算) → 下一小局
+   - 败者获得下一小局的选路权（败者选路权）
+   - 说明：比分中的「分」即小局胜场数；变量名沿用 `currentRound`(当前小局)/`setRoundWinner`/`isGameOver`/`gameStatus`，仅术语统一，语义与胜负逻辑不变
 
 ### Key Files & Responsibilities
 
@@ -182,7 +185,7 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 
 **State Management:**
 
-- `src/store/gameStore.js` - Pinia store with getters, actions, and localStorage persistence
+- `src/stores/gameStore.js` - Pinia store with getters, actions, and localStorage persistence
   - `road2Player` getter - identifies who chose road 2
   - `road4Player` getter - identifies who chose road 4
   - `initGame()` - initializes new match with both players' road selections
@@ -297,9 +300,9 @@ Custom colors defined in `tailwind.config.js`:
 - **生效范围**: 仅在 Pick 阶段生效，Ban 阶段按原有逻辑处理
 - **实现位置**:
   - `src/utils/validators.js:206-220` (isPumpkin 函数 - 支持 ID 和名称判断)
-  - `src/store/gameStore.js:149-152` (isPumpkinPlant getter)
-  - `src/store/gameStore.js:328` (confirmSelection 函数中的特殊处理)
-  - `src/store/gameStore.js:703` (migrateLegacyPumpkinProtection 迁移逻辑)
+  - `src/stores/gameStore.js:115-117` (isPumpkinPlant getter)
+  - `src/stores/gameStore.js:271-274` (confirmSelection 函数中的特殊处理)
+  - `src/stores/gameStore.js:543` (migrateLegacyPumpkinProtection 迁移逻辑)
 
 **自定义南瓜头植物**:
 用户可以通过植物管理界面添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
@@ -363,14 +366,14 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ Dynamic BP order based on road selection
 - ✅ Mutual exclusion in road selection (players can't choose same road)
 - ✅ Toggle road selection (click to deselect)
-- ✅ **Same-round duplicate picks** - 选手可以在同一小分中选择同一植物多次（最多2次），但对手已选的植物不可选
-  - 实现位置：`src/store/gameStore.js:89-128` (availablePlants getter)
+- ✅ **Same-round duplicate picks** - 选手可以在同一小局中选择同一植物多次（最多2次），但对手已选的植物不可选
+  - 实现位置：`src/stores/gameStore.js:69-107` (availablePlants getter)
   - 验证逻辑：`src/utils/validators.js:142-187` (canPick 函数)
-  - UI显示：植物卡片和阵容区域会显示总使用次数（历史+当前小分）
+  - UI显示：植物卡片和阵容区域会显示总使用次数（历史+当前小局）
 - ✅ Usage limit tracking (max 2 times per plant per player, **including same-round picks**)
 - ✅ Cannot pick opponent's already-selected plants
 - ✅ Global bans (5 plants per match)
-- ✅ Score tracking (first to 4 wins)
+- ✅ Score tracking (大局先到 4 小局胜)
 - ✅ Loser picks road for next round
 - ✅ First-round special case: if loser chose road initially, no re-selection needed
 - ✅ Custom plant management (add, edit, delete, export, import)
@@ -388,7 +391,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 3. Verify BP sequence starts with correct player (二路选手 first)
 4. Complete all 4 stages (20 total ban/pick actions: 4+6+6+4)
 5. Set up positions (placeholder for now)
-6. Click "完成小分" to end round
+6. Click "完成小局" to end round
 7. Select round winner
 8. Verify loser can select road for next round
 9. Verify scores update correctly

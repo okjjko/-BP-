@@ -28,13 +28,13 @@ const routes = [
     path: '/result',
     name: 'result',
     component: RoundResult,
-    meta: { title: '小分结算' }
+    meta: { title: '小局结算' }
   },
   {
     path: '/victory',
     name: 'victory',
     component: GameVictory,
-    meta: { title: '游戏结束' }
+    meta: { title: '大局结束' }
   },
 ]
 

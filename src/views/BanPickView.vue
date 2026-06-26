@@ -88,7 +88,7 @@
         class="group relative px-8 py-3 bg-plant-green hover:bg-plant-green-neon text-white font-bold rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/30 overflow-hidden"
       >
         <span class="relative z-10 flex items-center gap-2">
-          <span class="text-xl">⚔️</span> 完成本小分
+          <span class="text-xl">⚔️</span> 完成本小局
         </span>
         <div class="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
       </button>

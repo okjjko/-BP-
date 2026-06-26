@@ -159,7 +159,7 @@ const getUsageCount = (plantId) => {
     return store.pumpkinUsage?.[player] || 0
   }
 
-  // 其他植物：历史使用次数 + 当前小分已选次数
+  // 其他植物：历史使用次数 + 当前小局已选次数
   const historicalUsage = store.getPlantUsageCount(player, plantId)
   const ownPicks = store.currentRound?.picks[player] || []
   const currentRoundUsage = ownPicks.filter(id => id === plantId).length
