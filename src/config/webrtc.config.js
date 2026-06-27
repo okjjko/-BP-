@@ -52,5 +52,14 @@ export default {
   retry: {
     maxAttempts: 3,     // 最大重试次数
     delay: 2000         // 重试延迟：2秒
+  },
+
+  // 公共房间目录服务（lobby）配置
+  // 与 peerjs 同 ECS 部署，由 nginx 反代到 https 子路径（解决 https 前端的混合内容问题）
+  // lobby 只维护"公共房间目录"，房间内 P2P 数据传输仍由 roomManager（PeerJS）处理
+  lobby: {
+    baseUrl: 'https://okjjko.top/lobby',  // 生产环境（经 nginx 反代，同源同协议）
+    heartbeatIntervalMs: 25000,            // 房主心跳间隔（服务端 TTL 60s，留 2 次重试余量）
+    listRefreshIntervalMs: 15000           // 选手公共房间列表轮询间隔
   }
 }

@@ -30,6 +30,10 @@ export const useConnectionStore = defineStore('connection', {
     myPlayerId: null,
     myPlayerName: '',
     myAssignedPlayer: null, // 'player1' | 'player2'
+
+    // 公共房间（lobby）状态（仅 host 用，供刷新重连时恢复"公开"状态）
+    wasPublicRoom: false,
+    hostName: null, // 房主显示名（lobby 展示用）
   }),
 
   getters: {
@@ -248,6 +252,8 @@ export const useConnectionStore = defineStore('connection', {
         inviteCode: this.inviteCode,
         myRole: this.myRole,
         myPlayerName: this.myPlayerName,
+        wasPublicRoom: this.wasPublicRoom || false, // 供 host 重连时恢复"公开"状态
+        hostName: this.hostName || null,
         timestamp: Date.now()
       }
       localStorage.setItem('bpMultiplayerSession', JSON.stringify(session))

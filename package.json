@@ -16,6 +16,7 @@
     "test:multiplayer:headed": "playwright test agents/tests/multiplayer-sync-test.spec.js --headed"
   },
   "dependencies": {
+    "axios": "^1.18.1",
     "peerjs": "^1.5.5",
     "pinia": "^2.1.7",
     "vue": "^3.4.0",

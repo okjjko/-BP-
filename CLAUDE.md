@@ -210,14 +210,23 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
   - PeerJS server settings (host, port, path, secure)
   - ICE servers list (STUN/TURN)
   - Connection timeout and retry settings
+  - `lobby` block: 公共房间目录服务地址、心跳/列表刷新间隔
   - See `docs/SERVER-SETUP.md` for deployment instructions
+
+- `server/lobby-server.js` - **公共房间目录服务（lobby，可选增强层）**
+  - 维护临时"公共房间目录"：房主可开"对所有人开放"的房间，其他人从列表一键加入（省去邀请码传递）
+  - **不参与 P2P 数据传输**：加入时仍复用 `roomManager.joinRoom(inviteCode)`，WebRTC 架构零改动
+  - 内存存储 + TTL 自动清理（无心跳 60s 过期）；零运行时依赖（Node 原生 http）
+  - API：登记/查询/心跳/注销（见 `server/README.md`），nginx 反代到 `https://okjjko.top/lobby`
+  - lobby 任何故障都降级为私密房间（仍可用邀请码），不阻断 BP
+  - 前端封装：`src/utils/lobbyApi.js`（registerRoom/listRooms/heartbeat/unregisterRoom）
 
 **Multiplayer UI:**
 
 - `src/components/RoomSetup.vue` - Room creation/joining interface
   - Auto-reconnect prompt on page refresh
-  - Host panel: create room, view connections, broadcast game start
-  - Player/spectator panel: join room with invite code, display name
+  - Host panel: create room, view connections, broadcast game start; 可勾选"公开房间"登记到 lobby 目录并启心跳
+  - Player/spectator panel: join room with invite code, display name; 或"浏览公共房间"从公共列表一键加入（复用 joinRoom）
   - Auto-reconnect: detects previous session in localStorage (24h expiry)
     - Host reconnect: creates new room, new invite code, players must rejoin
     - Player reconnect: auto-joins using stored invite code and name

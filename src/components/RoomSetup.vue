@@ -141,12 +141,34 @@
 
         <!-- 房间创建/显示 -->
         <div v-if="!inviteCode" class="creation-section">
+          <!-- 公开房间开关 -->
+          <label class="public-toggle flex items-center gap-2 mb-4 cursor-pointer justify-center">
+            <input
+              type="checkbox"
+              v-model="isPublicRoom"
+              class="w-4 h-4 accent-purple-500"
+            >
+            <span class="text-gray-300 text-sm">🌐 公开房间（其他人可在公共列表中看到并加入）</span>
+          </label>
+
+          <!-- 房主显示名（公开房间时必填） -->
+          <div v-if="isPublicRoom" class="input-group mb-4">
+            <label class="input-label">房主显示名</label>
+            <input
+              v-model="hostName"
+              type="text"
+              maxlength="20"
+              placeholder="如：小明"
+              class="player-input"
+            >
+          </div>
+
           <button
             @click="createRoom"
-            :disabled="isCreating"
+            :disabled="isCreating || (isPublicRoom && !hostName.trim())"
             class="w-full px-6 py-4 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 text-white font-bold rounded-lg transition-all"
           >
-            {{ isCreating ? '创建中...' : '创建房间' }}
+            {{ isCreating ? '创建中...' : (isPublicRoom ? '创建公开房间' : '创建房间') }}
           </button>
         </div>
 
@@ -267,6 +289,61 @@
           <div v-if="joinError" class="error-message mt-3">
             {{ joinError }}
           </div>
+
+          <!-- 分隔线 -->
+          <div class="lobby-divider flex items-center my-4 gap-3">
+            <div class="flex-1 h-px bg-gray-700"></div>
+            <span class="text-gray-500 text-xs">或者</span>
+            <div class="flex-1 h-px bg-gray-700"></div>
+          </div>
+
+          <!-- 浏览公共房间入口 -->
+          <button
+            @click="toggleLobbyList"
+            class="w-full px-4 py-2.5 bg-blue-600/80 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+          >
+            <span>🌐</span>
+            <span>{{ showLobbyList ? '收起公共房间列表' : '浏览公共房间' }}</span>
+          </button>
+
+          <!-- 公共房间列表 -->
+          <div v-if="showLobbyList" class="lobby-list mt-3">
+            <div class="lobby-list-header flex justify-between items-center mb-2">
+              <span class="text-sm text-gray-400">公共房间 ({{ lobbyRooms.length }})</span>
+              <button
+                @click="refreshLobbyList"
+                :disabled="lobbyLoading"
+                class="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+              >
+                {{ lobbyLoading ? '刷新中...' : '🔄 刷新' }}
+              </button>
+            </div>
+
+            <div v-if="lobbyError" class="error-message">{{ lobbyError }}</div>
+
+            <div v-if="lobbyRooms.length === 0 && !lobbyLoading" class="text-center text-gray-500 text-sm py-4">
+              暂无公开房间
+            </div>
+
+            <div
+              v-for="room in lobbyRooms"
+              :key="room.inviteCode"
+              class="lobby-room-card glass-panel rounded-lg p-3 mb-2 cursor-pointer hover:border-blue-400/50 transition-all border border-gray-700"
+              @click="joinFromLobby(room)"
+            >
+              <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">👑</span>
+                  <span class="font-semibold text-white">{{ room.hostName }}</span>
+                </div>
+                <span class="text-xs text-gray-400">{{ formatLobbyTime(room.createdAt) }}</span>
+              </div>
+              <div class="flex gap-3 mt-1 text-xs text-gray-400">
+                <span>🎮 选手 {{ room.playerCount }}/2</span>
+                <span>👀 观众 {{ room.spectatorCount }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 等待确认 -->
@@ -301,6 +378,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import roomManager from '@/utils/roomManager'
+import * as lobbyApi from '@/utils/lobbyApi'
+import webrtcConfig from '@/config/webrtc.config'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import PlantManager from '@/components/PlantManager/index.vue'
@@ -329,6 +408,12 @@ const isConnected = ref(false)
 const joinError = ref('')
 const copied = ref(false)
 const connectedUsers = ref([])
+
+// 公共房间（lobby）相关
+const isPublicRoom = ref(false)        // 是否公开房间
+const hostName = ref('')               // 房主显示名（lobby 展示用）
+const hostSecret = ref(null)           // lobby 返回的注销/心跳凭证（内存，不持久化）
+const lobbyHeartbeatTimer = ref(null)  // 房主心跳定时器 id
 
 // 自动重连相关
 const showReconnectPrompt = ref(false)
@@ -398,6 +483,7 @@ const backToModeSelection = () => {
 const backFromHostPanel = () => {
   // 如果已创建房间，先清理连接
   if (inviteCode.value) {
+    unregisterPublicRoom()  // 先注销公开房间
     roomManager.disconnect()
     inviteCode.value = null
     connectedUsers.value = []
@@ -422,6 +508,12 @@ const backToRoleSelection = () => {
 
 // 创建房间（主办方）
 const createRoom = async () => {
+  // 公开房间需要房主显示名
+  if (isPublicRoom.value && !hostName.value.trim()) {
+    joinError.value = '请输入房主显示名'
+    return
+  }
+
   isCreating.value = true
 
   try {
@@ -437,12 +529,69 @@ const createRoom = async () => {
 
     // 主办方也需要开始状态同步，以便接收选手的消息
     connStore.startStateSync()
+
+    // ===== 公共房间：登记到 lobby 目录并启心跳 =====
+    if (isPublicRoom.value) {
+      connStore.wasPublicRoom = true
+      connStore.hostName = hostName.value.trim()
+      try {
+        const res = await lobbyApi.registerRoom(code, hostName.value.trim())
+        hostSecret.value = res.hostSecret
+        startLobbyHeartbeat(code, res.hostSecret)
+        console.log('[lobby] 已登记公开房间', code)
+      } catch (e) {
+        // 登记失败：房间退化为私密，仍可用邀请码，不阻断
+        console.warn('[lobby] 公开登记失败，房间退化为私密:', e)
+        joinError.value = '公开登记失败，房间仍可用邀请码（私密模式）'
+        isPublicRoom.value = false
+        connStore.wasPublicRoom = false
+      }
+    }
   } catch (error) {
     console.error('创建房间失败:', error)
     joinError.value = '创建房间失败，请重试'
   } finally {
     isCreating.value = false
   }
+}
+
+// 房主心跳保活：定期向 lobby 上报房间状态，防止被 TTL 清理
+const startLobbyHeartbeat = (code, secret) => {
+  stopLobbyHeartbeat()
+  const tick = async () => {
+    const stats = roomManager.getConnectionStats()
+    try {
+      await lobbyApi.heartbeat(code, secret, {
+        playerCount: stats.players,
+        spectatorCount: stats.spectators
+      })
+    } catch (e) {
+      // 404 = 房间已被服务端过期（可能因网络中断超过 TTL），停止心跳
+      // 房间本身（P2P）还在，只是不再出现在公共列表
+      if (e.response && e.response.status === 404) {
+        console.warn('[lobby] 房间已在目录过期，停止心跳')
+        stopLobbyHeartbeat()
+      }
+    }
+  }
+  tick() // 立即发一次
+  lobbyHeartbeatTimer.value = setInterval(tick, webrtcConfig.lobby.heartbeatIntervalMs)
+}
+
+const stopLobbyHeartbeat = () => {
+  if (lobbyHeartbeatTimer.value) {
+    clearInterval(lobbyHeartbeatTimer.value)
+    lobbyHeartbeatTimer.value = null
+  }
+}
+
+// 注销公开房间（解散/离开时调用）—— 停心跳 + 通知 lobby 删除
+const unregisterPublicRoom = () => {
+  stopLobbyHeartbeat()
+  if (inviteCode.value && hostSecret.value) {
+    lobbyApi.unregisterRoom(inviteCode.value, hostSecret.value)
+  }
+  hostSecret.value = null
 }
 
 // 加入房间（选手/观众）
@@ -491,6 +640,65 @@ const joinRoom = async () => {
   } finally {
     isJoining.value = false
   }
+}
+
+// ===== 公共房间列表（选手/观众端） =====
+const showLobbyList = ref(false)
+const lobbyRooms = ref([])
+const lobbyLoading = ref(false)
+const lobbyError = ref('')
+let lobbyPollTimer = null
+
+const toggleLobbyList = async () => {
+  showLobbyList.value = !showLobbyList.value
+  if (showLobbyList.value) {
+    await refreshLobbyList()
+    startLobbyPolling()
+  } else {
+    stopLobbyPolling()
+  }
+}
+
+const refreshLobbyList = async () => {
+  lobbyLoading.value = true
+  lobbyError.value = ''
+  try {
+    const res = await lobbyApi.listRooms()
+    lobbyRooms.value = res.rooms || []
+  } catch (e) {
+    lobbyError.value = '无法获取公共房间列表'
+    lobbyRooms.value = []
+  } finally {
+    lobbyLoading.value = false
+  }
+}
+
+const startLobbyPolling = () => {
+  stopLobbyPolling()
+  lobbyPollTimer = setInterval(refreshLobbyList, webrtcConfig.lobby.listRefreshIntervalMs)
+}
+
+const stopLobbyPolling = () => {
+  if (lobbyPollTimer) {
+    clearInterval(lobbyPollTimer)
+    lobbyPollTimer = null
+  }
+}
+
+// 从公共房间列表加入 —— 复用现有 joinRoom 逻辑（把邀请码填入输入框再调 joinRoom）
+const joinFromLobby = async (room) => {
+  inputInviteCode.value = room.inviteCode
+  await joinRoom()
+  // 加入成功后停止轮询
+  if (isConnected.value) {
+    stopLobbyPolling()
+    showLobbyList.value = false
+  }
+}
+
+const formatLobbyTime = (ts) => {
+  const minutes = Math.floor((Date.now() - ts) / 60000)
+  return minutes > 0 ? `${minutes} 分钟前` : '刚刚'
 }
 
 // 复制邀请码（兼容 HTTP 和 HTTPS）
@@ -555,6 +763,7 @@ const confirmStart = () => {
 
 // 离开房间
 const leaveRoom = () => {
+  unregisterPublicRoom()  // 先注销公开房间（房主）并停止心跳
   roomManager.disconnect()
   inviteCode.value = null
   inputInviteCode.value = ''
@@ -625,6 +834,9 @@ const performReconnect = async () => {
     if (session.myRole === 'host') {
       // 主办方：重新创建房间
       console.log('[RoomSetup] 主办方重连，创建新房间...')
+      // 恢复"公开房间"状态：createRoom 会用新 inviteCode + 原 hostName 重新登记到 lobby
+      isPublicRoom.value = !!session.wasPublicRoom
+      hostName.value = session.hostName || ''
       await createRoom()
 
       // 房间创建成功后，恢复游戏状态
@@ -794,6 +1006,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   cleanupEventListeners()
+  stopLobbyHeartbeat()  // 防止房主心跳定时器泄漏（关页面靠服务端 TTL 兜底）
+  stopLobbyPolling()    // 防止选手列表轮询定时器泄漏
 })
 </script>
 

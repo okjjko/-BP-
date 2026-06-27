@@ -1024,3 +1024,60 @@ test.describe('多人对战同步功能测试', () => {
     }
   });
 });
+
+// ===========================================================================
+// 公共房间列表测试（需 lobby 目录服务，未设置 LOBBY_TEST 时自动跳过）
+// 依赖 server/lobby-server.js 运行 + vite 的 /lobby proxy（或线上 okjjko.top/lobby）
+// 本地跑法：1) node server/lobby-server.js  2) npm run dev  3) LOBBY_TEST=1 npm run test:multiplayer
+// ===========================================================================
+test.describe('公共房间列表（需 lobby service）', () => {
+  test.beforeEach(() => {
+    test.skip(!process.env.LOBBY_TEST, '未设置 LOBBY_TEST=1，跳过（需 lobby 目录服务）');
+  });
+
+  test('房主开公开房 → 选手从公共列表加入', async ({ browser }) => {
+    test.setTimeout(60000);
+    const hostContext = await browser.newContext();
+    const playerContext = await browser.newContext();
+    const hostPage = await hostContext.newPage();
+    const playerPage = await playerContext.newPage();
+
+    try {
+      // ---- 主办方：勾选公开 + 填房主名 → 创建公开房间 ----
+      await hostPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+      await hostPage.evaluate(() => { try { localStorage.clear() } catch (e) {} });
+      await hostPage.reload({ waitUntil: 'networkidle' });
+      await hostPage.locator('text=多人对战').first().click();
+      await hostPage.locator('text=主办方').first().click();
+      await hostPage.locator('input[type="checkbox"]').first().check(); // 勾选"公开房间"
+      await hostPage.locator('input[placeholder="如：小明"]').fill('自动化房主');
+      await hostPage.locator('button:has-text("创建公开房间")').click();
+      await hostPage.waitForSelector('.invite-code-text', { timeout: 15000 });
+      console.log('[公共房间测试] 房主公开房间已创建');
+
+      // ---- 选手：浏览公共房间 → 看到卡片 → 点击加入 ----
+      await playerPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+      await playerPage.evaluate(() => { try { localStorage.clear() } catch (e) {} });
+      await playerPage.reload({ waitUntil: 'networkidle' });
+      await playerPage.locator('text=多人对战').first().click();
+      await playerPage.locator('text=选手').first().click();
+      await playerPage.locator('button:has-text("浏览公共房间")').click();
+      const card = playerPage.locator('.lobby-room-card', { hasText: '自动化房主' });
+      await card.waitFor({ state: 'visible', timeout: 15000 });
+      console.log('[公共房间测试] 选手在公共列表看到房间卡片');
+
+      await playerPage.locator('input[placeholder="输入选手ID..."]').fill('自动化选手');
+      await card.click();
+      // joinFromLobby 复用现有 joinRoom，验证加入成功
+      await playerPage.locator('text=已连接到主办方').waitFor({ state: 'visible', timeout: 20000 });
+      console.log('[公共房间测试] 选手经公共列表成功加入房间');
+
+      await hostPage.waitForTimeout(1000);
+      await hostPage.screenshot({ path: `${SCREENSHOT_DIR}public-room-host.png` });
+      await playerPage.screenshot({ path: `${SCREENSHOT_DIR}public-room-player.png` });
+    } finally {
+      await hostContext.close();
+      await playerContext.close();
+    }
+  });
+});

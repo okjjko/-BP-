@@ -502,6 +502,61 @@ npm run dev
 
 ---
 
+### 第五步（可选）：部署公共房间目录服务（lobby）
+
+> 公共房间列表功能需要本服务。若仅需"邀请码"私密开房，可跳过本步。
+> lobby 是可选增强层：部署失败不影响 BP 本身（房间退化为私密，仍可用邀请码）。
+
+lobby 服务让房主可开"对所有人开放"的房间，其他人从公共列表一键加入，省去邀请码传递。
+它**不参与 P2P 数据传输**（P2P 仍由 PeerJS 处理），只维护一个临时房间目录。零运行时依赖
+（Node 原生 http + 内存存储），与 PeerJS/coturn 同机部署。
+
+#### 5.1 上传并启动（PM2）
+
+```bash
+# 上传 server/ 目录到 ECS（零依赖，无需 npm install）
+scp -r server/ root@your-domain.com:/opt/bp-lobby-server/
+
+# 用 PM2 启动（复用已配置的 pm2 startup）
+cd /opt/bp-lobby-server
+pm2 start ecosystem.config.cjs    # 监听 8800
+pm2 save
+```
+
+#### 5.2 nginx 反代到 https 子路径（必须）
+
+前端部署在 https，直接请求 `http://your-domain.com:8800` 会触发**混合内容拦截**。
+必须反代到 `https://your-domain.com/lobby`（复用现有 Let's Encrypt 证书），8800 不对公网开放：
+
+```nginx
+location /lobby/ {
+    proxy_pass http://127.0.0.1:8800/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+```bash
+nginx -t && nginx -s reload
+curl https://your-domain.com/lobby/rooms   # 应返回 {"ok":true,"rooms":[]}
+```
+
+#### 5.3 放行前端域名（CORS）
+
+lobby 默认放行 `https://your-domain.com` 与 `http://localhost:3000`。若前端部署在 vercel 等其他域名，
+在 `server/ecosystem.config.cjs` 的 env 追加 `LOBBY_EXTRA_ORIGINS`，然后 `pm2 restart bp-lobby-server`：
+
+```js
+env: { NODE_ENV: 'production', PORT: 8800, LOBBY_EXTRA_ORIGINS: 'https://your-project.vercel.app' }
+```
+
+详细 API 与运维见 `server/README.md`。房间无心跳 60s 自动过期清理；进程重启会清空目录。
+
+---
+
 ## 前端项目更新部署
 
 当本地代码推送到 GitHub 后，在服务器上执行以下命令更新前端项目：
