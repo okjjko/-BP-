@@ -561,6 +561,8 @@ env: { NODE_ENV: 'production', PORT: 8800, LOBBY_EXTRA_ORIGINS: 'https://your-pr
 
 当本地代码推送到 GitHub 后，在服务器上执行以下命令更新前端项目：
 
+> ℹ️ 以下命令中的 `/var/www/bp-tool` 为默认路径示例，实际以你服务器的部署位置为准。
+
 ### 更新步骤
 
 ```bash
