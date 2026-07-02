@@ -578,8 +578,8 @@ npm install
 # 4. 构建生产版本
 npm run build
 
-# 5. 重启 aa_nginx
-aa_nginx -s reload
+# 5. 重启 nginx
+nginx -s reload
 ```
 
 ### 完整示例
@@ -597,26 +597,28 @@ up to date, audited 122 packages in 4s
 vite v5.4.21 building for production...
 ✓ 91 modules transformed.
 built in 4.24s
-[root@server bp-tool]# aa_nginx -s reload
+[root@server bp-tool]# nginx -s reload
 ```
 
-### aa_nginx 常用命令
+### nginx 常用命令
+
+> 注：阿里云 Alibaba Cloud Linux 用户的 nginx 可能是 `aa_nginx` 包（命令名/包名即 `aa_nginx`），下列命令完全等价。
 
 ```bash
 # 重载配置（推荐，不中断服务）
-aa_nginx -s reload
+nginx -s reload
 
 # 停止服务
-aa_nginx -s stop
+nginx -s stop
 
 # 启动服务
-aa_nginx
+nginx
 
 # 测试配置文件
-aa_nginx -t
+nginx -t
 
 # 查看版本
-aa_nginx -v
+nginx -v
 ```
 
 ### 验证更新

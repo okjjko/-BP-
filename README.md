@@ -173,7 +173,7 @@ bp-plant-war/
 ### 部署环境
 
 - **操作系统**：Linux (Alibaba Cloud Linux / CentOS / Ubuntu)
-- **Web 服务器**：aa_nginx (监听 80 端口)
+- **Web 服务器**：nginx (监听 80 端口)（阿里云 Alibaba Cloud Linux 用户可能是 `aa_nginx` 包，命令等价）
 - **项目目录**：`/var/www/bp-tool`
 - **静态文件目录**：`/var/www/bp-tool/dist`
 
@@ -196,13 +196,13 @@ npm install
 # 4. 构建生产版本
 npm run build
 
-# 5. 重启 aa_nginx
-aa_nginx -s reload
+# 5. 重启 nginx
+nginx -s reload
 ```
 
-### aa_nginx 配置
+### nginx 配置
 
-配置文件位置：`/etc/aa_nginx/aa_nginx.conf`
+配置文件位置：`/etc/nginx/nginx.conf`
 
 ```nginx
 server {
@@ -226,14 +226,14 @@ server {
 ### 常用命令
 
 ```bash
-# 查看 aa_nginx 状态
+# 查看 nginx 状态
 ps aux | grep nginx
 
-# 重启 aa_nginx
-aa_nginx -s reload
+# 重启 nginx
+nginx -s reload
 
-# 查看 aa_nginx 配置
-cat /etc/aa_nginx/aa_nginx.conf
+# 查看 nginx 配置
+cat /etc/nginx/nginx.conf
 
 # 查看端口占用
 netstat -tlnp | grep :80

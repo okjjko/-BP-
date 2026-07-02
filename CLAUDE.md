@@ -217,7 +217,7 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
   - 维护临时"公共房间目录"：房主可开"对所有人开放"的房间，其他人从列表一键加入（省去邀请码传递）
   - **不参与 P2P 数据传输**：加入时仍复用 `roomManager.joinRoom(inviteCode)`，WebRTC 架构零改动
   - 内存存储 + TTL 自动清理（无心跳 60s 过期）；零运行时依赖（Node 原生 http）
-  - API：登记/查询/心跳/注销（见 `server/README.md`），nginx 反代到 `https://okjjko.top/lobby`
+  - API：登记/查询/心跳/注销（见 `server/README.md`），nginx 反代到 `https://your-domain.com/lobby`
   - lobby 任何故障都降级为私密房间（仍可用邀请码），不阻断 BP
   - 前端封装：`src/utils/lobbyApi.js`（registerRoom/listRooms/heartbeat/unregisterRoom）
 
@@ -360,6 +360,8 @@ For production deployment with public internet access, consider deploying self-h
 - **Estimated Cost**: ~30-50 元/月 for 1核2GB 阿里云 ECS
 
 See `docs/SERVER-SETUP.md` for complete deployment instructions.
+
+**机器特定信息与安全待办**：生产部署的真实 IP/域名/`aa_nginx` 路径等机器特定信息见本地 `CLAUDE.local.md`（已 gitignore，不进仓库）。公开待办（不含敏感值）：① `src/config/webrtc.config.js`、`server/lobby-server.js` 的真实域名与 TURN 凭据需迁到本地加载；② TURN 凭据明文已进入 git 历史，需轮换。详情见 `CLAUDE.local.md`。
 
 **Connection Success Rates:**
 

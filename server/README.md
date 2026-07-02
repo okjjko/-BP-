@@ -43,7 +43,7 @@ curl -X POST http://localhost:8800/rooms/ABC234/heartbeat \
 curl -X DELETE http://localhost:8800/rooms/ABC234 -H "X-Host-Secret: <hostSecret>"
 ```
 
-> 注：CORS 白名单默认含 `https://okjjko.top`、`http://localhost:3000`、`http://127.0.0.1:3000`。
+> 注：CORS 白名单默认含 `https://your-domain.com`、`http://localhost:3000`、`http://127.0.0.1:3000`。
 > 用 curl 测试时浏览器不参与，可省略 `Origin`；若要验证 CORS，需带白名单内的 Origin。
 
 ---
@@ -71,7 +71,7 @@ curl -X DELETE http://localhost:8800/rooms/ABC234 -H "X-Host-Secret: <hostSecret
 
 ```bash
 # 1. 上传 server/ 到 ECS（零依赖，无需 npm install）
-scp -r server/ root@okjjko.top:/opt/bp-lobby-server/
+scp -r server/ root@your-domain.com:/opt/bp-lobby-server/
 
 # 2. 用 PM2 启动（复用已配置的 pm2 startup）
 cd /opt/bp-lobby-server
@@ -90,12 +90,12 @@ pm2 save
 nginx -t && nginx -s reload
 
 # 4. 验证（8800 不对公网开放，仅走反代）
-curl https://okjjko.top/lobby/rooms
+curl https://your-domain.com/lobby/rooms
 # {"ok":true,"rooms":[],"serverTime":...}
 ```
 
-**为什么必须 nginx 反代到 https**：前端部署在 Vercel（https），直接请求 `http://okjjko.top:8800`
-会触发浏览器的**混合内容（mixed content）拦截**；反代到 `https://okjjko.top/lobby` 后同协议同域，
+**为什么必须 nginx 反代到 https**：前端部署在 Vercel（https），直接请求 `http://your-domain.com:8800`
+会触发浏览器的**混合内容（mixed content）拦截**；反代到 `https://your-domain.com/lobby` 后同协议同域，
 彻底解决。8800 端口不对公网开放，仅本机 nginx 访问。
 
 **放行 vercel 域名**（如部署后前端域名为 `https://xxx.vercel.app`），在 PM2 环境变量里追加：
