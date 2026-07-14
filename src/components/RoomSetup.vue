@@ -3,7 +3,7 @@
     <!-- 自动重连提示 -->
     <div v-if="showReconnectPrompt" class="reconnect-prompt">
       <div class="reconnect-card glass-panel rounded-xl p-6">
-        <div class="reconnect-icon">🔄</div>
+        <div class="reconnect-icon"><RefreshCw :size="48" /></div>
         <h3 class="text-xl font-bold text-center mb-2">检测到未完成的多人对战</h3>
         <p class="text-gray-400 text-center mb-4">
           {{ reconnectSession?.myRole === 'host' ? '你是主办方' : '你是' + reconnectSession?.myPlayerName }}
@@ -23,22 +23,23 @@
           </div>
         </div>
         <div v-if="reconnectSession?.myRole === 'host'" class="warning-box mb-4">
-          <p class="text-yellow-400 text-sm text-center">
-            ⚠️ 主办方重连后会生成新的邀请码，需要选手重新加入
+          <p class="text-yellow-400 text-sm text-center flex items-center justify-center gap-1.5">
+            <TriangleAlert :size="16" /> 主办方重连后会生成新的邀请码，需要选手重新加入
           </p>
         </div>
         <div class="flex gap-3">
           <button
             @click="performReconnect"
             :disabled="isReconnecting"
-            class="flex-1 px-6 py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 text-white font-bold rounded-lg transition-all"
+            class="flex-1 px-6 py-3 bg-plant-green hover:bg-plant-green-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
+            <Loader2 v-if="isReconnecting" :size="18" class="animate-spin" />
             {{ isReconnecting ? '重连中...' : '重新连接' }}
           </button>
           <button
             @click="cancelReconnect"
             :disabled="isReconnecting"
-            class="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 text-white font-semibold rounded-lg transition-all"
+            class="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             开始新对局
           </button>
@@ -55,27 +56,24 @@
       <div class="flex gap-4 justify-center">
         <button
           @click="selectMode('local')"
-          class="mode-btn px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg transition-all"
+          class="mode-btn px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
-          🏠 本地对战
+          <Home :size="18" /> 本地对战
         </button>
         <button
           @click="selectMode('multiplayer')"
-          class="mode-btn px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all"
+          class="mode-btn px-6 py-3 bg-pick-blue hover:bg-pick-blue-dark text-white font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
-          🌐 多人对战
+          <Globe :size="18" /> 多人对战
         </button>
       </div>
 
       <!-- 植物管理按钮 -->
       <div class="mt-6 flex justify-center">
-        <button
-          @click="showPlantManager = true"
-          class="px-6 py-2.5 bg-purple-600/80 hover:bg-purple-500 text-white font-semibold rounded-lg transition-all duration-300 border border-purple-400/50 hover:border-purple-300 shadow-lg hover:shadow-purple-500/20 flex items-center gap-2"
-        >
-          <span>🌱</span>
-          <span>植物管理</span>
-        </button>
+        <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
+          <template #icon><Sprout :size="18" /></template>
+          植物管理
+        </BaseButton>
       </div>
     </div>
 
@@ -87,9 +85,9 @@
         <div class="flex flex-col gap-3">
           <button
             @click="selectRole('host')"
-            class="role-btn px-6 py-4 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            class="role-btn px-6 py-4 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
-            <span class="text-2xl">👑</span>
+            <Crown :size="24" />
             <div class="text-left">
               <div class="font-bold">主办方</div>
               <div class="text-sm opacity-80">创建房间，管理比赛</div>
@@ -97,9 +95,9 @@
           </button>
           <button
             @click="selectRole('player')"
-            class="role-btn px-6 py-4 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            class="role-btn px-6 py-4 bg-plant-green hover:bg-plant-green-dark text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
-            <span class="text-2xl">🎮</span>
+            <Gamepad2 :size="24" />
             <div class="text-left">
               <div class="font-bold">选手</div>
               <div class="text-sm opacity-80">加入房间，参与对战</div>
@@ -107,9 +105,9 @@
           </button>
           <button
             @click="selectRole('spectator')"
-            class="role-btn px-6 py-4 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            class="role-btn px-6 py-4 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
-            <span class="text-2xl">👀</span>
+            <Eye :size="24" />
             <div class="text-left">
               <div class="font-bold">观众</div>
               <div class="text-sm opacity-80">加入房间，观看比赛</div>
@@ -127,7 +125,9 @@
       <!-- 主办方界面 -->
       <div v-else-if="role === 'host'" class="host-panel">
         <div class="panel-header">
-          <h3 class="text-xl font-bold text-center text-purple-400">👑 主办方控制台</h3>
+          <h3 class="text-xl font-bold text-center text-purple-400 flex items-center justify-center gap-2">
+            <Crown :size="20" /> 主办方控制台
+          </h3>
         </div>
 
         <!-- 返回按钮 -->
@@ -148,7 +148,7 @@
               v-model="isPublicRoom"
               class="w-4 h-4 accent-purple-500"
             >
-            <span class="text-gray-300 text-sm">🌐 公开房间（其他人可在公共列表中看到并加入）</span>
+            <span class="text-gray-300 text-sm flex items-center gap-1.5"><Globe :size="16" /> 公开房间（其他人可在公共列表中看到并加入）</span>
           </label>
 
           <!-- 房主显示名（公开房间时必填） -->
@@ -166,8 +166,9 @@
           <button
             @click="createRoom"
             :disabled="isCreating || (isPublicRoom && !hostName.trim())"
-            class="w-full px-6 py-4 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 text-white font-bold rounded-lg transition-all"
+            class="w-full px-6 py-4 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
+            <Loader2 v-if="isCreating" :size="20" class="animate-spin" />
             {{ isCreating ? '创建中...' : (isPublicRoom ? '创建公开房间' : '创建房间') }}
           </button>
         </div>
@@ -179,10 +180,11 @@
             <div class="invite-code-text">{{ inviteCode }}</div>
             <button
               @click="copyInviteCode"
-              class="copy-btn mt-3 w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all flex items-center justify-center gap-2"
+              class="copy-btn mt-3 w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
-              <span v-if="!copied">📋 复制邀请码</span>
-              <span v-else>✓ 已复制</span>
+              <ClipboardCopy v-if="!copied" :size="16" />
+              <Check v-else :size="16" />
+              <span>{{ copied ? '已复制' : '复制邀请码' }}</span>
             </button>
           </div>
 
@@ -204,7 +206,7 @@
 
           <!-- ICE 连接状态指示器 -->
           <div v-if="connectionStatus" class="ice-status-indicator" :class="connectionStatusClass">
-            <div class="status-icon">{{ connectionStatusIcon }}</div>
+            <div class="status-icon"><component :is="connectionStatusIcon" :size="22" /></div>
             <div class="status-content">
               <div class="status-text">{{ connectionStatusMessage }}</div>
               <div v-if="connectionType" class="connection-type">{{ connectionType }}</div>
@@ -219,7 +221,7 @@
               :key="user.peerId"
               class="user-item"
             >
-              <span class="user-icon">{{ getRoleIcon(user.role) }}</span>
+              <span class="user-icon"><component :is="getRoleIcon(user.role)" :size="18" /></span>
               <span class="user-role">{{ getRoleLabel(user.role) }}</span>
               <span class="user-status">{{ user.connected ? '● 在线' : '○ 离线' }}</span>
             </div>
@@ -229,7 +231,7 @@
           <button
             @click="confirmStart"
             :disabled="connectionStats.total === 0"
-            class="start-btn mt-4 w-full px-6 py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all"
+            class="start-btn mt-4 w-full px-6 py-3 bg-plant-green hover:bg-plant-green-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             开始对战 →
           </button>
@@ -246,8 +248,9 @@
       <!-- 选手/观众界面 -->
       <div v-else class="client-panel">
         <div class="panel-header">
-          <h3 class="text-xl font-bold text-center text-green-400">
-            {{ role === 'player' ? '🎮 选手' : '👀 观众' }}面板
+          <h3 class="text-xl font-bold text-center text-plant-green flex items-center justify-center gap-2">
+            <component :is="role === 'player' ? Gamepad2 : Eye" :size="20" />
+            {{ role === 'player' ? '选手' : '观众' }}面板
           </h3>
         </div>
 
@@ -280,9 +283,10 @@
 
           <button
             @click="joinRoom"
-            :disabled="!canJoin"
-            class="join-btn w-full px-6 py-4 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 text-white font-bold rounded-lg transition-all mt-4"
+            :disabled="!canJoin || isJoining"
+            class="join-btn w-full px-6 py-4 bg-plant-green hover:bg-plant-green-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors mt-4 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
+            <Loader2 v-if="isJoining" :size="20" class="animate-spin" />
             {{ isJoining ? '连接中...' : '加入房间' }}
           </button>
 
@@ -300,9 +304,9 @@
           <!-- 浏览公共房间入口 -->
           <button
             @click="toggleLobbyList"
-            class="w-full px-4 py-2.5 bg-blue-600/80 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            class="w-full px-4 py-2.5 bg-pick-blue/80 hover:bg-pick-blue text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
-            <span>🌐</span>
+            <Globe :size="18" />
             <span>{{ showLobbyList ? '收起公共房间列表' : '浏览公共房间' }}</span>
           </button>
 
@@ -313,9 +317,10 @@
               <button
                 @click="refreshLobbyList"
                 :disabled="lobbyLoading"
-                class="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                class="text-xs text-pick-blue hover:text-pick-blue-dark disabled:opacity-50 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue rounded"
               >
-                {{ lobbyLoading ? '刷新中...' : '🔄 刷新' }}
+                <RefreshCw :size="12" :class="lobbyLoading ? 'animate-spin' : ''" />
+                {{ lobbyLoading ? '刷新中...' : '刷新' }}
               </button>
             </div>
 
@@ -325,30 +330,31 @@
               暂无公开房间
             </div>
 
-            <div
+            <button
               v-for="room in lobbyRooms"
               :key="room.inviteCode"
-              class="lobby-room-card glass-panel rounded-lg p-3 mb-2 cursor-pointer hover:border-blue-400/50 transition-all border border-gray-700"
+              type="button"
+              class="lobby-room-card glass-panel rounded-lg p-3 mb-2 w-full text-left hover:border-pick-blue/50 transition-colors border border-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
               @click="joinFromLobby(room)"
             >
               <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2">
-                  <span class="text-lg">👑</span>
+                  <Crown :size="18" class="text-yellow-400" />
                   <span class="font-semibold text-white">{{ room.hostName }}</span>
                 </div>
                 <span class="text-xs text-gray-400">{{ formatLobbyTime(room.createdAt) }}</span>
               </div>
               <div class="flex gap-3 mt-1 text-xs text-gray-400">
-                <span>🎮 选手 {{ room.playerCount }}/2</span>
-                <span>👀 观众 {{ room.spectatorCount }}</span>
+                <span class="flex items-center gap-1"><Gamepad2 :size="12" /> 选手 {{ room.playerCount }}/2</span>
+                <span class="flex items-center gap-1"><Eye :size="12" /> 观众 {{ room.spectatorCount }}</span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
 
         <!-- 等待确认 -->
         <div v-else class="waiting-section">
-          <div class="success-icon">✓</div>
+          <div class="success-icon"><Check :size="40" /></div>
           <div class="success-text">已连接到主办方</div>
           <div class="info-text">等待比赛开始...</div>
 
@@ -370,8 +376,6 @@
       </div>
     </div>
 
-    <!-- 植物管理模态框 -->
-    <PlantManager v-model:show="showPlantManager" />
   </div>
 </template>
 
@@ -382,14 +386,20 @@ import * as lobbyApi from '@/utils/lobbyApi'
 import webrtcConfig from '@/config/webrtc.config'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
-import PlantManager from '@/components/PlantManager/index.vue'
+import { useUIStore } from '@/stores/uiStore'
+import { useToast } from '@/composables/useToast'
+import {
+  RefreshCw, Globe, Home, Sprout, Crown, Gamepad2, Eye,
+  ClipboardCopy, Check, TriangleAlert, Plug, CheckCircle2,
+  CircleX, Lock, HelpCircle, Loader2,
+} from 'lucide-vue-next'
+import BaseButton from '@/components/ui/BaseButton.vue'
 
 const emit = defineEmits(['startGame', 'cancel'])
 const store = useGameStore()
 const connStore = useConnectionStore()
-
-// 植物管理模态框状态
-const showPlantManager = ref(false)
+const uiStore = useUIStore()
+const toast = useToast()
 
 // 连接状态相关
 const connectionStatus = ref(null)
@@ -450,15 +460,15 @@ const connectionStatusClass = computed(() => ({
 
 const connectionStatusIcon = computed(() => {
   const icons = {
-    'new': '🔌',
-    'checking': '🔄',
-    'connected': '✅',
-    'completed': '✅',
-    'failed': '❌',
-    'disconnected': '⚠️',
-    'closed': '🔒'
+    'new': Plug,
+    'checking': RefreshCw,
+    'connected': CheckCircle2,
+    'completed': CheckCircle2,
+    'failed': CircleX,
+    'disconnected': TriangleAlert,
+    'closed': Lock
   }
-  return icons[connectionStatus.value] || ''
+  return icons[connectionStatus.value] || null
 })
 
 const connectionStatusMessage = computed(() => connectionMessage.value)
@@ -521,10 +531,10 @@ const createRoom = async () => {
     inviteCode.value = code
     console.log('房间已创建，邀请码:', code)
 
-    // ✅ 关键修复：主办方也需要设置 roomMode，否则 startStateSync() 会认为这是本地模式
+    // 关键修复：主办方也需要设置 roomMode，否则 startStateSync() 会认为这是本地模式
     connStore.setRoomMode('host', code)
 
-    // ✅ 关键修复：主办方需要设置身份，否则无法转发状态
+    // 关键修复：主办方需要设置身份，否则无法转发状态
     connStore.setMyIdentity('host', null)
 
     // 主办方也需要开始状态同步，以便接收选手的消息
@@ -618,7 +628,7 @@ const joinRoom = async () => {
       role.value === 'player' ? playerName.value.trim() : null
     )
 
-    // ✅ 关键修复：在加入房间成功后立即设置 roomMode
+    // 关键修复：在加入房间成功后立即设置 roomMode
     connStore.setRoomMode(role.value, inputInviteCode.value.toUpperCase())
 
     // 设置身份到connStore
@@ -748,7 +758,7 @@ const copyInviteCode = async () => {
   } catch (error) {
     console.error('复制失败:', error)
     // 提示用户手动复制
-    alert(`复制失败，请手动复制邀请码：${code}`)
+    toast.error(`复制失败，请手动复制邀请码：${code}`, { duration: 6000 })
   }
 }
 
@@ -777,11 +787,11 @@ const leaveRoom = () => {
 // 获取角色图标
 const getRoleIcon = (r) => {
   const icons = {
-    host: '👑',
-    player: '🎮',
-    spectator: '👀'
+    host: Crown,
+    player: Gamepad2,
+    spectator: Eye
   }
-  return icons[r] || '❓'
+  return icons[r] || HelpCircle
 }
 
 // 获取角色标签
@@ -1201,6 +1211,10 @@ onUnmounted(() => {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
 }
 
 .copy-btn:hover:not(:disabled) {

@@ -3,22 +3,22 @@
     <!-- 导出按钮 -->
     <button
       @click="exportData"
-      class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors text-sm flex items-center gap-2"
+      :disabled="isExporting"
+      class="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
     >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l4-4m4 4V4" />
-      </svg>
+      <Loader2 v-if="isExporting" :size="16" class="animate-spin" />
+      <Download v-else :size="16" />
       导出
     </button>
 
     <!-- 导入按钮 -->
     <button
       @click="triggerImport"
-      class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors text-sm flex items-center gap-2"
+      :disabled="isImporting"
+      class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
     >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l4-4m4 4V4" />
-      </svg>
+      <Loader2 v-if="isImporting" :size="16" class="animate-spin" />
+      <Upload v-else :size="16" />
       导入
     </button>
 
@@ -35,12 +35,19 @@
 <script setup>
 import { ref } from 'vue'
 import { loadCustomPlants, addCustomPlant, blobToBase64, base64ToBlob, getHiddenPlants, updateCustomPlant } from '@/data/customPlants'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import { Download, Upload, Loader2 } from 'lucide-vue-next'
 
 // 当前导出格式版本
 const EXPORT_VERSION = '2.0'
 
 const emit = defineEmits(['import', 'export'])
 const fileInput = ref(null)
+const isExporting = ref(false)
+const isImporting = ref(false)
+const toast = useToast()
+const { confirm } = useConfirm()
 
 /**
  * 验证单个植物数据完整性
@@ -81,12 +88,14 @@ function validateExportFile(data) {
 }
 
 const exportData = async () => {
+  if (isExporting.value) return
+  isExporting.value = true
   try {
     const customPlants = await loadCustomPlants()
     const hiddenBuiltinPlants = getHiddenPlants()
 
     if (customPlants.length === 0 && hiddenBuiltinPlants.length === 0) {
-      alert('没有自定义植物可以导出，也没有隐藏的内置植物')
+      toast.warning('没有自定义植物可以导出，也没有隐藏的内置植物')
       return
     }
 
@@ -136,10 +145,12 @@ const exportData = async () => {
     const messages = []
     if (customPlants.length > 0) messages.push(`${customPlants.length} 个自定义植物`)
     if (hiddenBuiltinPlants.length > 0) messages.push(`${hiddenBuiltinPlants.length} 个隐藏的内置植物`)
-    alert(`已导出：${messages.join('，')}`)
+    toast.success(`已导出：${messages.join('，')}`)
   } catch (error) {
     console.error('导出失败', error)
-    alert('导出失败：' + error.message)
+    toast.error('导出失败：' + error.message)
+  } finally {
+    isExporting.value = false
   }
 }
 
@@ -151,6 +162,7 @@ const handleImport = async (event) => {
   const file = event.target.files[0]
   if (!file) return
 
+  isImporting.value = true
   const reader = new FileReader()
   reader.onload = async (e) => {
     try {
@@ -167,17 +179,14 @@ const handleImport = async (event) => {
       const invalidPlants = validationResults.filter(r => !r.valid)
 
       if (invalidPlants.length > 0) {
-        const errorDetails = invalidPlants
-          .map(r => `• ${r.plant.name || '未知植物'}: ${r.errors.join(', ')}`)
-          .join('\n')
-        alert(`发现 ${invalidPlants.length} 个无效植物数据：\n\n${errorDetails}\n\n这些植物将被跳过。`)
+        toast.warning(`发现 ${invalidPlants.length} 个无效植物数据，将被跳过`, { duration: 5000 })
       }
 
       // 只导入有效的植物
       const validPlants = validationResults.filter(r => r.valid).map(r => r.plant)
 
       if (validPlants.length === 0 && (!data.hiddenBuiltinPlants || data.hiddenBuiltinPlants.length === 0)) {
-        alert('没有可导入的有效数据')
+        toast.warning('没有可导入的有效数据')
         return
       }
 
@@ -193,14 +202,14 @@ const handleImport = async (event) => {
           currentHidden.some(id => !importedHidden.includes(id))
 
         if (hasDifferences && importedHidden.length > 0) {
-          const message =
-            `配置文件包含 ${importedHidden.length} 个隐藏的内置植物。\n\n` +
-            `当前你有 ${currentHidden.length} 个隐藏的内置植物。\n\n` +
-            `选择操作方式：\n` +
-            `• "确定" - 使用配置文件的隐藏列表（替换）\n` +
-            `• "取消" - 保留当前的隐藏列表（跳过）`
-
-          if (confirm(message)) {
+          const replaceHidden = await confirm({
+            title: '隐藏植物设置',
+            message: `配置文件包含 ${importedHidden.length} 个隐藏的内置植物，当前你有 ${currentHidden.length} 个。确认使用配置文件的隐藏列表（替换），取消则保留当前设置。`,
+            confirmText: '替换',
+            cancelText: '保留',
+            variant: 'primary',
+          })
+          if (replaceHidden) {
             localStorage.setItem('hiddenBuiltinPlants', JSON.stringify(importedHidden))
             hiddenImported = true
           }
@@ -209,7 +218,7 @@ const handleImport = async (event) => {
 
       if (validPlants.length === 0) {
         if (hiddenImported) {
-          alert('成功导入隐藏的内置植物设置')
+          toast.success('成功导入隐藏的内置植物设置')
           setTimeout(() => window.location.reload(), 1500)
         }
         return
@@ -224,8 +233,14 @@ const handleImport = async (event) => {
       let plantsToUpdate = []
 
       if (conflicts.length > 0) {
-        const message = `发现 ${conflicts.length} 个名称重复的植物：\n${conflicts.map(p => p.name).join(', ')}\n\n点击"确定"覆盖这些植物，"取消"跳过重复植物`
-        if (confirm(message)) {
+        const overwrite = await confirm({
+          title: '名称重复',
+          message: `发现 ${conflicts.length} 个名称重复的植物：${conflicts.map(p => p.name).join('、')}。确认覆盖这些植物，取消则跳过重复植物。`,
+          confirmText: '覆盖',
+          cancelText: '跳过',
+          variant: 'danger',
+        })
+        if (overwrite) {
           plantsToUpdate = conflicts
           plantsToAdd = validPlants.filter(p => !existingNames.has(p.name))
         } else {
@@ -294,14 +309,16 @@ const handleImport = async (event) => {
       if (invalidPlants.length > 0) messages.push(`跳过 ${invalidPlants.length} 个无效植物`)
       if (hiddenImported) messages.push(`${data.hiddenBuiltinPlants.length} 个隐藏的内置植物设置`)
 
-      alert(`导入结果：${messages.join('，')}`)
+      toast.success(`导入结果：${messages.join('，')}`, { duration: 5000 })
 
       if (hiddenImported) {
         setTimeout(() => window.location.reload(), 1500)
       }
     } catch (error) {
       console.error('导入失败', error)
-      alert('导入失败：' + (error.message || '文件格式错误或已损坏'))
+      toast.error('导入失败：' + (error.message || '文件格式错误或已损坏'))
+    } finally {
+      isImporting.value = false
     }
   }
 

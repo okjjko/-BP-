@@ -2,7 +2,7 @@
   <div class="bg-black/20 rounded-xl px-4 py-2 border border-white/5 backdrop-blur-sm" role="region" :aria-label="`${playerName}已使用植物列表`">
     <div class="flex items-center mb-2">
       <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-pick-red'"></span>
+        <span class="w-1.5 h-1.5 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-ban-red'" aria-hidden="true"></span>
         {{ playerName }} 历史
       </h3>
     </div>

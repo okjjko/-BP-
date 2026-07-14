@@ -111,7 +111,7 @@ class RoomManager {
     console.warn(`[RoomManager] 连接 ${peerId} 心跳超时，视为断开`)
     this.emit('connectionStatus', {
       status: 'heartbeat-lost',
-      message: `⚠️ 与 ${peerId} 的连接不稳定`,
+      message: `与 ${peerId} 的连接不稳定`,
       timestamp: Date.now()
     })
   }
@@ -416,10 +416,10 @@ class RoomManager {
       const messages = {
         'new': '正在初始化连接...',
         'checking': '正在尝试建立网络连接...',
-        'connected': '✅ 网络连接已建立',
-        'completed': '✅ 连接建立完成',
-        'failed': '❌ 网络连接失败',
-        'disconnected': '⚠️ 网络连接已断开',
+        'connected': '网络连接已建立',
+        'completed': '连接建立完成',
+        'failed': '网络连接失败',
+        'disconnected': '网络连接已断开',
         'closed': '连接已关闭'
       }
       if (messages[iceState]) {

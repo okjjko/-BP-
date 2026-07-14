@@ -27,7 +27,7 @@
         </svg>
       </div>
 
-      <h1 class="text-5xl font-extrabold text-center mb-10 text-transparent bg-clip-text bg-gradient-to-r from-plant-green-neon to-pick-blue-neon drop-shadow-lg tracking-wider">
+      <h1 class="text-5xl font-extrabold text-center mb-10 text-transparent bg-clip-text bg-gradient-to-r from-plant-green to-pick-blue tracking-wider">
         PvZ B/P 对战
       </h1>
 
@@ -55,28 +55,30 @@
               type="button"
               @click="togglePlayer1Road(2)"
               :disabled="player2Road === 2"
-              class="flex-1 py-2 px-4 rounded border transition-all duration-200 text-sm font-bold flex items-center justify-center gap-2"
+              :aria-pressed="player1Road === 2"
+              class="flex-1 min-h-[44px] py-2 px-4 rounded-lg border transition-colors duration-200 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               :class="player1Road === 2
-                ? 'bg-pick-blue/20 border-pick-blue-neon text-pick-blue-neon shadow-[0_0_10px_rgba(33,150,243,0.3)]'
+                ? 'bg-pick-blue/20 border-pick-blue text-pick-blue'
                 : player2Road === 2
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600 cursor-not-allowed'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
-              <span class="w-2 h-2 rounded-full" :class="player1Road === 2 ? 'bg-pick-blue-neon' : 'bg-gray-600'"></span>
+              <span class="w-2 h-2 rounded-full" :class="player1Road === 2 ? 'bg-pick-blue' : 'bg-gray-600'"></span>
               2路
             </button>
             <button
               type="button"
               @click="togglePlayer1Road(4)"
               :disabled="player2Road === 4"
-              class="flex-1 py-2 px-4 rounded border transition-all duration-200 text-sm font-bold flex items-center justify-center gap-2"
+              :aria-pressed="player1Road === 4"
+              class="flex-1 min-h-[44px] py-2 px-4 rounded-lg border transition-colors duration-200 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               :class="player1Road === 4
-                ? 'bg-pick-blue/20 border-pick-blue-neon text-pick-blue-neon shadow-[0_0_10px_rgba(33,150,243,0.3)]'
+                ? 'bg-pick-blue/20 border-pick-blue text-pick-blue'
                 : player2Road === 4
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600 cursor-not-allowed'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
-              <span class="w-2 h-2 rounded-full" :class="player1Road === 4 ? 'bg-pick-blue-neon' : 'bg-gray-600'"></span>
+              <span class="w-2 h-2 rounded-full" :class="player1Road === 4 ? 'bg-pick-blue' : 'bg-gray-600'"></span>
               4路
             </button>
           </div>
@@ -105,28 +107,30 @@
               type="button"
               @click="togglePlayer2Road(2)"
               :disabled="player1Road === 2"
-              class="flex-1 py-2 px-4 rounded border transition-all duration-200 text-sm font-bold flex items-center justify-center gap-2"
+              :aria-pressed="player2Road === 2"
+              class="flex-1 min-h-[44px] py-2 px-4 rounded-lg border transition-colors duration-200 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ban-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               :class="player2Road === 2
-                ? 'bg-ban-red/20 border-ban-red-neon text-ban-red-neon shadow-[0_0_10px_rgba(244,67,54,0.3)]'
+                ? 'bg-ban-red/20 border-ban-red text-ban-red'
                 : player1Road === 2
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600 cursor-not-allowed'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
-              <span class="w-2 h-2 rounded-full" :class="player2Road === 2 ? 'bg-ban-red-neon' : 'bg-gray-600'"></span>
+              <span class="w-2 h-2 rounded-full" :class="player2Road === 2 ? 'bg-ban-red' : 'bg-gray-600'"></span>
               2路
             </button>
             <button
               type="button"
               @click="togglePlayer2Road(4)"
               :disabled="player1Road === 4"
-              class="flex-1 py-2 px-4 rounded border transition-all duration-200 text-sm font-bold flex items-center justify-center gap-2"
+              :aria-pressed="player2Road === 4"
+              class="flex-1 min-h-[44px] py-2 px-4 rounded-lg border transition-colors duration-200 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ban-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               :class="player2Road === 4
-                ? 'bg-ban-red/20 border-ban-red-neon text-ban-red-neon shadow-[0_0_10px_rgba(244,67,54,0.3)]'
+                ? 'bg-ban-red/20 border-ban-red text-ban-red'
                 : player1Road === 4
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600 cursor-not-allowed'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
-              <span class="w-2 h-2 rounded-full" :class="player2Road === 4 ? 'bg-ban-red-neon' : 'bg-gray-600'"></span>
+              <span class="w-2 h-2 rounded-full" :class="player2Road === 4 ? 'bg-ban-red' : 'bg-gray-600'"></span>
               4路
             </button>
           </div>
@@ -147,7 +151,7 @@
         <button
           type="submit"
           :disabled="!player1Name || !player2Name || !player1Road || !player2Road"
-          class="w-full py-4 bg-gradient-to-r from-plant-green-dark to-plant-green hover:from-plant-green hover:to-plant-green-neon disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed rounded-lg font-bold text-xl text-white transition-all duration-300 transform active:scale-95 shadow-lg overflow-hidden relative group"
+          class="w-full py-4 bg-gradient-to-r from-plant-green-dark to-plant-green hover:from-plant-green hover:to-plant-green-dark disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed rounded-lg font-bold text-xl text-white transition-colors duration-300 transform active:scale-95 shadow-lg overflow-hidden relative group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <span class="relative z-10 flex items-center justify-center gap-2">
             开始对战 <span class="group-hover:translate-x-1 transition-transform">→</span>
@@ -158,22 +162,16 @@
 
       <!-- 植物管理按钮 -->
       <div class="mt-6 mb-6 flex justify-center">
-        <button
-          type="button"
-          @click="showPlantManager = true"
-          class="px-6 py-2.5 bg-purple-600/80 hover:bg-purple-500 text-white font-semibold rounded-lg transition-all duration-300 border border-purple-400/50 hover:border-purple-300 shadow-lg hover:shadow-purple-500/20 flex items-center gap-2"
-        >
-          <span>🌱</span>
-          <span>植物管理</span>
-        </button>
+        <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
+          <template #icon><Sprout :size="18" /></template>
+          植物管理
+        </BaseButton>
       </div>
 
       <div class="text-center" role="note">
         <p class="text-xs text-gray-500 font-mono tracking-widest">本系统由@okjjko制作，GitHub仓库地址：https://github.com/okjjko/-BP-/tree/master</p>
       </div>
 
-      <!-- 植物管理模态框 -->
-      <PlantManager v-model:show="showPlantManager" />
     </div>
   </div>
 </template>
@@ -182,14 +180,19 @@
 import { ref, onMounted } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
+import { useUIStore } from '@/stores/uiStore'
+import { useToast } from '@/composables/useToast'
+import { Sprout } from 'lucide-vue-next'
+import BaseButton from '@/components/ui/BaseButton.vue'
 import { getPlantById, PLANTS } from '@/data/plants'
 import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToBase64 } from '@/data/customPlants'
-import PlantManager from '@/components/PlantManager/index.vue'
 import RoomSetup from '@/components/RoomSetup.vue'
 import roomManager from '@/utils/roomManager'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
+const uiStore = useUIStore()
+const toast = useToast()
 
 const player1Name = ref('')
 const player2Name = ref('')
@@ -198,7 +201,6 @@ const firstPlayer = ref('player1') // 记录谁先输入ID
 const player1Road = ref(null)
 const player2Road = ref(null)
 const winThreshold = ref(4) // 大局获胜所需小局数（开局可配置，默认4）
-const showPlantManager = ref(false) // 植物管理模态框状态
 const showRoomSetup = ref(true) // 显示房间设置界面
 
 // 处理房间设置开始游戏
@@ -219,7 +221,7 @@ const handleRoomStart = async (data) => {
     const playerNames = roomManager.getConnectedPlayerNames()
 
     if (playerNames.length < 2) {
-      alert('需要至少2名选手加入才能开始游戏')
+      toast.error('需要至少 2 名选手加入才能开始游戏')
       showRoomSetup.value = true
       return
     }
@@ -280,7 +282,7 @@ const handleRoomStart = async (data) => {
   } else {
     // 选手/观众模式
     // 检查游戏是否已经开始
-    // ✅ 修复：'idle' 不存在，应该检查 'setup'
+    // 修复：'idle' 不存在，应该检查 'setup'
     if (store.gameStatus !== 'setup') {
       // 游戏已经开始，直接隐藏房间设置界面
       return
@@ -314,13 +316,13 @@ const goBack = () => {
 
 const startGame = () => {
   if (!player1Name.value || !player2Name.value) {
-    alert('请输入两名选手的ID')
+    toast.error('请输入两名选手的 ID')
     return
   }
 
   // 检查两名选手是否都选了路
   if (!player1Road.value || !player2Road.value) {
-    alert('请两名选手都选择开局道路（2路或4路）')
+    toast.error('请两名选手都选择开局道路（2 路或 4 路）')
     return
   }
 

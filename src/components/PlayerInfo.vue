@@ -3,9 +3,9 @@
     <!-- 头像/Road 图标 -->
     <div
       class="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold border-2 shadow-inner proportional-nums tabular-nums relative overflow-hidden group"
-      :class="isRoad2
-        ? 'bg-gradient-to-br from-blue-900 to-blue-700 border-blue-400 text-blue-100 shadow-blue-900/50'
-        : 'bg-gradient-to-br from-purple-900 to-purple-700 border-purple-400 text-purple-100 shadow-purple-900/50'"
+      :class="isPlayer1
+        ? 'bg-gradient-to-br from-pick-blue-dark to-pick-blue border-pick-blue text-white'
+        : 'bg-gradient-to-br from-ban-red-dark to-ban-red border-ban-red text-white'"
     >
       <span class="relative z-10">{{ roadText }}</span>
       <div class="absolute inset-0 bg-white/20 blur opacity-0 group-hover:opacity-50 transition-opacity"></div>
@@ -13,20 +13,25 @@
 
     <div class="flex flex-col">
       <!-- 名字 -->
-      <span class="font-bold text-lg leading-tight tracking-wide text-white drop-shadow-md">
+      <span class="font-bold text-lg leading-tight tracking-wide text-white">
         {{ playerName }}
       </span>
       <!-- 分数 -->
       <div class="flex items-center gap-1 mt-0.5">
         <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">得分</div>
-        <div class="flex">
+        <div
+          class="flex"
+          role="img"
+          :aria-label="`得分 ${score}，获胜需 ${store.winThreshold} 分`"
+        >
           <span
             v-for="n in store.winThreshold + 1"
             :key="n"
             class="w-2 h-4 rounded-sm ml-0.5 transition-all duration-500"
             :class="n <= score
-              ? (isRoad2 ? 'bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]' : 'bg-purple-400 shadow-[0_0_5px_rgba(192,132,252,0.8)]')
+              ? (isPlayer1 ? 'bg-pick-blue' : 'bg-ban-red')
               : 'bg-gray-700/50'"
+            aria-hidden="true"
           ></span>
         </div>
       </div>
@@ -59,7 +64,8 @@ const currentRoad = computed(() => {
   return store[props.player]?.road
 })
 
-const isRoad2 = computed(() => currentRoad.value === 2)
+// 配色正典：按选手槽位上色（player1=蓝方/player2=红方），道路仅作文字标签
+const isPlayer1 = computed(() => props.player === 'player1')
 
 const roadText = computed(() => {
   return currentRoad.value ? `${currentRoad.value}路` : '?'

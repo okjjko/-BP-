@@ -1,7 +1,7 @@
 <template>
   <div class="container mx-auto px-4 py-6 max-w-[1600px] flex-1 flex flex-col">
     <!-- 头部：信息概览 -->
-    <div class="glass-panel rounded-2xl p-4 mb-6 animate-slide-up">
+    <div class="glass-panel rounded-xl p-4 mb-6 animate-slide-up">
       <div class="flex flex-col md:flex-row items-center justify-between gap-4">
         <!-- 选手1区域 -->
         <div class="flex items-center gap-4 w-full md:w-auto justify-center md:justify-start">
@@ -27,11 +27,11 @@
       <UsedPlants player="player1" />
 
       <!-- 本局永久禁用植物 -->
-      <div v-if="isPlantCacheReady" class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)] flex-shrink-0">
-        <h3 class="text-xs font-bold mb-2 text-center text-ban-red-neon uppercase tracking-wider flex items-center justify-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
+      <div v-if="isPlantCacheReady" role="group" aria-label="本局永久禁用植物" class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 flex-shrink-0">
+        <h3 class="text-xs font-bold mb-2 text-center text-ban-red uppercase tracking-wider flex items-center justify-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-ban-red" aria-hidden="true"></span>
           永久禁用
-          <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
+          <span class="w-2 h-2 rounded-full bg-ban-red" aria-hidden="true"></span>
         </h3>
         <div class="flex justify-center gap-2 flex-wrap">
           <div
@@ -51,7 +51,7 @@
         </div>
       </div>
 
-      <div v-else class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 shadow-[0_0_15px_rgba(244,67,54,0.1)] flex-shrink-0">
+      <div v-else class="bg-black/40 rounded-lg px-4 py-2 border border-ban-red/30 flex-shrink-0" role="status" aria-live="polite">
         <div class="flex items-center justify-center gap-2 text-sm text-gray-400">
           <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -81,31 +81,34 @@
     </div>
 
     <!-- 底部控制栏 -->
-    <div class="mt-6 flex justify-center gap-4 animate-slide-up" style="animation-delay: 0.3s;">
-      <button
+    <div class="mt-6 flex flex-wrap justify-center gap-4 animate-slide-up" style="animation-delay: 0.3s;">
+      <BaseButton
         v-if="gameStatus === 'positioning'"
+        variant="primary"
+        size="lg"
         @click="finishRound"
-        class="group relative px-8 py-3 bg-plant-green hover:bg-plant-green-neon text-white font-bold rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/30 overflow-hidden"
       >
-        <span class="relative z-10 flex items-center gap-2">
-          <span class="text-xl">⚔️</span> 完成本小局
-        </span>
-        <div class="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-      </button>
+        <template #icon><Swords :size="20" /></template>
+        完成本小局
+      </BaseButton>
 
-      <button
+      <BaseButton
+        variant="blue"
+        size="lg"
         @click="uiStore.setShowPlantManager(true)"
-        class="px-8 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition-all duration-300 border border-purple-400 hover:border-purple-300 shadow-lg hover:shadow-purple-500/20 flex items-center gap-2"
       >
-        <span>🌱</span> 植物管理
-      </button>
+        <template #icon><Sprout :size="20" /></template>
+        植物管理
+      </BaseButton>
 
-      <button
+      <BaseButton
+        variant="secondary"
+        size="lg"
         @click="resetGame"
-        class="px-8 py-3 bg-gray-700 hover:bg-ban-red text-gray-300 hover:text-white font-bold rounded-lg transition-all duration-300 border border-gray-600 hover:border-ban-red shadow-lg hover:shadow-red-500/20"
       >
-        ↺ 重置游戏
-      </button>
+        <template #icon><RotateCcw :size="20" /></template>
+        重置游戏
+      </BaseButton>
     </div>
   </div>
 </template>
@@ -113,9 +116,12 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { Swords, Sprout, RotateCcw } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useConfirm } from '@/composables/useConfirm'
 import { getPlantImage, getPlantName, getPlantByIdSync } from '@/data/customPlants'
+import BaseButton from '@/components/ui/BaseButton.vue'
 import PlayerInfo from '@/components/PlayerInfo.vue'
 import StageIndicator from '@/components/StageIndicator.vue'
 import BanArea from '@/components/BanArea.vue'
@@ -150,8 +156,16 @@ const finishRound = () => {
   router.push({ name: 'result' })
 }
 
-const resetGame = () => {
-  if (confirm('确定要重置游戏吗？所有进度将丢失。')) {
+const { confirm } = useConfirm()
+
+const resetGame = async () => {
+  const ok = await confirm({
+    title: '重置游戏',
+    message: '确定要重置游戏吗？所有进度将丢失。',
+    confirmText: '重置',
+    variant: 'danger',
+  })
+  if (ok) {
     store.resetGame()
     router.push({ name: 'setup' })
   }

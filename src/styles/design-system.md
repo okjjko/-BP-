@@ -2,10 +2,18 @@
 
 ## Color Palette
 
-### Primary Colors
-- **plant-green**: #22c55e (植物绿 - 主要操作)
-- **ban-red**: #ef4444 (禁用红 - 禁用操作)
-- **pick-blue**: #3b82f6 (选择蓝 - 选择操作)
+### Primary Colors（与 tailwind.config.js 同步）
+- **plant-green**: #22c55e (植物绿 - 确认/主要操作)
+- **plant-green-dark**: #15803d (悬停加深)
+- **ban-red**: #ef4444 (红方/禁用操作)
+- **ban-red-dark**: #b91c1c (悬停加深)
+- **pick-blue**: #3b82f6 (蓝方/选择操作)
+- **pick-blue-dark**: #1e40af (悬停加深 / 渐变起点)
+- **pick-red**: ❌ 已废弃，红方一律使用 `ban-red`
+
+### Neon 强调色（仅作极弱点缀，不大面积使用）
+- plant-green-neon #00ff41 / ban-red-neon #ff1744 / pick-blue-neon #00e5ff
+- 规则：发光/shadow-glow 仅用于"当前操作"单一焦点；文本主色用基色而非 neon
 
 ### Semantic Colors
 - **Success**: #10b981 (胜利确认)
@@ -28,6 +36,11 @@
 - **text-muted**: #9ca3af (禁用文字)
 
 ## Typography
+
+### Font Family
+- **UI 文本**: `Inter`（中文回退 微软雅黑）— `font-sans`
+- **数字 / 比分 / 序号**: `Fira Code` + `tabular-nums` — `font-mono`
+- 来源：`index.html` 引入 Google Fonts（含 preconnect）
 
 ### Font Sizes
 - **Hero**: 2rem (32px) - 页面标题
@@ -52,11 +65,11 @@
 - **xl**: 2rem (32px)
 - **2xl**: 3rem (48px)
 
-## Border Radius
-- **sm**: 0.25rem (4px) - 小标签
-- **md**: 0.5rem (8px) - 卡片
-- **lg**: 0.75rem (12px) - 按钮
-- **xl**: 1rem (16px) - 大卡片
+## Border Radius（与 tailwind.config.js / F0 令牌同步）
+- **md**: 0.375rem (6px) - 标签 `rounded-md`
+- **lg**: 0.5rem (8px) - 按钮 `rounded-lg`（BaseButton）
+- **xl**: 0.75rem (12px) - 卡片/面板 `rounded-xl`（glass-panel、网格容器、StageIndicator/BanArea/PickArea 等）
+- **2xl**: 1rem (16px) - 大卡片 `rounded-2xl`（GameSetup 外层等）
 
 ## Shadows
 - **sm**: 0 1px 2px 0 rgb(0 0 0 / 0.05)
@@ -97,3 +110,28 @@
 - 次要操作：中尺寸
 - 禁用：降低不透明度 + cursor-not-allowed
 - 点击反馈：transform: scale(95)
+
+## 视觉规范（专业克制向）
+
+> 改版方向：从"霓虹游戏 UI"收敛为"专业赛事 BP 工具"。详见 `docs/UI-OVERHAUL-PLAN.md`。
+
+### 去发光
+- 默认删除 `text-shadow-glow` / `drop-shadow-[0_0_*]` / `shadow-[0_0_*px]`
+- 发光仅保留"当前操作"焦点一处（StageIndicator 当前回合条）
+
+### 去脉冲
+- `animate-pulse` 全场 ≤1 处；装饰圆点一律改静态
+- `animate-float` / `animate-ping` 背景装饰移除（App.vue 已改静态）
+
+### 图标
+- 全部使用 `lucide-vue-next` 线性图标，**禁用 emoji 作 UI 图标**
+
+### 反馈
+- 禁用 `alert()` / `confirm()`，统一使用 `useToast()` / `useConfirm()`
+- 模态基于 `BaseDialog`：焦点陷阱 + Esc + 回焦
+
+### 共享原语（`src/components/ui/`）
+- `BaseButton`：variant=primary/blue/danger/secondary/ghost，size=sm/md/lg，loading
+- `BaseDialog`：modelValue(v-model) + 焦点陷阱 + Esc/backdrop 关闭
+- `ToastContainer` + `useToast()`：success/error/warning/info（替代 alert）
+- `ConfirmDialog` + `useConfirm()`：返回 `Promise<boolean>`（替代 confirm）

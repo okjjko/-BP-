@@ -1,9 +1,10 @@
 <template>
   <div class="glass-panel rounded-xl p-4 h-full flex flex-col" role="region" :aria-label="`${playerName}选择的植物`">
-    <h3 class="text-lg font-bold mb-4 text-pick-blue-neon flex items-center gap-2 uppercase tracking-wider border-b border-gray-700/50 pb-2">
-      <span class="w-2 h-2 rounded-full bg-pick-blue shadow-[0_0_8px_rgba(33,150,243,0.8)]"></span>
+    <h3 class="text-lg font-bold mb-1 text-pick-blue-neon flex items-center gap-2 uppercase tracking-wider border-b border-gray-700/50 pb-2">
+      <span class="w-2 h-2 rounded-full bg-pick-blue" aria-hidden="true"></span>
       {{ playerName }} 阵容
     </h3>
+    <p class="mb-3 text-[11px] text-gray-500">拖拽到战场站位，或点击站位格选择</p>
 
     <div v-if="picks.length === 0" class="text-gray-500 text-sm py-8 text-center flex-1 flex items-center justify-center italic">
       等待选择...
@@ -19,11 +20,14 @@
           @dragend="handleDragEnd"
           :class="{ 'dragging': isCurrentDragging(plantId) }"
           class="group flex items-center gap-3 bg-gray-800/40 p-2 rounded-lg border border-gray-700 hover:border-pick-blue/50 hover:bg-gray-800/80 transition-all duration-300"
+          role="listitem"
+          aria-roledescription="可拖拽项"
+          :aria-label="dragItemLabel(plantId)"
         >
           <span class="text-gray-500 text-xs font-mono w-4 text-center">#{{ index + 1 }}</span>
           <!-- 如果是重复植物，高亮显示序号 -->
           <span v-if="countPlantOccurrences(plantId) > 1"
-                class="text-xs text-pick-blue-neon ml-1">
+                class="text-xs text-pick-blue ml-1">
             ({{ index + 1 }})
           </span>
           <div class="relative w-12 h-12 flex-shrink-0">
@@ -38,8 +42,8 @@
              </div>
             <!-- 南瓜保护标记 - 右上角 -->
             <div v-if="isProtectedByPumpkin(index)"
-                 class="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-orange-300 shadow-[0_0_8px_rgba(255,165,0,0.8)] animate-pulse"
-                 title="被南瓜头保护">
+                 class="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-orange-300 shadow-[0_0_6px_rgba(255,165,0,0.7)]"
+                 role="img" aria-label="被南瓜头保护" title="被南瓜头保护">
               南
             </div>
           </div>
@@ -56,13 +60,14 @@
       <div class="text-xs text-gray-400">
         已选: <span class="text-white font-bold">{{ picks.length }}</span>
       </div>
-      <div class="flex gap-1">
+      <div class="flex gap-1" role="img" :aria-label="`已选 ${picks.length} / 10`">
         <!-- 小点指示器 -->
-        <span 
-          v-for="i in 10" 
+        <span
+          v-for="i in 10"
           :key="i"
           class="w-1.5 h-1.5 rounded-full transition-colors"
           :class="i <= picks.length ? 'bg-pick-blue-neon' : 'bg-gray-700'"
+          aria-hidden="true"
         ></span>
       </div>
     </div>
@@ -145,6 +150,14 @@ const isCurrentDragging = (plantId) => {
 // 辅助函数：统计植物出现次数
 const countPlantOccurrences = (plantId) => {
   return picks.value.filter(id => id === plantId).length
+}
+
+// 拖拽项的可读标签（供辅助技术识别）
+const dragItemLabel = (plantId) => {
+  const name = getPlantName(plantId)
+  const usage = getUsageCount(plantId)
+  const usageText = usage > 1 ? `，已使用${usage}次` : ''
+  return `${name}${usageText}，可拖拽到战场站位`
 }
 
 // 检查植物是否被南瓜保护（新增）

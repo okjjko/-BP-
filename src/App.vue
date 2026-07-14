@@ -1,12 +1,20 @@
 <template>
   <div id="app" class="min-h-screen text-gray-100 overflow-x-hidden selection:bg-plant-green selection:text-white">
-    <!-- 背景动画元素 -->
-    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-900/20 rounded-full blur-[100px] animate-float"></div>
-      <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-900/20 rounded-full blur-[100px] animate-float" style="animation-delay: -1.5s;"></div>
+    <!-- 无障碍：跳到主内容 -->
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-[110] focus:top-4 focus:left-4 focus:bg-white focus:text-slate-900 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:outline-none"
+    >
+      跳到主内容
+    </a>
+
+    <!-- 背景装饰（静态，去除浮动动画） -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+      <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-900/15 rounded-full blur-[100px]"></div>
+      <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-900/15 rounded-full blur-[100px]"></div>
     </div>
 
-    <div class="relative z-10 min-h-screen flex flex-col">
+    <main id="main-content" class="relative z-10 min-h-screen flex flex-col">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -15,7 +23,11 @@
 
       <!-- 植物管理模态框（全局） -->
       <PlantManager v-model:show="uiStore.showPlantManager" />
-    </div>
+
+      <!-- 全局反馈层：Toast 与 Confirm -->
+      <ToastContainer />
+      <ConfirmDialog />
+    </main>
   </div>
 </template>
 
@@ -26,6 +38,8 @@ import { useGameStore } from '@/stores/gameStore'
 import { useUIStore } from '@/stores/uiStore'
 import { initializeCache } from '@/data/customPlants'
 import PlantManager from '@/components/PlantManager/index.vue'
+import ToastContainer from '@/components/ui/ToastContainer.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const store = useGameStore()
 const uiStore = useUIStore()

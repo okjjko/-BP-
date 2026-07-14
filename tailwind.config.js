@@ -7,18 +7,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        'plant-green': '#4CAF50',
+        // 语义基色（与 src/styles/design-system.md 对齐）
+        'plant-green': '#22C55E',
         'plant-green-neon': '#00ff41',
-        'plant-green-dark': '#1b5e20',
+        'plant-green-dark': '#15803D',
         'zombie-purple': '#9C27B0',
         'zombie-purple-neon': '#bf00ff',
-        'ban-red': '#f44336',
+        'ban-red': '#EF4444',
         'ban-red-neon': '#ff1744',
-        'ban-red-dark': '#b71c1c',
-        'pick-blue': '#2196F3',
+        'ban-red-dark': '#B91C1C',
+        'pick-blue': '#3B82F6',
+        'pick-blue-dark': '#1E40AF',
         'pick-blue-neon': '#00e5ff',
         'glass-dark': 'rgba(17, 24, 39, 0.7)',
         'glass-light': 'rgba(255, 255, 255, 0.1)',
+      },
+      fontFamily: {
+        sans: ['Inter', '"Microsoft YaHei"', '"微软雅黑"', 'Arial', 'sans-serif'],
+        mono: ['"Fira Code"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out forwards',

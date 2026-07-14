@@ -5,12 +5,13 @@
     <form @submit.prevent="handleSubmit" class="space-y-4">
       <!-- ID编辑（仅编辑模式显示） -->
       <div v-if="isEdit && formData.id">
-        <label class="block text-sm font-bold text-gray-300 mb-2">植物ID</label>
+        <label class="block text-sm font-bold text-gray-300 mb-2" for="plant-id">植物ID</label>
         <div class="relative">
           <input
+            id="plant-id"
             v-model="formData.id"
             type="text"
-            class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none pr-20"
+            class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 pr-20 cursor-text"
             placeholder="custom_xxx"
             :class="{ 'border-yellow-500': idChanged }"
           />
@@ -34,24 +35,26 @@
 
       <!-- 名称 -->
       <div>
-        <label class="block text-sm font-bold text-gray-300 mb-2">植物名称 *</label>
+        <label class="block text-sm font-bold text-gray-300 mb-2" for="plant-name">植物名称 *</label>
         <input
+          id="plant-name"
           v-model="formData.name"
           type="text"
           required
           maxlength="20"
-          class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none"
+          class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 cursor-text"
           placeholder="例如：超级豌豆射手"
         />
       </div>
 
       <!-- 类型 -->
       <div>
-        <label class="block text-sm font-bold text-gray-300 mb-2">植物类型 *</label>
+        <label class="block text-sm font-bold text-gray-300 mb-2" for="plant-type">植物类型 *</label>
         <select
+          id="plant-type"
           v-model="formData.type"
           required
-          class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none"
+          class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 cursor-pointer"
         >
           <option value="副C">副C</option>
           <option value="大C">大C</option>
@@ -62,13 +65,14 @@
 
       <!-- 描述 -->
       <div>
-        <label class="block text-sm font-bold text-gray-300 mb-2">功能描述 *</label>
+        <label class="block text-sm font-bold text-gray-300 mb-2" for="plant-desc">功能描述 *</label>
         <textarea
+          id="plant-desc"
           v-model="formData.description"
           required
           maxlength="100"
           rows="3"
-          class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none resize-none"
+          class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 resize-none cursor-text"
           placeholder="简要描述植物的功能..."
         ></textarea>
         <p class="text-xs text-gray-500 mt-1">{{ formData.description.length }}/100</p>
@@ -78,14 +82,14 @@
       <div class="flex gap-3 pt-4">
         <button
           type="submit"
-          class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition-colors"
+          class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           {{ isEdit ? '保存修改' : '创建植物' }}
         </button>
         <button
           type="button"
           @click="$emit('cancel')"
-          class="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-colors"
+          class="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           取消
         </button>
@@ -97,12 +101,17 @@
 <script setup>
 import { ref, watch } from 'vue'
 import ImageUploader from './ImageUploader.vue'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const props = defineProps({
   plant: Object,
   isEdit: Boolean
 })
 const emit = defineEmits(['save', 'cancel'])
+
+const toast = useToast()
+const { confirm } = useConfirm()
 
 const formData = ref({
   id: '',
@@ -159,15 +168,15 @@ watch(() => props.plant, (newPlant) => {
 const handleSubmit = async () => {
   // 验证
   if (!formData.value.name.trim()) {
-    alert('请输入植物名称')
+    toast.error('请输入植物名称')
     return
   }
   if (!formData.value.description.trim()) {
-    alert('请输入功能描述')
+    toast.error('请输入功能描述')
     return
   }
   if (!formData.value.imageData) {
-    alert('请上传植物图片')
+    toast.error('请上传植物图片')
     return
   }
 
@@ -175,7 +184,7 @@ const handleSubmit = async () => {
   if (props.isEdit && idChanged.value) {
     const newId = formData.value.id.trim()
     if (!newId) {
-      alert('植物ID不能为空')
+      toast.error('植物ID不能为空')
       return
     }
 
@@ -184,17 +193,22 @@ const handleSubmit = async () => {
       const { checkPlantIdExists } = await import('@/data/customPlants')
       const exists = await checkPlantIdExists(newId, originalId.value)
       if (exists) {
-        alert(`植物ID "${newId}" 已存在，请使用其他ID`)
+        toast.error(`植物ID "${newId}" 已存在，请使用其他 ID`)
         return
       }
     } catch (error) {
       console.error('ID验证失败:', error)
-      alert('ID验证失败，请重试')
+      toast.error('ID 验证失败，请重试')
       return
     }
 
     // 确认ID修改
-    if (!confirm(`确定将植物ID从 "${originalId.value}" 修改为 "${newId}"？\n\n注意：如果该植物正在游戏中使用，ID修改后可能导致引用错误。`)) {
+    if (!await confirm({
+      title: '修改植物 ID',
+      message: `确定将植物 ID 从 "${originalId.value}" 修改为 "${newId}"？注意：如果该植物正在游戏中使用，ID 修改后可能导致引用错误。`,
+      confirmText: '修改',
+      variant: 'danger',
+    })) {
       return
     }
   }

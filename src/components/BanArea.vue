@@ -1,7 +1,7 @@
 <template>
   <div class="glass-panel rounded-xl p-3 w-fit transition-all duration-300 hover:bg-white/5" role="region" :aria-label="`${playerName}禁用的植物`">
     <h3 class="text-sm font-bold mb-2 text-ban-red-neon flex items-center gap-2 uppercase tracking-wider">
-      <span class="w-2 h-2 rounded-full bg-ban-red animate-pulse"></span>
+      <span class="w-2 h-2 rounded-full bg-ban-red" aria-hidden="true"></span>
       {{ playerName }} 禁用
     </h3>
 
@@ -16,7 +16,7 @@
           :key="plantId"
           class="relative group w-12 h-12"
         >
-          <div class="absolute inset-0 bg-ban-red/20 rounded-lg transform rotate-3 group-hover:rotate-6 transition-transform"></div>
+          <div class="absolute inset-0 bg-ban-red/20 rounded-lg" aria-hidden="true"></div>
           <img
             :src="getPlantImage(plantId)"
             :alt="`禁用植物：${getPlantName(plantId)}`"

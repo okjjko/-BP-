@@ -2,52 +2,59 @@
   <div class="glass-panel rounded-xl p-5 flex flex-col h-full">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-2xl font-bold flex items-center gap-2">
-        <span v-if="isBan" class="text-ban-red-neon drop-shadow-[0_0_5px_rgba(255,23,68,0.5)]">🚫 禁用阶段</span>
-        <span v-else class="text-pick-blue-neon drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]">✅ 选择阶段</span>
+        <component
+          :is="isBan ? Ban : CheckCircle"
+          :size="26"
+          aria-hidden="true"
+          :class="isBan ? 'text-ban-red' : 'text-pick-blue'"
+        />
+        <span :class="isBan ? 'text-ban-red' : 'text-pick-blue'">
+          {{ isBan ? '禁用阶段' : '选择阶段' }}
+        </span>
       </h2>
       
       <!-- 确认按钮 -->
-      <button
-        @click="confirmSelection"
-        @keydown.enter="confirmSelection"
+      <BaseButton
+        :variant="isBan ? 'danger' : 'blue'"
+        size="lg"
         :disabled="!hasSelectedPlant || !hasBPPermission"
-        class="px-8 py-2 rounded-lg font-bold text-lg transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2"
-        :class="isBan
-          ? 'bg-ban-red hover:bg-ban-red-neon text-white disabled:bg-gray-700 disabled:text-gray-500 hover:shadow-red-500/30'
-          : 'bg-pick-blue hover:bg-pick-blue-neon text-white disabled:bg-gray-700 disabled:text-gray-500 hover:shadow-blue-500/30'"
+        @click="confirmSelection"
       >
-        <span>{{ turnText || (isBan ? '确认禁用' : '确认选择') }}</span>
-        <span v-if="selectedPlantInfo" class="text-xs opacity-80 px-1 py-0.5 bg-black/20 rounded ml-1">{{ selectedPlantInfo.name }}</span>
-      </button>
+        {{ turnText || (isBan ? '确认禁用' : '确认选择') }}
+        <span v-if="selectedPlantInfo" class="ml-1 text-xs opacity-80 bg-black/20 px-1.5 py-0.5 rounded">{{ selectedPlantInfo.name }}</span>
+      </BaseButton>
     </div>
 
     <!-- 植物网格 - 自适应填充剩余空间 -->
     <div
       class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-9 gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-2 content-start"
       role="listbox"
+      :aria-label="isBan ? '可禁用植物列表' : '可选植物列表'"
     >
       <button
         v-for="plant in availablePlants"
         :key="plant.id"
+        role="option"
+        :aria-selected="isSelected(plant.id) ? 'true' : 'false'"
+        :aria-disabled="(!canSelect(plant.id) || !hasBPPermission) ? 'true' : 'false'"
         @click="selectPlant(plant.id)"
-        :disabled="!canSelect(plant.id) || !hasBPPermission"
-        class="relative group aspect-square transition-all duration-300 rounded-xl overflow-hidden"
+        class="relative group aspect-square transition-all duration-300 rounded-xl overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-white"
         :class="{
-          'ring-2 ring-white scale-105 z-10 shadow-[0_0_15px_rgba(255,255,255,0.3)]': isSelected(plant.id),
+          'ring-2 ring-white scale-105 z-10 shadow-lg': isSelected(plant.id),
           'opacity-40 grayscale cursor-not-allowed': !canSelect(plant.id) || !hasBPPermission,
-          'hover:scale-110 hover:z-10 hover:shadow-xl cursor-pointer': canSelect(plant.id) && hasBPPermission && !isSelected(plant.id)
+          'hover:scale-105 hover:z-10 hover:shadow-lg cursor-pointer': canSelect(plant.id) && hasBPPermission && !isSelected(plant.id)
         }"
       >
         <!-- 植物图片 -->
         <img
           :src="getPlantImageUrl(plant)"
           :alt="plant.name"
-          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        
+
         <!-- 边框装饰 -->
         <div class="absolute inset-0 border-2 rounded-xl pointer-events-none transition-colors duration-300"
-          :class="isBan ? 'border-ban-red/30 group-hover:border-ban-red-neon' : 'border-pick-blue/30 group-hover:border-pick-blue-neon'"
+          :class="isBan ? 'border-ban-red/30 group-hover:border-ban-red' : 'border-pick-blue/30 group-hover:border-pick-blue'"
         ></div>
 
         <!-- 悬停/选中时的遮罩信息 -->
@@ -89,13 +96,17 @@
 
 <script setup>
 import { computed } from 'vue'
+import { Ban, CheckCircle } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { getPlantByIdSync, getPlantImage } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
+import { useToast } from '@/composables/useToast'
+import BaseButton from '@/components/ui/BaseButton.vue'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
+const toast = useToast()
 
 // BP 权限检查：观众只读，多人模式下检查回合制权限
 const hasBPPermission = computed(() => {
@@ -202,7 +213,7 @@ const selectPlant = (plantId) => {
 
 const confirmSelection = () => {
   if (!hasSelectedPlant.value) {
-    alert('请先选择一个植物')
+    toast.error('请先选择一个植物')
     return
   }
   store.confirmSelection()

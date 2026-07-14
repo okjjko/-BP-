@@ -247,6 +247,12 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 - `src/components/PositionSetup.vue` - Road and position configuration (not yet implemented)
 - `src/components/RoundResult.vue` - Round winner & next round road selection
 
+**Shared Primitives（`src/components/ui/`，Phase 0 基座，全局复用）：**
+- `BaseButton.vue` - 统一按钮：`variant`(primary/blue/danger/secondary/ghost)、`size`(sm/md/lg)、`loading`、`#icon` 插槽；含 focus 环与 cursor
+- `BaseDialog.vue` - 统一模态：`v-model` + 焦点陷阱 + Esc/backdrop 关闭 + 回焦（替代各组件手写 fixed 遮罩）
+- `ToastContainer.vue` + `composables/useToast.js` - 轻量通知（替代 `alert()`）：`useToast().success/error/warning/info`
+- `ConfirmDialog.vue` + `composables/useConfirm.js` - 应用内确认（替代 `confirm()`）：`await useConfirm().confirm(msg)` 返回 `Promise<boolean>`
+
 ### Critical Design Decisions
 
 **Dynamic Player-Road Mapping:**

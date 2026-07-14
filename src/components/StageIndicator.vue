@@ -1,11 +1,11 @@
 <template>
-  <div class="glass-panel rounded-xl p-4 min-w-[300px] shadow-[0_0_15px_rgba(0,0,0,0.3)] border-t border-white/10" role="region" aria-label="当前游戏阶段">
+  <div class="glass-panel rounded-xl p-4 min-w-[300px] shadow-lg border-t border-white/10" role="region" aria-label="当前游戏阶段">
     <div class="text-center">
       <!-- 多人模式：角色徽章和回合提示 -->
       <div v-if="roomMode !== 'local'" class="flex items-center justify-center gap-2 mb-2">
         <!-- 角色徽章 -->
         <span class="role-badge">
-          <span class="role-icon">{{ getRoleIcon() }}</span>
+          <component :is="roleIcon" v-if="roleIcon" class="role-icon" :size="14" aria-hidden="true" />
           <span class="role-text">{{ getRoleLabel() }}</span>
         </span>
         <!-- 回合提示 -->
@@ -15,26 +15,24 @@
       </div>
 
       <!-- 同步状态指示器 -->
-      <div v-if="roomMode !== 'local' && syncStatus" class="sync-status">
-        <span class="sync-icon" :class="syncStatus.class">{{ syncStatus.icon }}</span>
-        <span class="sync-text" :class="syncStatus.class">{{ syncStatus.text }}</span>
+      <div v-if="roomMode !== 'local' && syncStatus" class="sync-status" :class="syncStatus.class">
+        <component :is="syncStatus.icon" class="sync-icon" :size="14" aria-hidden="true" />
+        <span class="sync-text">{{ syncStatus.text }}</span>
       </div>
 
       <h3 class="text-sm font-bold mb-1 text-gray-400 uppercase tracking-widest">ROUND {{ roundNumber }}</h3>
       <div class="text-3xl font-black mb-4 tracking-wide" :class="stageClass">
-        <span class="filter drop-shadow-md">{{ stageName }}</span>
+        {{ stageName }}
       </div>
 
       <!-- 进度条 -->
       <div class="mb-4 relative">
-        <div class="w-full bg-gray-800/50 rounded-full h-3 border border-gray-700" role="progressbar" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
+        <div class="w-full bg-gray-800/50 rounded-full h-3 border border-gray-700" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
           <div
             class="h-full rounded-full transition-all duration-500 relative overflow-hidden"
             :class="progressBarClass"
             :style="{ width: `${((step + 1) / totalSteps) * 100}%` }"
           >
-            <!-- 进度条光效 -->
-            <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
           </div>
         </div>
         <div class="flex justify-between items-center mt-1.5 px-1">
@@ -62,7 +60,7 @@
       <!-- 南瓜保护提示 -->
       <transition name="fade">
         <div v-if="hasPumpkinProtection"
-             class="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/50 flex items-center gap-2 animate-pulse">
+             class="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/50 flex items-center gap-2">
           <span class="text-lg">南</span>
           <span class="text-sm font-bold text-orange-300">南瓜保护已激活！下一个植物将获得保护</span>
         </div>
@@ -73,6 +71,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { Crown, Gamepad2, Eye, RefreshCw, TriangleAlert, Check } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { STAGE_NAMES } from '@/utils/bpRules'
@@ -90,7 +89,7 @@ const isMyTurn = computed(() => connStore.isMyTurn)
 const syncStatus = computed(() => {
   if (connStore.isSyncing) {
     return {
-      icon: '⟳',
+      icon: RefreshCw,
       text: '同步中...',
       class: 'syncing'
     }
@@ -98,7 +97,7 @@ const syncStatus = computed(() => {
 
   if (connStore.syncError) {
     return {
-      icon: '⚠',
+      icon: TriangleAlert,
       text: '同步失败',
       class: 'error'
     }
@@ -108,7 +107,7 @@ const syncStatus = computed(() => {
     const seconds = Math.floor((Date.now() - store.lastSyncTime) / 1000)
     if (seconds < 2) {
       return {
-        icon: '✓',
+        icon: Check,
         text: '已同步',
         class: 'success'
       }
@@ -118,15 +117,15 @@ const syncStatus = computed(() => {
   return null
 })
 
-// 获取角色图标
-const getRoleIcon = () => {
+// 角色图标（lucide 组件）
+const roleIcon = computed(() => {
   switch (myRole.value) {
-    case 'host': return '👑'
-    case 'player': return '🎮'
-    case 'spectator': return '👀'
-    default: return ''
+    case 'host': return Crown
+    case 'player': return Gamepad2
+    case 'spectator': return Eye
+    default: return null
   }
-}
+})
 
 // 获取角色标签
 const getRoleLabel = () => {
@@ -173,20 +172,21 @@ const actionText = computed(() => {
 })
 
 const stageClass = computed(() => {
-  if (action.value === 'ban') return 'text-ban-red-neon text-shadow-glow'
-  if (action.value === 'pick') return 'text-pick-blue-neon text-shadow-glow'
+  if (action.value === 'ban') return 'text-ban-red'
+  if (action.value === 'pick') return 'text-pick-blue'
   return 'text-gray-400'
 })
 
+// 当前操作条 = 全场唯一发光焦点（单层 glow + 单处 ping）
 const actionClass = computed(() => {
-  if (action.value === 'ban') return 'bg-ban-red hover:bg-ban-red-neon text-white'
-  if (action.value === 'pick') return 'bg-pick-blue hover:bg-pick-blue-neon text-white'
-  return 'bg-gray-600'
+  if (action.value === 'ban') return 'bg-ban-red text-white shadow-[0_0_18px_rgba(239,68,68,0.45)]'
+  if (action.value === 'pick') return 'bg-pick-blue text-white shadow-[0_0_18px_rgba(59,130,246,0.45)]'
+  return 'bg-gray-600 text-white'
 })
 
 const progressBarClass = computed(() => {
-  if (action.value === 'ban') return 'bg-gradient-to-r from-ban-red-dark to-ban-red-neon shadow-[0_0_10px_rgba(244,67,54,0.5)]'
-  if (action.value === 'pick') return 'bg-gradient-to-r from-pick-blue-dark to-pick-blue-neon shadow-[0_0_10px_rgba(33,150,243,0.5)]'
+  if (action.value === 'ban') return 'bg-gradient-to-r from-ban-red-dark to-ban-red'
+  if (action.value === 'pick') return 'bg-gradient-to-r from-pick-blue-dark to-pick-blue'
   return 'bg-gray-500'
 })
 

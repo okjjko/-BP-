@@ -10,6 +10,7 @@ import { getAllPlantsSync } from '@/data/customPlants'
 import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
 import { canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
 import { useConnectionStore } from './connectionStore'
+import { useToast } from '@/composables/useToast'
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -243,12 +244,12 @@ export const useGameStore = defineStore('game', {
     confirmSelection() {
       const connStore = useConnectionStore()
       if (!connStore.isMyTurn) {
-        alert(connStore.myTurnDescription || '现在不是你的回合！')
+        useToast().warning(connStore.myTurnDescription || '现在不是你的回合！')
         return
       }
 
       if (!this.currentRound.selectedPlant) {
-        alert('请先选择一个植物')
+        useToast().warning('请先选择一个植物')
         return
       }
 
@@ -268,7 +269,7 @@ export const useGameStore = defineStore('game', {
       if (action === 'pick') {
         const canPickResult = canPick(plantId, player, this.$state)
         if (!canPickResult.valid) {
-          alert(canPickResult.reason)
+          useToast().warning(canPickResult.reason)
           return
         }
 
@@ -396,7 +397,7 @@ export const useGameStore = defineStore('game', {
       const position = { road, plants }
       const validation = validatePosition(position)
       if (!validation.valid) {
-        alert(validation.errors.join('\n'))
+        useToast().warning(validation.errors.join('；'))
         return
       }
       this.currentRound.positions[player] = { road: this[player].road, plants }

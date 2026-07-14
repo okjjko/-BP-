@@ -7,7 +7,7 @@
     >
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold flex items-center gap-2 text-white">
-          <span class="w-2 h-8 rounded-full" :class="player === 'player1' ? 'bg-pick-blue-neon' : 'bg-ban-red-neon'"></span>
+          <span class="w-2 h-8 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-ban-red'" aria-hidden="true"></span>
           {{ getPlayerName(player) }} 阵型
         </h2>
         <div class="px-3 py-1 rounded bg-black/30 border border-white/10 text-sm font-mono text-gray-300">
@@ -28,7 +28,7 @@
             @dragleave="handleDragLeave"
             @drop="handleDrop($event, player, index)"
             :draggable="getPlantAtPosition(player, index) !== null"
-            class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group"
+            class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             :class="{
               'border-gray-600 hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
               'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index) && (!dropTarget || dropTarget.position !== index),
@@ -121,10 +121,8 @@
             <h3 class="text-2xl font-bold text-white flex items-center gap-2">
               <span class="text-plant-green-neon">配置</span> {{ selectingPosition }} 号位
             </h3>
-            <button @click="closePlantSelector" class="text-gray-400 hover:text-white transition-colors">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <button @click="closePlantSelector" class="text-gray-400 hover:text-white transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950" aria-label="关闭选择器">
+              <X :size="24" />
             </button>
           </div>
           
@@ -133,7 +131,7 @@
               v-for="(plantId, index) in getPicks(selectingPlayer)"
               :key="`${selectingPlayer}-${plantId}-${index}`"
               @click="placePlant(plantId, index)"
-              class="group relative flex flex-col items-center gap-2 p-2 rounded-xl border border-transparent hover:bg-gray-800 transition-all duration-200"
+              class="group relative flex flex-col items-center gap-2 p-2 rounded-xl border border-transparent hover:bg-gray-800 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
               <div class="relative w-16 h-16 group-hover:scale-110 transition-transform duration-200">
                 <img
@@ -157,13 +155,14 @@
           <div class="flex gap-4 border-t border-gray-700 pt-6">
             <button
               @click="clearPosition"
-              class="flex-1 py-3 bg-red-900/50 text-red-200 hover:bg-red-800 rounded-lg font-bold border border-red-800 hover:border-red-600 transition-colors"
+              class="flex-1 py-3 bg-red-900/50 text-red-200 hover:bg-red-800 rounded-lg font-bold border border-red-800 hover:border-red-600 transition-colors inline-flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ban-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
-              🗑️ 清空该位
+              <Trash2 :size="18" />
+              清空该位
             </button>
             <button
               @click="closePlantSelector"
-              class="flex-1 py-3 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg font-bold transition-colors"
+              class="flex-1 py-3 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
               取消
             </button>
@@ -176,14 +175,19 @@
 
 <script setup>
 import { ref } from 'vue'
+import { Trash2, X } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useConnectionStore } from '@/stores/connectionStore'
+import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import { getPlantImage, getPlantName } from '@/data/customPlants'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
 const uiStore = useUIStore()
+const { confirm } = useConfirm()
+const toast = useToast()
 
 const showPlantSelector = ref(false)
 const selectingPlayer = ref(null)
@@ -245,7 +249,7 @@ const placePlant = (plantId, sourceIndex = null) => {
   if (finalSourceIndex === null) {
     const availableInstances = store.getAvailablePlantInstances(player, plantId)
     if (availableInstances.length === 0) {
-      alert('该植物的所有实例都已布置')
+      toast.warning('该植物的所有实例都已布置')
       return
     }
     finalSourceIndex = availableInstances[0].sourceIndex
@@ -272,9 +276,18 @@ const placePlant = (plantId, sourceIndex = null) => {
   connStore.syncState()
 }
 
-const clearPosition = () => {
+const clearPosition = async () => {
   const player = selectingPlayer.value
   const position = selectingPosition.value
+
+  const ok = await confirm({
+    title: '清空站位',
+    message: `确定要清空 ${position} 号位的植物吗？`,
+    confirmText: '清空',
+    cancelText: '取消',
+    variant: 'danger',
+  })
+  if (!ok) return
 
   if (store.currentRound.positions[player].plants) {
     store.currentRound.positions[player].plants[position - 1] = null

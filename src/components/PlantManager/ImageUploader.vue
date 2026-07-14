@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <!-- 预览区 -->
-    <div class="relative aspect-square bg-gray-900/50 border-2 border-dashed border-gray-600 rounded-xl flex items-center justify-center overflow-hidden">
+    <div class="relative aspect-square bg-gray-900/50 border-2 border-dashed border-gray-600 rounded-xl flex items-center justify-center overflow-hidden focus-within:ring-2 focus-within:ring-purple-400">
       <img
         v-if="imageUrl"
         :src="imageUrl"
@@ -9,9 +9,7 @@
         class="w-full h-full object-contain"
       />
       <div v-else class="text-center text-gray-500">
-        <svg class="w-16 h-16 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
+        <ImagePlus :size="64" class="mx-auto mb-2" />
         <p class="text-sm">拖拽或点击上传图片</p>
         <p class="text-xs text-gray-600 mt-1">支持 PNG, JPG, WEBP</p>
       </div>
@@ -20,11 +18,10 @@
       <button
         v-if="imageUrl"
         @click="removeImage"
-        class="absolute top-2 right-2 p-2 bg-red-600/90 hover:bg-red-500 rounded-full backdrop-blur transition-colors"
+        class="absolute top-2 right-2 p-2 bg-red-600/90 hover:bg-red-500 rounded-full backdrop-blur transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+        aria-label="移除图片"
       >
-        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <X :size="16" class="text-white" />
       </button>
 
       <!-- 文件输入 -->
@@ -53,7 +50,7 @@
           v-for="(template, index) in defaultTemplates"
           :key="index"
           @click="useTemplate(template)"
-          class="aspect-square rounded border border-gray-600 hover:border-purple-400 overflow-hidden transition-colors"
+          class="aspect-square rounded border border-gray-600 hover:border-purple-400 overflow-hidden transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
         >
           <img :src="template" class="w-full h-full object-cover" />
         </button>
@@ -64,6 +61,10 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { ImagePlus, X } from 'lucide-vue-next'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const props = defineProps({
   modelValue: Blob,
@@ -93,9 +94,6 @@ watch(() => props.modelValue, (newBlob) => {
   }
 }, { immediate: true })
 
-// 监听内部值变化（URL -> Blob）
-// 注意：这里我们反向传递Blob给父组件
-
 const imageSizeKB = computed(() => {
   if (!props.modelValue) return 0
   return Math.round(props.modelValue.size / 1024)
@@ -109,13 +107,13 @@ const handleFileSelect = async (event) => {
 
   // 验证文件类型
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    alert('仅支持 PNG、JPG、WEBP 格式')
+    toast.error('仅支持 PNG、JPG、WEBP 格式')
     return
   }
 
   // 验证文件大小（原始大小限制2MB）
   if (file.size > 2 * 1024 * 1024) {
-    alert('图片文件过大（超过2MB）')
+    toast.error('图片文件过大（超过 2MB）')
     return
   }
 
@@ -127,9 +125,11 @@ const handleFileSelect = async (event) => {
     // 传递给父组件
     emit('update:modelValue', blob)
     emit('update:imageType', file.type)
+
+    toast.success(`图片已上传 ${Math.round(blob.size / 1024)} KB`)
   } catch (e) {
     console.error('图片处理失败', e)
-    alert('图片处理失败，请重试')
+    toast.error(e.message || '图片处理失败，请重试')
   }
 
   // 清空input允许重复选择同一文件
@@ -169,24 +169,23 @@ const compressImage = (file) => {
         // 转换为Blob（用于IndexedDB存储）
         canvas.toBlob((blob) => {
           if (!blob) {
-            reject(new Error('Canvas to Blob failed'))
+            reject(new Error('图片处理失败，请重试'))
             return
           }
 
           // 检查压缩后大小
           if (blob.size > 500 * 1024) {
-            alert('压缩后图片仍过大，请选择更简单的图片')
-            reject(new Error('Image too large'))
+            reject(new Error('压缩后图片仍过大，请选择更简单的图片'))
             return
           }
 
           resolve({ blob, width, height })
         }, 'image/jpeg', 0.7)
       }
-      img.onerror = reject
+      img.onerror = () => reject(new Error('图片加载失败，请重试'))
       img.src = e.target.result
     }
-    reader.onerror = reject
+    reader.onerror = () => reject(new Error('图片读取失败，请重试'))
     reader.readAsDataURL(file)
   })
 }
@@ -205,9 +204,10 @@ const useTemplate = async (template) => {
     imageUrl.value = template
     emit('update:modelValue', blob)
     emit('update:imageType', 'image/jpeg')
+    toast.success('已应用模板')
   } catch (e) {
     console.error('使用模板失败', e)
-    alert('使用模板失败')
+    toast.error('使用模板失败')
   }
 }
 </script>
