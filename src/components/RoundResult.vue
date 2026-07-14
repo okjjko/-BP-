@@ -163,7 +163,7 @@ const currentRound = computed(() => store.currentRound?.roundNumber || 1)
 const firstPlayer = computed(() => store.firstPlayer)
 
 const isGameEnd = computed(() => {
-  return isGameOver(player1Score.value, player2Score.value)
+  return isGameOver(player1Score.value, player2Score.value, store.winThreshold)
 })
 
 const isRoundComplete = computed(() => {

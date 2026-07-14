@@ -56,7 +56,7 @@ Stage4 (选择):  road4 → road2 → road2 → road4
 | banning | 执行20步Ban/Pick操作 |
 | positioning | 拖拽植物到战场站位 |
 | result | 选择本局胜者，更新分数 |
-| finished | 先到4分者获胜 |
+| finished | 先到设定的小局胜场数获胜 |
 
 ### 特殊规则
 - **南瓜头保护**: 选择南瓜头不消耗BP步骤，下一个选择获得保护

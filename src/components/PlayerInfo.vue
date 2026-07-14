@@ -21,7 +21,7 @@
         <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">得分</div>
         <div class="flex">
           <span
-            v-for="n in 5"
+            v-for="n in store.winThreshold + 1"
             :key="n"
             class="w-2 h-4 rounded-sm ml-0.5 transition-all duration-500"
             :class="n <= score

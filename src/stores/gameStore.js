@@ -49,6 +49,9 @@ export const useGameStore = defineStore('game', {
     gameStatus: 'setup',
     roundWinner: null,
 
+    // 大局获胜所需小局数（开局可配置，1~7，默认4）
+    winThreshold: 4,
+
     // 植物缓存版本号（用于触发响应式更新）
     _plantCacheVersion: 0,
   }),
@@ -142,7 +145,7 @@ export const useGameStore = defineStore('game', {
 
     // ========== 游戏生命周期 ==========
 
-    initGame(player1Id, player2Id, firstPlayer, player1Road, player2Road) {
+    initGame(player1Id, player2Id, firstPlayer, player1Road, player2Road, winThreshold = 4) {
       this.player1.id = player1Id
       this.player2.id = player2Id
       this.player1.score = 0
@@ -150,6 +153,7 @@ export const useGameStore = defineStore('game', {
       this.player1.road = player1Road || null
       this.player2.road = player2Road || null
       this.firstPlayer = firstPlayer
+      this.winThreshold = winThreshold
 
       // 延迟导入避免循环依赖
       const connStore = useConnectionStore()
@@ -413,14 +417,11 @@ export const useGameStore = defineStore('game', {
 
       this.updatePlantUsage()
 
-      if (isGameOver(this.player1.score, this.player2.score)) {
-        this.gameStatus = 'finished'
-        this.saveToLocalStorage()
-      } else if (isGrandFinal(this.player1.score, this.player2.score)) {
-        alert('进入巅峰对决！（暂未实现）')
+      if (isGameOver(this.player1.score, this.player2.score, this.winThreshold)) {
         this.gameStatus = 'finished'
         this.saveToLocalStorage()
       }
+      // 巅峰对决（isGrandFinal）暂未启用：函数保留，但不再在此触发强行结束
 
       useConnectionStore().syncState()
     },
@@ -463,7 +464,8 @@ export const useGameStore = defineStore('game', {
         currentRound: this.currentRound,
         gameStatus: this.gameStatus,
         firstPlayer: this.firstPlayer,
-        roundWinner: this.roundWinner
+        roundWinner: this.roundWinner,
+        winThreshold: this.winThreshold
       }
       localStorage.setItem('bpGameState', JSON.stringify(state))
     },
@@ -482,6 +484,7 @@ export const useGameStore = defineStore('game', {
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
           this.roundWinner = state.roundWinner || null
+          this.winThreshold = state.winThreshold || 4
           // 向后兼容：补全新增字段
           if (!this.currentRound.pumpkinUsedThisRound) {
             this.currentRound.pumpkinUsedThisRound = { player1: false, player2: false }
@@ -599,6 +602,7 @@ export const useGameStore = defineStore('game', {
       this.pumpkinUsage = { ...gameState.pumpkinUsage }
       this.gameStatus = gameState.gameStatus
       this.roundWinner = gameState.roundWinner
+      this.winThreshold = gameState.winThreshold || 4
     },
 
     getSyncPayload() {
@@ -611,7 +615,8 @@ export const useGameStore = defineStore('game', {
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
         gameStatus: this.gameStatus,
-        roundWinner: this.roundWinner
+        roundWinner: this.roundWinner,
+        winThreshold: this.winThreshold
       }
     },
 

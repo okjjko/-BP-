@@ -13,7 +13,7 @@ export function useGameRules() {
    * 当前是否大局结束（有人达到4分）
    */
   const gameOver = computed(() =>
-    _isGameOver(gameStore.player1.score, gameStore.player2.score)
+    _isGameOver(gameStore.player1.score, gameStore.player2.score, gameStore.winThreshold)
   )
 
   /**

@@ -165,10 +165,10 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 5. **Round Flow（小局 / 大局 术语）**
    - **小局（round）** = 一轮完整 BP 的胜负单位：BP → 站位 → 小局结算
    - **大局（match）** = 由若干小局组成，率先累计达成约定胜场数即赢得大局
-   - 每赢一小局记 1 分，当前为**先到 4 小局胜**赢得大局（胜场阈值计划改为可自定义）
+   - 每赢一小局记 1 分，**大局获胜所需小局数开局可配置（下拉 1~7，默认 4）**，率先达成者赢得大局
    - 流程：BP阶段 → Positioning (站位设置) → Result (小局结算) → 下一小局
    - 败者获得下一小局的选路权（败者选路权）
-   - 说明：比分中的「分」即小局胜场数；变量名沿用 `currentRound`(当前小局)/`setRoundWinner`/`isGameOver`/`gameStatus`，仅术语统一，语义与胜负逻辑不变
+   - 说明：比分中的「分」即小局胜场数；变量名沿用 `currentRound`(当前小局)/`setRoundWinner`/`gameStatus`；胜负阈值存于顶级字段 `winThreshold`，开局设置、持久化并随多人状态同步
 
 ### Key Files & Responsibilities
 

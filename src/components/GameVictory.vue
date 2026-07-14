@@ -75,7 +75,7 @@
         </div>
         <div class="bg-black/30 rounded-xl p-4 border border-white/10 text-center">
           <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">获胜方式</p>
-          <p class="text-xl font-bold text-yellow-400">先得4分</p>
+          <p class="text-xl font-bold text-yellow-400">先得{{ store.winThreshold }}分</p>
         </div>
       </div>
 
@@ -111,8 +111,8 @@ const connStore = useConnectionStore()
 const winner = computed(() => {
   const p1Score = store.player1.score
   const p2Score = store.player2.score
-  if (p1Score >= 4) return 'player1'
-  if (p2Score >= 4) return 'player2'
+  if (p1Score >= store.winThreshold) return 'player1'
+  if (p2Score >= store.winThreshold) return 'player2'
   return null
 })
 

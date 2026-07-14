@@ -132,6 +132,18 @@
           </div>
         </div>
 
+        <!-- 大局获胜所需小局数 -->
+        <div class="space-y-2">
+          <label for="win-threshold-select" class="block text-sm font-bold text-gray-300 uppercase tracking-wide">大局获胜所需小局数</label>
+          <select
+            id="win-threshold-select"
+            v-model.number="winThreshold"
+            class="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-lg text-white focus:border-plant-green-neon focus:ring-1 focus:ring-plant-green-neon focus:outline-none transition-all"
+          >
+            <option v-for="n in 7" :key="n" :value="n">{{ n }} 胜（BO{{ n * 2 - 1 }}）</option>
+          </select>
+        </div>
+
         <button
           type="submit"
           :disabled="!player1Name || !player2Name || !player1Road || !player2Road"
@@ -185,6 +197,7 @@ const globalBans = ref([])
 const firstPlayer = ref('player1') // 记录谁先输入ID
 const player1Road = ref(null)
 const player2Road = ref(null)
+const winThreshold = ref(4) // 大局获胜所需小局数（开局可配置，默认4）
 const showPlantManager = ref(false) // 植物管理模态框状态
 const showRoomSetup = ref(true) // 显示房间设置界面
 
@@ -316,7 +329,8 @@ const startGame = () => {
     player2Name.value,
     firstPlayer.value,
     player1Road.value,
-    player2Road.value
+    player2Road.value,
+    winThreshold.value
   )
 }
 
