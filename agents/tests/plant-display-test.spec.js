@@ -207,8 +207,8 @@ test.describe('植物显示测试 - 自定义植物', () => {
       await plantManagerButton.click();
       await page.waitForTimeout(1000);
 
-      // 验证植物管理界面打开
-      const managerPanel = page.locator('.plant-manager, [class*="PlantManager"], .modal');
+      // 验证植物管理界面打开（PlantManager 基于 BaseDialog，role=dialog）
+      const managerPanel = page.locator('[role="dialog"]');
       const isVisible = await managerPanel.isVisible();
       expect(isVisible).toBeTruthy();
 
@@ -388,8 +388,8 @@ test.describe('植物显示测试 - 图片质量', () => {
     const imgSrc = await plantImages.getAttribute('src');
     expect(imgSrc).toBeTruthy();
 
-    // 验证URL格式
-    const isValidUrl = imgSrc?.startsWith('http://') || imgSrc?.startsWith('https://') || imgSrc?.startsWith('data:');
+    // 验证URL格式（内置植物为 /plants/... 相对路径，自定义植物为 blob: URL，均合法）
+    const isValidUrl = imgSrc?.startsWith('http://') || imgSrc?.startsWith('https://') || imgSrc?.startsWith('data:') || imgSrc?.startsWith('blob:') || imgSrc?.startsWith('/');
     expect(isValidUrl).toBeTruthy();
 
     console.log('植物图片URL示例:', imgSrc);

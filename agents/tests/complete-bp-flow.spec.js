@@ -56,12 +56,10 @@ test.describe('完整BP流程测试', () => {
       // 等待并显示当前操作信息
       await page.waitForTimeout(500);
 
-      // 获取当前操作类型和选手
-      const actionText = await page.textContent('button:has-text("禁用"), button:has-text("选择"), [class*="action" i], [class*="Action" i]');
-      const playerText = await page.textContent('[class*="player" i] span, [class*="Player" i] span');
+      // 获取当前操作信息（从 StageIndicator 区域文本读取，避免依赖已移除的 class 名）
+      const stageInfo = await page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
 
-      console.log(`📋 操作: ${actionText?.trim() || '未知'}`);
-      console.log(`👤 选手: ${playerText?.trim() || '未知'}`);
+      console.log(`📋 当前: ${stageInfo?.replace(/\s+/g, ' ').trim() || '未知'}`);
 
       try {
         // 等待植物选择器加载
@@ -106,15 +104,13 @@ test.describe('完整BP流程测试', () => {
     // 保存最终截图
     await page.screenshot({ path: 'agents/screenshots/complete-bp-flow-final.png', fullPage: true });
 
-    // 验证游戏进入下一个阶段或状态
-    await page.waitForTimeout(2000);
-    const bodyContent = await page.textContent('body');
-    console.log('\n最终页面状态前200字符:');
-    console.log(bodyContent.substring(0, 200));
-
-    // 验证：应该不在BP阶段了（可能进入Positioning或Result阶段）
-    // 这里我们只验证没有错误即可
-    expect(logs.length).toBeGreaterThan(0);
+    // 验证 20 步 BP 完成，游戏已推进到站位（positioning）或后续阶段
+    await page.waitForFunction(() => {
+      const s = window.$debugStore?.gameStatus;
+      return !!s && s !== 'banning';
+    }, { timeout: 10000 });
+    const finalStatus = await page.evaluate(() => window.$debugStore?.gameStatus);
+    expect(['positioning', 'result', 'finished']).toContain(finalStatus);
   });
 
   test('应该能够完成完整的Stage 1（4步Ban）', async ({ page }) => {

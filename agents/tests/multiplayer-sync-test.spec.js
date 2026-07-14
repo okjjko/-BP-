@@ -80,12 +80,12 @@ test.describe('多人对战同步功能测试', () => {
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}01-host-home.png` });
 
       // 点击"多人对战"
-      await hostPage.click('button:has-text("🌐 多人对战")');
+      await hostPage.click('button:has-text("多人对战")');
       await hostPage.waitForTimeout(500);
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}02-host-mode-selected.png` });
 
       // 选择"主办方"角色
-      await hostPage.click('button:has-text("👑")');
+      await hostPage.click('button:has-text("主办方")');
       await hostPage.waitForTimeout(500);
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}03-host-role-selected.png` });
 
@@ -113,11 +113,11 @@ test.describe('多人对战同步功能测试', () => {
       await player1Page.waitForLoadState('networkidle');
 
       // 点击"多人对战"
-      await player1Page.click('button:has-text("🌐 多人对战")');
+      await player1Page.click('button:has-text("多人对战")');
       await player1Page.waitForTimeout(500);
 
       // 选择"选手"角色
-      await player1Page.click('button:has-text("🎮")');
+      await player1Page.click('button:has-text("选手")');
       await player1Page.waitForTimeout(500);
       await player1Page.screenshot({ path: `${SCREENSHOT_DIR}05-player1-role-selected.png` });
 
@@ -141,7 +141,7 @@ test.describe('多人对战同步功能测试', () => {
       // 验证主办方看到选手1连接
       await hostPage.waitForTimeout(1000);
       const hostUsersList = await hostPage.locator('.users-list').textContent();
-      expect(hostUsersList).toContain('🎮');
+      expect(hostUsersList).toContain('选手');
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}07-host-sees-player1.png` });
 
       // 注意：身份分配消息在游戏开始时才发送，这里暂时跳过验证
@@ -155,11 +155,11 @@ test.describe('多人对战同步功能测试', () => {
       await player2Page.waitForLoadState('networkidle');
 
       // 点击"多人对战"
-      await player2Page.click('button:has-text("🌐 多人对战")');
+      await player2Page.click('button:has-text("多人对战")');
       await player2Page.waitForTimeout(500);
 
       // 选择"选手"角色
-      await player2Page.click('button:has-text("🎮")');
+      await player2Page.click('button:has-text("选手")');
       await player2Page.waitForTimeout(500);
 
       // 输入邀请码
@@ -183,7 +183,7 @@ test.describe('多人对战同步功能测试', () => {
       await hostPage.waitForTimeout(1000);
       const hostUsersList2 = await hostPage.locator('.users-list').textContent();
       // 用户列表可能显示"选手"而不是具体名字，这是正常的
-      expect(hostUsersList2).toContain('🎮');
+      expect(hostUsersList2).toContain('选手');
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}09-host-sees-both-players.png` });
 
       // 注意：身份分配消息在游戏开始时才发送，这里暂时跳过验证
@@ -259,9 +259,9 @@ test.describe('多人对战同步功能测试', () => {
     try {
       // 主办方创建房间
       await hostPage.goto(BASE_URL);
-      await hostPage.click('button:has-text("🌐 多人对战")');
+      await hostPage.click('button:has-text("多人对战")');
       await hostPage.waitForTimeout(500);
-      await hostPage.click('button:has-text("👑")');
+      await hostPage.click('button:has-text("主办方")');
       await hostPage.waitForTimeout(500);
       await hostPage.click('button:has-text("创建房间")');
       await hostPage.waitForTimeout(2000);
@@ -271,9 +271,9 @@ test.describe('多人对战同步功能测试', () => {
 
       // 选手加入房间
       await playerPage.goto(BASE_URL);
-      await playerPage.click('button:has-text("🌐 多人对战")');
+      await playerPage.click('button:has-text("多人对战")');
       await playerPage.waitForTimeout(500);
-      await playerPage.click('button:has-text("🎮")');
+      await playerPage.click('button:has-text("选手")');
       await playerPage.waitForTimeout(500);
       await playerPage.fill('.invite-input', inviteCode.trim());
       await playerPage.fill('.player-input', 'TestPlayer');
@@ -321,16 +321,16 @@ test.describe('多人对战同步功能测试', () => {
     try {
       // 创建房间并加入
       await hostPage.goto(BASE_URL);
-      await hostPage.click('button:has-text("🌐 多人对战")');
-      await hostPage.click('button:has-text("👑")');
+      await hostPage.click('button:has-text("多人对战")');
+      await hostPage.click('button:has-text("主办方")');
       await hostPage.click('button:has-text("创建房间")');
       await hostPage.waitForTimeout(2000);
 
       const inviteCode = await hostPage.locator('.invite-code-text').textContent();
 
       await playerPage.goto(BASE_URL);
-      await playerPage.click('button:has-text("🌐 多人对战")');
-      await playerPage.click('button:has-text("🎮")');
+      await playerPage.click('button:has-text("多人对战")');
+      await playerPage.click('button:has-text("选手")');
       await playerPage.fill('.invite-input', inviteCode.trim());
       await playerPage.fill('.player-input', 'IdentityTestPlayer');
       await playerPage.click('button:has-text("加入房间")');
@@ -408,9 +408,9 @@ test.describe('多人对战同步功能测试', () => {
 
       // 主办方创建房间
       await hostPage.goto(BASE_URL);
-      await hostPage.click('button:has-text("🌐 多人对战")');
+      await hostPage.click('button:has-text("多人对战")');
       await hostPage.waitForTimeout(500);
-      await hostPage.click('button:has-text("👑")');
+      await hostPage.click('button:has-text("主办方")');
       await hostPage.waitForTimeout(500);
       await hostPage.click('button:has-text("创建房间")');
       await hostPage.waitForTimeout(2000);
@@ -420,9 +420,9 @@ test.describe('多人对战同步功能测试', () => {
 
       // 选手1加入
       await player1Page.goto(BASE_URL);
-      await player1Page.click('button:has-text("🌐 多人对战")');
+      await player1Page.click('button:has-text("多人对战")');
       await player1Page.waitForTimeout(500);
-      await player1Page.click('button:has-text("🎮")');
+      await player1Page.click('button:has-text("选手")');
       await player1Page.waitForTimeout(500);
       await player1Page.fill('.invite-input', inviteCode.trim());
       await player1Page.fill('.player-input', '选手A');
@@ -432,9 +432,9 @@ test.describe('多人对战同步功能测试', () => {
 
       // 选手2加入
       await player2Page.goto(BASE_URL);
-      await player2Page.click('button:has-text("🌐 多人对战")');
+      await player2Page.click('button:has-text("多人对战")');
       await player2Page.waitForTimeout(500);
-      await player2Page.click('button:has-text("🎮")');
+      await player2Page.click('button:has-text("选手")');
       await player2Page.waitForTimeout(500);
       await player2Page.fill('.invite-input', inviteCode.trim());
       await player2Page.fill('.player-input', '选手B');
@@ -741,9 +741,9 @@ test.describe('多人对战同步功能测试', () => {
       console.log('\n--- 步骤1：房间创建和连接 ---');
 
       await hostPage.goto(BASE_URL);
-      await hostPage.click('button:has-text("🌐 多人对战")');
+      await hostPage.click('button:has-text("多人对战")');
       await hostPage.waitForTimeout(500);
-      await hostPage.click('button:has-text("👑")');
+      await hostPage.click('button:has-text("主办方")');
       await hostPage.waitForTimeout(500);
       await hostPage.click('button:has-text("创建房间")');
       await hostPage.waitForTimeout(2000);
@@ -753,9 +753,9 @@ test.describe('多人对战同步功能测试', () => {
 
       // 选手1加入
       await player1Page.goto(BASE_URL);
-      await player1Page.click('button:has-text("🌐 多人对战")');
+      await player1Page.click('button:has-text("多人对战")');
       await player1Page.waitForTimeout(500);
-      await player1Page.click('button:has-text("🎮")');
+      await player1Page.click('button:has-text("选手")');
       await player1Page.waitForTimeout(500);
       await player1Page.fill('.invite-input', inviteCode.trim());
       await player1Page.fill('.player-input', '选手A');
@@ -765,9 +765,9 @@ test.describe('多人对战同步功能测试', () => {
 
       // 选手2加入
       await player2Page.goto(BASE_URL);
-      await player2Page.click('button:has-text("🌐 多人对战")');
+      await player2Page.click('button:has-text("多人对战")');
       await player2Page.waitForTimeout(500);
-      await player2Page.click('button:has-text("🎮")');
+      await player2Page.click('button:has-text("选手")');
       await player2Page.waitForTimeout(500);
       await player2Page.fill('.invite-input', inviteCode.trim());
       await player2Page.fill('.player-input', '选手B');

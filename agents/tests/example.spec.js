@@ -37,6 +37,11 @@ test.describe('游戏初始化测试', () => {
   });
 
   test('道路选择应该互斥', async ({ page }) => {
+    // 新版选路按钮在输入选手 ID 后才出现（v-if="playerName"）
+    await page.fill('#player1-input', '玩家A');
+    await page.fill('#player2-input', '玩家B');
+    await page.waitForTimeout(300);
+
     // 玩家1选择2路
     const road2Buttons = await page.locator('button:has-text("2路")').all();
     await road2Buttons[0].click();
@@ -52,6 +57,10 @@ test.describe('游戏初始化测试', () => {
   });
 
   test('应该能够切换道路选择', async ({ page }) => {
+    // 新版选路按钮在输入选手 ID 后才出现
+    await page.fill('#player1-input', '玩家A');
+    await page.waitForTimeout(300);
+
     // 玩家1选择2路
     const road2Buttons = await page.locator('button:has-text("2路")').all();
     await road2Buttons[0].click();
@@ -83,8 +92,8 @@ test.describe('游戏初始化测试', () => {
     // 等待页面跳转
     await page.waitForTimeout(1000);
 
-    // 验证进入游戏页面
-    await expect(page.locator('.stage-indicator')).toBeVisible();
+    // 验证进入游戏页面（StageIndicator 根元素）
+    await expect(page.locator('[role="region"][aria-label="当前游戏阶段"]')).toBeVisible();
   });
 });
 
@@ -101,30 +110,31 @@ test.describe('BP流程测试', () => {
   });
 
   test('Stage 1应该从二路选手开始禁用', async ({ page }) => {
-    // 等待BP页面加载
-    await page.waitForSelector('.stage-indicator');
+    // 等待BP页面加载（StageIndicator 根元素）
+    const stageRegion = page.locator('[role="region"][aria-label="当前游戏阶段"]');
+    await stageRegion.waitFor();
 
-    // 检查当前阶段显示
-    const stageText = await page.textContent('.current-stage');
-    expect(stageText).toContain('Stage 1');
-
-    // 检查当前操作玩家
-    const currentPlayer = await page.textContent('.current-player');
-    expect(currentPlayer).toContain('二路选手');
+    // 检查当前阶段显示与操作玩家（整段文本）
+    // stageName="阶段一：禁用"；currentPlayerName 显示选手 ID（player1=二路=先手）
+    const stageText = await stageRegion.textContent();
+    expect(stageText).toContain('阶段一');
+    expect(stageText).toContain('玩家A');
   });
 
   test('应该能够禁用植物', async ({ page }) => {
-    // 等待BP页面加载
-    await page.waitForSelector('.plant-selector');
+    // 等待植物选择器加载（PlantSelector 网格）
+    await page.waitForSelector('div[role="listbox"] button');
 
     // 点击第一个植物进行禁用
-    await page.click('.plant-selector .plant-card:first-child');
-
-    // 等待状态更新
+    await page.click('div[role="listbox"] button >> nth=0');
     await page.waitForTimeout(200);
 
-    // 验证植物被禁用
-    const bannedCount = await page.locator('.ban-area .banned-plant').count();
+    // 新版需点击"确认禁用"按钮完成禁用
+    await page.locator('button:has-text("确认")').first().click();
+    await page.waitForTimeout(300);
+
+    // 验证植物被禁用（BanArea 根元素为 role=region，禁用项内含 img）
+    const bannedCount = await page.locator('[role="region"][aria-label$="禁用的植物"] img').count();
     expect(bannedCount).toBeGreaterThan(0);
 
     // 截图
@@ -144,19 +154,24 @@ test.describe('BP流程测试', () => {
 
 test.describe('状态持久化测试', () => {
   test('刷新页面后应该恢复状态', async ({ page }) => {
+    // 该测试无 beforeEach 导航，需先打开页面
+    await page.goto(BASE_URL);
     // 使用辅助函数初始化游戏
     await initGame(page);
 
     // 执行一些BP操作
-    await page.click('.plant-selector .plant-card:first-child');
+    await page.click('div[role="listbox"] button >> nth=0');
     await page.waitForTimeout(200);
+    // 新版需点击"确认禁用"按钮完成禁用
+    await page.locator('button:has-text("确认")').first().click();
+    await page.waitForTimeout(300);
 
     // 刷新页面
     await page.reload();
 
     // 验证状态恢复
-    await page.waitForSelector('.stage-indicator');
-    const bannedCount = await page.locator('.ban-area .banned-plant').count();
+    await page.waitForSelector('[role="region"][aria-label="当前游戏阶段"]');
+    const bannedCount = await page.locator('[role="region"][aria-label$="禁用的植物"] img').count();
     expect(bannedCount).toBeGreaterThan(0);
   });
 });
@@ -171,20 +186,20 @@ test.describe('自定义植物管理测试', () => {
     // 点击植物管理按钮
     await page.click('button:has-text("植物管理")');
 
-    // 验证植物管理界面打开
-    await expect(page.locator('.plant-manager')).toBeVisible();
+    // 验证植物管理界面打开（PlantManager 基于 BaseDialog，role=dialog）
+    await expect(page.locator('[role="dialog"]')).toBeVisible();
   });
 
   test('应该能够添加自定义植物', async ({ page }) => {
     // 打开植物管理
     await page.click('button:has-text("植物管理")');
 
-    // 点击添加植物按钮
-    await page.click('button:has-text("添加植物")');
+    // 点击新建植物按钮
+    await page.click('button:has-text("新建植物")');
 
     // 填写植物信息
     await page.fill('#plant-name', '测试植物');
-    await page.fill('#plant-description', '这是一个测试植物');
+    await page.fill('#plant-desc', '这是一个测试植物');
 
     // 上传图片（这里需要实际的图片文件）
     // await page.setInputFiles('#plant-image', 'test-image.png');

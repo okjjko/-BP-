@@ -15,8 +15,8 @@ export async function selectLocalMode(page) {
   // 等待RoomSetup显示
   await page.waitForSelector('.mode-selection', { timeout: 5000 });
 
-  // 点击"本地对战"按钮
-  await page.click('button:has-text("🏠 本地对战")');
+  // 点击"本地对战"按钮（UI 改版后 emoji 已替换为 lucide 图标，按纯文本匹配）
+  await page.click('button:has-text("本地对战")');
 
   // 等待GameSetup显示
   await page.waitForSelector('#player1-input', { timeout: 3000 });

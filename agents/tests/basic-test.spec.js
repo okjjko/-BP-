@@ -27,7 +27,7 @@ test.describe('基础功能测试', () => {
     await expect(modeSelection).toBeVisible();
 
     // 选择本地对战
-    await page.click('button:has-text("🏠 本地对战")');
+    await page.click('button:has-text("本地对战")');
     await page.waitForSelector('#player1-input', { timeout: 3000 });
 
     // 检查标题
