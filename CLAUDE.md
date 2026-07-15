@@ -249,11 +249,18 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 
 **Shared Primitives（`src/components/ui/`，Phase 0 基座，全局复用）：**
 - `BaseButton.vue` - 统一按钮：`variant`(primary/blue/danger/secondary/ghost)、`size`(sm/md/lg)、`loading`、`#icon` 插槽；含 focus 环与 cursor
-- `BaseDialog.vue` - 统一模态：`v-model` + 焦点陷阱 + Esc/backdrop 关闭 + 回焦（替代各组件手写 fixed 遮罩）
+- `BaseDialog.vue` - 统一模态：`v-model` + 焦点陷阱 + Esc/backdrop 关闭 + 回焦（替代各组件手写 fixed 遮罩）。**根为 `<Teleport>`，不可直接作为路由组件根**（详见「路由 Transition 与 Teleport 根」）
 - `ToastContainer.vue` + `composables/useToast.js` - 轻量通知（替代 `alert()`）：`useToast().success/error/warning/info`
 - `ConfirmDialog.vue` + `composables/useConfirm.js` - 应用内确认（替代 `confirm()`）：`await useConfirm().confirm(msg)` 返回 `Promise<boolean>`
 
 ### Critical Design Decisions
+
+**路由 Transition 与 Teleport 根（选边卡死修复，2026-07）：**
+`App.vue` 的 `<router-view>` 外层 `<transition>` **不可用 `mode="out-in"`**。原因：`RoundResult.vue`（小局结算页）以 `BaseDialog` 为内容，而 `BaseDialog` 根是 `<Teleport>`——`<Transition>` 会警告 "non-element root node that cannot be animated"，且 `out-in` 模式下结算页离开时 leave 的 `transitionend` 无法可靠触发，导致下一小局 `BanPickView` 永不挂载（router-view 被清空，只剩背景，需刷新浏览器才恢复）。两条约束：
+1. `App.vue` 路由 transition 用默认交叉过渡 + `:key="$route.path"`，禁用 `out-in`；
+2. 任何以 `BaseDialog` 为内容的**路由页面**（如 `RoundResult.vue`）必须外包一个真实 `<div>` 根，避免 `<Teleport>` 成为 `<Transition>` 直接子节点。
+
+另：`RoundResult.confirmRoadSelection` 必须**先同时更新败者+胜者双方 road，再 `startRound`**；只更新一方就 `startRound` 会让 `getBPSequence` 因缺另一条 road 报错并生成空 BP 序列。
 
 **Dynamic Player-Road Mapping:**
 The most important architectural decision: **二路/四路 are NOT fixed to player1/player2**.

@@ -16,8 +16,8 @@
 
     <main id="main-content" class="relative z-10 min-h-screen flex flex-col">
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
+        <transition name="fade">
+          <component :is="Component" :key="$route.path" />
         </transition>
       </router-view>
 

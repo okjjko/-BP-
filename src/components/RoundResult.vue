@@ -1,14 +1,19 @@
 <template>
-  <BaseDialog
-    :model-value="true"
-    :closable="false"
-    :close-on-esc="true"
-    :close-on-backdrop="false"
-    title="小局结算"
-    panel-class="max-w-xl"
-    aria-label="小局结算"
-    @close="cancelFinishRound"
-  >
+  <!-- 真实根元素：避免 BaseDialog 的 <Teleport> 成为路由 <Transition> 的直接子节点；
+       同时让对话框 teleport 到 body，与路由 leave 过渡隔离，
+       否则 BaseDialog 内层的 dialog-fade 过渡会与路由 fade 过渡嵌套，
+       导致离开结算页时 leave 永不完成、router-view 被清空（只剩背景，需刷新才恢复）。 -->
+  <div>
+    <BaseDialog
+      :model-value="true"
+      :closable="false"
+      :close-on-esc="true"
+      :close-on-backdrop="false"
+      title="小局结算"
+      panel-class="max-w-xl"
+      aria-label="小局结算"
+      @close="cancelFinishRound"
+    >
     <!-- 未选获胜方 -->
     <div v-if="!roundWinner" class="text-center space-y-8">
       <p class="text-xl text-slate-300">请选择本局获胜方</p>
@@ -124,7 +129,8 @@
         </button>
       </div>
     </div>
-  </BaseDialog>
+    </BaseDialog>
+  </div>
 </template>
 
 <script setup>
@@ -237,15 +243,14 @@ const toggleLoserRoad = (road) => {
 const confirmRoadSelection = () => {
   if (!loserRoad.value) return
 
-  // 更新败者的道路
-  store.selectRoad(loser.value, loserRoad.value)
-
-  // 更新胜者的道路（自动分配相反的道路）
-  const winner = roundWinner.value
-  if (winner === 'player1') {
-    store.player1.road = winnerRoad.value
-  } else if (winner === 'player2') {
+  // 必须先同时更新败者所选道路与胜者（相反）道路，再开始下一局。
+  // 若只更新一方就 startRound，getBPSequence 会因缺少另一条道路而报错并生成空序列。
+  if (loser.value === 'player1') {
+    store.player1.road = loserRoad.value
     store.player2.road = winnerRoad.value
+  } else {
+    store.player2.road = loserRoad.value
+    store.player1.road = winnerRoad.value
   }
 
   // 重置临时状态
