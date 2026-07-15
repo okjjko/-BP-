@@ -148,6 +148,12 @@
           </select>
         </div>
 
+        <!-- 规则配置区（Phase 0 骨架占位；子组件由并行开发者 A/B 填充） -->
+        <div class="space-y-3">
+          <SideRulesEditor />
+          <BPRulesEditor />
+        </div>
+
         <button
           type="submit"
           :disabled="!player1Name || !player2Name || !player1Road || !player2Road"
@@ -188,6 +194,8 @@ import { getPlantById, PLANTS } from '@/data/plants'
 import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToBase64 } from '@/data/customPlants'
 import RoomSetup from '@/components/RoomSetup.vue'
 import roomManager from '@/utils/roomManager'
+import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'
+import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const store = useGameStore()
 const connStore = useConnectionStore()

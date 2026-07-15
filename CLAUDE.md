@@ -280,6 +280,15 @@ This is implemented via `getBPSequence()` which takes actual player IDs as param
 - Each step has `{ player: 'road2'|'road4', action: 'ban'|'pick', count: N }`
 - `updateCurrentStep()` dynamically resolves road2/road4 to player1/player2 based on `this.player1.road` and `this.player2.road`
 
+**ruleConfig 配置契约（自定义规则集中层，2026-07）：**
+开局可自定义的比赛规则（阵营名 / 选边方式 / BP 顺序模板 / 植物使用上限）集中存于 `gameStore.state.ruleConfig` 单一对象，不再散落为顶级字段。约定：
+1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits}.js`。聚合器定型后不再改动，各功能默认值在各自子文件维护。
+2. **序列化整体处理**：`saveToLocalStorage` / `loadFromLocalStorage` / `getSyncPayload` / `applySyncState` 对 `ruleConfig` 整体存取（`{ ...defaultRules, ...(state.ruleConfig||{}) }` 深合并默认值，向后兼容）。**新增配置项禁止在这四个函数里逐字段列举**——只改对应 `rules/` 子文件即可自动获得持久化 + 多人同步。
+3. **并行协作锚点**：`gameStore.js` getters 区有 `// A-ANCHOR`（maxPlantUsage，功能4）与 `// B-ANCHOR`（sideName，功能1）占位注释；开发者 A/B 在各自锚点下新增 getter，避免冲突。`GameSetup.vue` 的规则配置区由 `SideRulesEditor.vue`（B）与 `BPRulesEditor.vue`（A）两个子组件分担。
+4. **解耦**：`bpSequence` 模板始终用 `road2`/`road4` 占位符；`sideNames` 仅影响显示文案；两者通过 road 数值（2/4）桥接。
+
+完整分工方案与数据结构见 `docs/CUSTOM-RULES-PARALLEL-PLAN.md`。
+
 ## Customization Points
 
 **Custom Plants (via UI):**

@@ -11,6 +11,7 @@ import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
 import { canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
 import { useConnectionStore } from './connectionStore'
 import { useToast } from '@/composables/useToast'
+import defaultRules from '@/config/defaultRules'
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -53,6 +54,10 @@ export const useGameStore = defineStore('game', {
     // 大局获胜所需小局数（开局可配置，1~7，默认4）
     winThreshold: 4,
 
+    // 规则配置（开局可自定义）：阵营名 / 选边方式 / BP 顺序模板 / 使用上限。
+    // 集中存放，整体持久化与多人同步；默认值见 src/config/defaultRules.js。
+    ruleConfig: JSON.parse(JSON.stringify(defaultRules)),
+
     // 植物缓存版本号（用于触发响应式更新）
     _plantCacheVersion: 0,
   }),
@@ -69,6 +74,9 @@ export const useGameStore = defineStore('game', {
       if (state.player2.road === 4) return 'player2'
       return null
     },
+
+    // B-ANCHOR: 开发者 B 在此新增 sideName(road) getter（功能1：阵营名称自定义）
+    // 例：sideName: (state) => (road) => road === 2 ? state.ruleConfig.sideNames.road2 : road === 4 ? state.ruleConfig.sideNames.road4 : ''
 
     availablePlants: (state) => {
       const _cacheVersion = state._plantCacheVersion
@@ -115,6 +123,9 @@ export const useGameStore = defineStore('game', {
     getPlantUsageCount: (state) => (playerId, plantId) => {
       return state.plantUsage[`${playerId}_${plantId}`] || 0
     },
+
+    // A-ANCHOR: 开发者 A 在此新增 maxPlantUsage getter（功能4：植物使用上限自定义）
+    // 例：maxPlantUsage: (state) => state.ruleConfig.limits.maxPlantUsage
 
     isPumpkinPlant: () => (plantId) => {
       return isPumpkin(plantId, getAllPlantsSync())
@@ -466,7 +477,8 @@ export const useGameStore = defineStore('game', {
         gameStatus: this.gameStatus,
         firstPlayer: this.firstPlayer,
         roundWinner: this.roundWinner,
-        winThreshold: this.winThreshold
+        winThreshold: this.winThreshold,
+        ruleConfig: this.ruleConfig
       }
       localStorage.setItem('bpGameState', JSON.stringify(state))
     },
@@ -486,6 +498,8 @@ export const useGameStore = defineStore('game', {
           this.firstPlayer = state.firstPlayer || null
           this.roundWinner = state.roundWinner || null
           this.winThreshold = state.winThreshold || 4
+          // ruleConfig 整体合并默认值（向后兼容旧存档，并自动补全新增配置字段）
+          this.ruleConfig = { ...defaultRules, ...(state.ruleConfig || {}) }
           // 向后兼容：补全新增字段
           if (!this.currentRound.pumpkinUsedThisRound) {
             this.currentRound.pumpkinUsedThisRound = { player1: false, player2: false }
@@ -604,6 +618,7 @@ export const useGameStore = defineStore('game', {
       this.gameStatus = gameState.gameStatus
       this.roundWinner = gameState.roundWinner
       this.winThreshold = gameState.winThreshold || 4
+      this.ruleConfig = { ...defaultRules, ...(gameState.ruleConfig || {}) }
     },
 
     getSyncPayload() {
@@ -617,7 +632,8 @@ export const useGameStore = defineStore('game', {
         pumpkinUsage: this.pumpkinUsage,
         gameStatus: this.gameStatus,
         roundWinner: this.roundWinner,
-        winThreshold: this.winThreshold
+        winThreshold: this.winThreshold,
+        ruleConfig: this.ruleConfig
       }
     },
 
