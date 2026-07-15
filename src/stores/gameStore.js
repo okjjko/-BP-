@@ -87,6 +87,8 @@ export const useGameStore = defineStore('game', {
       const _cacheVersion = state._plantCacheVersion
       const { currentRound, globalBans, plantUsage, pumpkinUsage } = state
       const { bans, picks, currentPlayer, action, extraPick, pumpkinUsedThisRound } = currentRound
+      // 植物使用上限可配（功能4），默认 2
+      const maxUsage = state.ruleConfig?.limits?.maxPlantUsage ?? 2
 
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
 
@@ -104,19 +106,19 @@ export const useGameStore = defineStore('game', {
         if (opponentPicks.includes(plantId)) return false
 
         const ownPickCount = ownPicks.filter(id => id === plantId).length
-        if (ownPickCount >= 2) return false
+        if (ownPickCount >= maxUsage) return false
 
         const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
-        if (ownPickCount + historicalUsage >= 2) return false
+        if (ownPickCount + historicalUsage >= maxUsage) return false
 
         // 南瓜头特殊规则
         if (isPumpkin(plantId, getAllPlantsSync())) {
           // 对手已在本轮使用过南瓜，不可选（空值安全）
           const usedMap = pumpkinUsedThisRound || {}
           if (usedMap[opponent]) return false
-          // 自己的南瓜使用次数上限（跨小局累计最多2次）
+          // 自己的南瓜使用次数上限（跨小局累计，沿用可配上限值）
           const ownPumpkinUsage = pumpkinUsage[currentPlayer] || 0
-          if (ownPumpkinUsage >= 2) return false
+          if (ownPumpkinUsage >= maxUsage) return false
         }
 
         return true
@@ -129,8 +131,9 @@ export const useGameStore = defineStore('game', {
       return state.plantUsage[`${playerId}_${plantId}`] || 0
     },
 
-    // A-ANCHOR: 开发者 A 在此新增 maxPlantUsage getter（功能4：植物使用上限自定义）
-    // 例：maxPlantUsage: (state) => state.ruleConfig.limits.maxPlantUsage
+    // A-ANCHOR: 开发者 A 负责的 getter（功能4 / 功能2）
+    maxPlantUsage: (state) => state.ruleConfig?.limits?.maxPlantUsage ?? 2,
+    currentBPTemplate: (state) => state.ruleConfig?.bpSequence,
 
     isPumpkinPlant: () => (plantId) => {
       return isPumpkin(plantId, getAllPlantsSync())
@@ -224,7 +227,7 @@ export const useGameStore = defineStore('game', {
     startRound(roundNumber) {
       const road2 = this.player1.road === 2 ? 'player1' : this.player2.road === 2 ? 'player2' : null
       const road4 = this.player1.road === 4 ? 'player1' : this.player2.road === 4 ? 'player2' : null
-      const bpSequence = getBPSequence(road2, road4)
+      const bpSequence = getBPSequence(this.ruleConfig.bpSequence, road2, road4)
 
       this.currentRound = {
         roundNumber,

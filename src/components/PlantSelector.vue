@@ -84,7 +84,7 @@
           <p class="text-sm text-gray-400 truncate">{{ selectedPlantInfo.description }}</p>
         </div>
         <div class="text-right text-xs text-gray-500">
-          已使用: <span class="text-white font-bold">{{ usageCount }}/2</span>
+          已使用: <span class="text-white font-bold">{{ usageCount }}/{{ store.maxPlantUsage }}</span>
         </div>
       </div>
       <div v-else class="w-full text-center text-gray-500 italic text-sm">

@@ -74,7 +74,7 @@ import { computed } from 'vue'
 import { Crown, Gamepad2, Eye, RefreshCw, TriangleAlert, Check } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
-import { STAGE_NAMES } from '@/utils/bpRules'
+import { getStageNames } from '@/utils/bpRules'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
@@ -148,9 +148,11 @@ const stage = computed(() => store.currentRound?.stage || 1)
 const step = computed(() => store.currentRound?.step || 0)
 const currentPlayer = computed(() => store.currentRound?.currentPlayer || '')
 const action = computed(() => store.currentRound?.action || '')
-const bpSequence = computed(() => store.currentRound?.bpSequence || [[], [], [], []])
+// 阶段数与阶段名不再硬编码 4，依据当前生效模板动态生成
+const bpSequence = computed(() => store.currentRound?.bpSequence || [])
+const stageNamesMap = computed(() => getStageNames(store.currentBPTemplate))
 
-const stageName = computed(() => STAGE_NAMES[stage.value])
+const stageName = computed(() => stageNamesMap.value[stage.value] || `阶段${stage.value}`)
 
 const totalSteps = computed(() => {
   return bpSequence.value.reduce((total, stage) => total + stage.length, 0)
