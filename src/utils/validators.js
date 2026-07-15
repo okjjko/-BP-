@@ -169,10 +169,13 @@ export const canPick = (plantId, playerId, gameState) => {
   const historicalUsage = plantUsage[`${playerId}_${plantId}`] || 0
   const totalUsage = ownPickCount + historicalUsage
 
-  if (totalUsage >= 2) {
+  // 上限值可配（功能4），默认 2，向后兼容
+  const maxPlantUsage = gameState?.ruleConfig?.limits?.maxPlantUsage ?? 2
+
+  if (totalUsage >= maxPlantUsage) {
     return {
       valid: false,
-      reason: `该植物已使用${totalUsage}次，达到上限（2次）`
+      reason: `该植物已使用${totalUsage}次，达到上限（${maxPlantUsage}次）`
     }
   }
 

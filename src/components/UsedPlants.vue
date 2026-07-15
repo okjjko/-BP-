@@ -18,13 +18,13 @@
         class="inline-flex items-center text-xs px-2 py-1 rounded border transition-all duration-200 cursor-help group"
         :class="{
           'bg-yellow-900/30 border-yellow-700/50 text-yellow-200 hover:bg-yellow-900/50': item.count === 1 && !item.isHidden,
-          'bg-red-900/30 border-red-700/50 text-red-200 hover:bg-red-900/50': item.count >= 2 && !item.isHidden,
+          'bg-red-900/30 border-red-700/50 text-red-200 hover:bg-red-900/50': item.count >= maxPlantUsage && !item.isHidden,
           'bg-gray-700/30 border-gray-600/50 text-gray-400 line-through': item.isHidden
         }"
-        :title="`${getPlantName(item.id)}${item.isHidden ? '（已隐藏）' : ''}，已使用${item.count}/2次`"
+        :title="`${getPlantName(item.id)}${item.isHidden ? '（已隐藏）' : ''}，已使用${item.count}/${maxPlantUsage}次`"
       >
         <span class="font-medium" :class="{ 'line-through': item.isHidden }">{{ getPlantName(item.id) }}</span>
-        <span class="ml-1.5 text-[10px] px-1 rounded bg-black/30 font-bold" :class="item.isHidden ? 'text-gray-500' : (item.count >= 2 ? 'text-red-400' : 'text-yellow-400')">{{ item.count }}</span>
+        <span class="ml-1.5 text-[10px] px-1 rounded bg-black/30 font-bold" :class="item.isHidden ? 'text-gray-500' : (item.count >= maxPlantUsage ? 'text-red-400' : 'text-yellow-400')">{{ item.count }}</span>
       </span>
     </div>
   </div>
@@ -43,6 +43,9 @@ const props = defineProps({
 })
 
 const store = useGameStore()
+
+// 植物使用上限（功能4，默认 2）
+const maxPlantUsage = computed(() => store.maxPlantUsage)
 
 const playerName = computed(() => {
   return store[props.player]?.id || (props.player === 'player1' ? '甲' : '乙')
