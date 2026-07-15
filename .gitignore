@@ -23,3 +23,7 @@ CLAUDE.local.md
 *.njsproj
 *.sln
 *.sw?
+
+# Test artifacts (Playwright screenshots & run results)
+agents/screenshots/
+test-results/
