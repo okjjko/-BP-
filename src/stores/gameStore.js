@@ -75,8 +75,13 @@ export const useGameStore = defineStore('game', {
       return null
     },
 
-    // B-ANCHOR: 开发者 B 在此新增 sideName(road) getter（功能1：阵营名称自定义）
-    // 例：sideName: (state) => (road) => road === 2 ? state.ruleConfig.sideNames.road2 : road === 4 ? state.ruleConfig.sideNames.road4 : ''
+    // B-ANCHOR: 阵营显示名 getter（功能1：阵营名称自定义）
+    // road 值（2/4）→ 显示文案；仅影响显示，不影响 BP 模板逻辑。
+    sideName: (state) => (road) => {
+      if (road === 2) return state.ruleConfig.sideNames.road2
+      if (road === 4) return state.ruleConfig.sideNames.road4
+      return ''
+    },
 
     availablePlants: (state) => {
       const _cacheVersion = state._plantCacheVersion
@@ -162,10 +167,33 @@ export const useGameStore = defineStore('game', {
       this.player2.id = player2Id
       this.player1.score = 0
       this.player2.score = 0
-      this.player1.road = player1Road || null
-      this.player2.road = player2Road || null
       this.firstPlayer = firstPlayer
       this.winThreshold = winThreshold
+
+      // 按 ruleConfig.sideSelection.initialMode 分配初始道路（功能3：选边方式自定义）
+      const mode = this.ruleConfig.sideSelection.initialMode
+      if (mode === 'random') {
+        // 随机分配：忽略 UI 传入值，系统决定谁 2 路 / 4 路
+        const player1GetsRoad2 = Math.random() < 0.5
+        this.player1.road = player1GetsRoad2 ? 2 : 4
+        this.player2.road = player1GetsRoad2 ? 4 : 2
+      } else if (mode === 'assigned') {
+        // 指定一方选路：initialPicker 选路，对手取相反
+        const picker = this.ruleConfig.sideSelection.initialPicker
+        const pickerRoad = (picker === 'player1' ? player1Road : player2Road) || 2
+        const otherRoad = pickerRoad === 2 ? 4 : 2
+        if (picker === 'player1') {
+          this.player1.road = pickerRoad
+          this.player2.road = otherRoad
+        } else {
+          this.player2.road = pickerRoad
+          this.player1.road = otherRoad
+        }
+      } else {
+        // 'mutual'：现状逻辑，使用 UI 传入的双方互斥选路
+        this.player1.road = player1Road || null
+        this.player2.road = player2Road || null
+      }
 
       // 延迟导入避免循环依赖
       const connStore = useConnectionStore()
@@ -446,6 +474,41 @@ export const useGameStore = defineStore('game', {
       this.startRound(nextRound)
       this.saveToLocalStorage()
 
+      useConnectionStore().syncState()
+    },
+
+    /**
+     * 应用下一小局的选边结果（功能3：败者/胜者/不换边选边方式自定义）。
+     *
+     * 关键约束（CLAUDE.md「选边卡死修复」）：必须**先同时更新败者+胜者双方 road，
+     * 再 startRound**；否则 getBPSequence 因缺一条 road 报错并生成空 BP 序列，
+     * 导致下一小局 BanPickView 永不挂载、卡在背景。
+     *
+     * @param {Object} param
+     * @param {string} param.loser  败者 'player1' | 'player2'
+     * @param {string} param.winner 胜者 'player1' | 'player2'
+     * @param {number} [param.pickerRoad] 选边方所选道路（2 或 4）；loserPickMode='keep' 时忽略
+     */
+    applyNextRoundSideSelection({ loser, winner, pickerRoad }) {
+      const mode = this.ruleConfig.sideSelection.loserPickMode
+
+      if (mode === 'keep') {
+        // 不换边：双方 road 保持现状，直接进入下一小局
+        // （无需更新 road，双方仍持有上一局的道路）
+      } else {
+        // 'loser' / 'winner'：选边方选路，对手取相反道路
+        const finalRoad = pickerRoad === 4 ? 4 : 2
+        const otherRoad = finalRoad === 2 ? 4 : 2
+        const picker = mode === 'winner' ? winner : loser
+        const opponent = picker === 'player1' ? 'player2' : 'player1'
+        // 同时更新双方 road（先全部赋值，再 startRound，避免空序列卡死）
+        this[picker].road = finalRoad
+        this[opponent].road = otherRoad
+      }
+
+      const nextRound = this.currentRound.roundNumber + 1
+      this.startRound(nextRound)
+      this.saveToLocalStorage()
       useConnectionStore().syncState()
     },
 

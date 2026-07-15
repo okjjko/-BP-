@@ -68,6 +68,7 @@ const currentRoad = computed(() => {
 const isPlayer1 = computed(() => props.player === 'player1')
 
 const roadText = computed(() => {
-  return currentRoad.value ? `${currentRoad.value}路` : '?'
+  // 功能1：阵营显示名来自 ruleConfig.sideNames（默认「二路/四路」）
+  return currentRoad.value ? store.sideName(currentRoad.value) : '?'
 })
 </script>

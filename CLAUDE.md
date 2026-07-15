@@ -289,6 +289,18 @@ This is implemented via `getBPSequence()` which takes actual player IDs as param
 
 完整分工方案与数据结构见 `docs/CUSTOM-RULES-PARALLEL-PLAN.md`。
 
+**阵营名称自定义（功能1，2026-07）：**
+- `ruleConfig.sideNames = { road2: '二路', road4: '四路' }`，仅影响显示文案，不影响 BP 模板逻辑。
+- `gameStore.sideName(road)` getter：road 数值（2/4）→ 显示名；各显示点（GameSetup 选路按钮、RoundResult 败者/胜者选路区、PlayerInfo 头像标签、PositionSetup 道路标签）统一改用此 getter。
+- 配置入口：`SideRulesEditor.vue` 两个文本输入（≤8 字符）。
+
+**选边方式自定义（功能3，2026-07）：**
+- `ruleConfig.sideSelection = { initialMode, initialPicker, loserPickMode }`。
+  - `initialMode`：`'mutual'`（双方互斥，默认）/ `'assigned'`（指定 `initialPicker` 单方选路，对手自动取相反）/ `'random'`（系统随机分配，隐藏选路 UI）。
+  - `loserPickMode`：`'loser'`（败者选，默认）/ `'winner'`（胜者选）/ `'keep'`（不换边，直接进入下一局）。
+- `gameStore.initGame` 按 `initialMode` 分配初始 road（mutual 用 UI 传入值；assigned/random 在 store 内决定）。
+- `gameStore.applyNextRoundSideSelection({ loser, winner, pickerRoad })` 集中处理小局结束后的选边三分支，**内部保证「先同时更新双方 road 再 startRound」**（选边卡死修复约束，见上）。`RoundResult.vue` 统一委托此 action，不再直接写 `player.road`。
+
 ## Customization Points
 
 **Custom Plants (via UI):**
@@ -412,6 +424,8 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ Custom plant management (add, edit, delete, export, import)
 - ✅ IndexedDB storage for custom plants with memory cache
 - ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤）
+- ✅ **阵营名称自定义**（功能1）：`ruleConfig.sideNames` 可改默认「二路/四路」，`gameStore.sideName(road)` 统一映射显示
+- ✅ **选边方式自定义**（功能3）：初始选边（双方互斥/指定一方/随机）+ 小局后选边权（败者选/胜者选/不换边），由 `ruleConfig.sideSelection` 驱动
 
 **Not Yet Implemented:**
 - ⚠️ 巅峰对决 mode (3:3 tiebreaker)

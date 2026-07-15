@@ -43,7 +43,7 @@ test.describe('游戏初始化测试', () => {
     await page.waitForTimeout(300);
 
     // 玩家1选择2路
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
 
     // 等待状态更新
@@ -62,7 +62,7 @@ test.describe('游戏初始化测试', () => {
     await page.waitForTimeout(300);
 
     // 玩家1选择2路
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
     await page.waitForTimeout(100);
 
@@ -81,8 +81,8 @@ test.describe('游戏初始化测试', () => {
     await page.fill('#player2-input', '玩家B');
 
     // 选择道路
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
+    const road4Buttons = await page.locator('button:has-text("四路")').all();
     await road2Buttons[0].click();
     await road4Buttons[1].click();
 
@@ -228,7 +228,7 @@ test.describe('错误捕获测试', () => {
 
     // 执行一些操作
     await page.fill('#player1-input', '玩家A');
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
 
     // 等待一下，让JavaScript错误有机会发生

@@ -50,7 +50,7 @@
           </div>
           
           <!-- 选手1选路 -->
-          <div v-if="player1Name" class="flex gap-4 mt-2 animate-fade-in">
+          <div v-if="player1Name && showPlayer1RoadPicker" class="flex gap-4 mt-2 animate-fade-in">
             <button
               type="button"
               @click="togglePlayer1Road(2)"
@@ -64,7 +64,7 @@
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player1Road === 2 ? 'bg-pick-blue' : 'bg-gray-600'"></span>
-              2路
+              {{ store.sideName(2) }}
             </button>
             <button
               type="button"
@@ -79,7 +79,7 @@
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player1Road === 4 ? 'bg-pick-blue' : 'bg-gray-600'"></span>
-              4路
+              {{ store.sideName(4) }}
             </button>
           </div>
         </div>
@@ -102,7 +102,7 @@
           </div>
           
           <!-- 选手2选路 -->
-          <div v-if="player2Name" class="flex gap-4 mt-2 animate-fade-in">
+          <div v-if="player2Name && showPlayer2RoadPicker" class="flex gap-4 mt-2 animate-fade-in">
             <button
               type="button"
               @click="togglePlayer2Road(2)"
@@ -116,7 +116,7 @@
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player2Road === 2 ? 'bg-ban-red' : 'bg-gray-600'"></span>
-              2路
+              {{ store.sideName(2) }}
             </button>
             <button
               type="button"
@@ -131,7 +131,7 @@
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player2Road === 4 ? 'bg-ban-red' : 'bg-gray-600'"></span>
-              4路
+              {{ store.sideName(4) }}
             </button>
           </div>
         </div>
@@ -156,7 +156,7 @@
 
         <button
           type="submit"
-          :disabled="!player1Name || !player2Name || !player1Road || !player2Road"
+          :disabled="!canStartGame"
           class="w-full py-4 bg-gradient-to-r from-plant-green-dark to-plant-green hover:from-plant-green hover:to-plant-green-dark disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed rounded-lg font-bold text-xl text-white transition-colors duration-300 transform active:scale-95 shadow-lg overflow-hidden relative group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <span class="relative z-10 flex items-center justify-center gap-2">
@@ -183,7 +183,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -210,6 +210,38 @@ const player1Road = ref(null)
 const player2Road = ref(null)
 const winThreshold = ref(4) // 大局获胜所需小局数（开局可配置，默认4）
 const showRoomSetup = ref(true) // 显示房间设置界面
+
+// 功能3：按 ruleConfig.sideSelection.initialMode 决定选路 UI 可见性
+const initialMode = computed(() => store.ruleConfig.sideSelection.initialMode)
+const initialPicker = computed(() => store.ruleConfig.sideSelection.initialPicker)
+
+// 双方互斥：两人都显示选路按钮
+// 指定一方：仅 initialPicker 显示选路按钮
+// 随机：都不显示（提交后由 store 随机分配）
+const showPlayer1RoadPicker = computed(() => {
+  if (initialMode.value === 'random') return false
+  if (initialMode.value === 'assigned') return initialPicker.value === 'player1'
+  return true // mutual
+})
+const showPlayer2RoadPicker = computed(() => {
+  if (initialMode.value === 'random') return false
+  if (initialMode.value === 'assigned') return initialPicker.value === 'player2'
+  return true // mutual
+})
+
+// 开始对战按钮的禁用条件
+const canStartGame = computed(() => {
+  if (!player1Name.value || !player2Name.value) return false
+  if (initialMode.value === 'mutual') {
+    return !!(player1Road.value && player2Road.value)
+  }
+  if (initialMode.value === 'assigned') {
+    const pickerRoad = initialPicker.value === 'player1' ? player1Road.value : player2Road.value
+    return !!pickerRoad
+  }
+  // random：仅需两名选手 ID
+  return true
+})
 
 // 处理房间设置开始游戏
 const handleRoomStart = async (data) => {
@@ -328,11 +360,25 @@ const startGame = () => {
     return
   }
 
-  // 检查两名选手是否都选了路
-  if (!player1Road.value || !player2Road.value) {
-    toast.error('请两名选手都选择开局道路（2 路或 4 路）')
-    return
+  const mode = store.ruleConfig.sideSelection.initialMode
+
+  // random 模式：无需手动选路，由 store 随机分配
+  // assigned 模式：仅需指定一方（initialPicker）选路
+  // mutual 模式：双方都需选路（互斥）
+  if (mode === 'mutual') {
+    if (!player1Road.value || !player2Road.value) {
+      toast.error(`请两名选手都选择开局道路（${store.sideName(2)} 或 ${store.sideName(4)}）`)
+      return
+    }
+  } else if (mode === 'assigned') {
+    const picker = store.ruleConfig.sideSelection.initialPicker
+    const pickerRoad = picker === 'player1' ? player1Road.value : player2Road.value
+    if (!pickerRoad) {
+      toast.error(`请指定 ${picker === 'player1' ? '选手 1' : '选手 2'} 选择开局道路`)
+      return
+    }
   }
+  // random 模式：跳过选路校验
 
   store.initGame(
     player1Name.value,

@@ -203,7 +203,8 @@ const getPlayerName = (player) => {
 
 const getPlayerRoad = (player) => {
   const road = store[player]?.road
-  return road ? `${road}路` : '未选路'
+  // 功能1：阵营显示名来自 ruleConfig.sideNames（默认「二路/四路」）
+  return road ? store.sideName(road) : '未选路'
 }
 
 const getPicks = (player) => {

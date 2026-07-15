@@ -59,47 +59,47 @@
         </div>
       </div>
 
-      <!-- 败者选路 -->
-      <fieldset v-if="!isGameEnd && needsRoadSelection" class="mt-8 pt-8 border-t border-slate-700/50">
+      <!-- 败者/胜者选路（按 loserPickMode 切换；keep 模式直接跳过选路） -->
+      <fieldset v-if="!isGameEnd && needsRoadSelection && loserPickMode !== 'keep'" class="mt-8 pt-8 border-t border-slate-700/50">
         <legend class="text-lg font-bold text-slate-300 px-4">
-          <span :class="loserIsBlue ? 'text-pick-blue' : 'text-ban-red'">{{ loserName }}</span> 败者选路
+          <span :class="pickerIsBlue ? 'text-pick-blue' : 'text-ban-red'">{{ pickerName }}</span> {{ pickerLegendLabel }}
         </legend>
 
         <div class="flex gap-4 justify-center mb-6 mt-4">
           <button
-            @click="toggleLoserRoad(2)"
-            :disabled="winnerRoad === 2"
+            @click="togglePickerRoad(2)"
+            :disabled="otherRoad === 2"
             :class="[
-              loserRoadBtnBase,
-              loserRingClass,
-              loserRoad === 2
-                ? loserSelectedClass + ' text-white'
-                : winnerRoad === 2
+              pickerRoadBtnBase,
+              pickerRingClass,
+              pickerRoad === 2
+                ? pickerSelectedClass + ' text-white'
+                : otherRoad === 2
                   ? 'bg-gray-800 border-gray-700 text-gray-600 opacity-50'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'
             ]"
           >
-            2路
+            {{ store.sideName(2) }}
           </button>
           <button
-            @click="toggleLoserRoad(4)"
-            :disabled="winnerRoad === 4"
+            @click="togglePickerRoad(4)"
+            :disabled="otherRoad === 4"
             :class="[
-              loserRoadBtnBase,
-              loserRingClass,
-              loserRoad === 4
-                ? loserSelectedClass + ' text-white'
-                : winnerRoad === 4
+              pickerRoadBtnBase,
+              pickerRingClass,
+              pickerRoad === 4
+                ? pickerSelectedClass + ' text-white'
+                : otherRoad === 4
                   ? 'bg-gray-800 border-gray-700 text-gray-600 opacity-50'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'
             ]"
           >
-            4路
+            {{ store.sideName(4) }}
           </button>
         </div>
 
         <button
-          v-if="loserRoad"
+          v-if="pickerRoad"
           @click="confirmRoadSelection"
           class="w-full min-h-[56px] py-4 bg-gradient-to-r from-plant-green-dark to-plant-green text-white rounded-xl font-bold text-xl shadow-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
@@ -153,6 +153,9 @@ const player2Score = computed(() => store.player2.score)
 const player1Name = computed(() => store.player1.id || '甲')
 const player2Name = computed(() => store.player2.id || '乙')
 
+// 功能3：败者选边模式（loser 败者选 / winner 胜者选 / keep 不换边）
+const loserPickMode = computed(() => store.ruleConfig.sideSelection.loserPickMode)
+
 const winnerName = computed(() => {
   if (roundWinner.value === 'player1') return player1Name.value
   if (roundWinner.value === 'player2') return player2Name.value
@@ -171,15 +174,38 @@ const loser = computed(() => {
   return null
 })
 
-// 败者身份色：player1=蓝方(pick-blue) / player2=红方(ban-red)，整局稳定
-const loserIsBlue = computed(() => loser.value === 'player1')
-const loserSelectedClass = computed(() =>
-  loserIsBlue.value ? 'bg-pick-blue border-pick-blue' : 'bg-ban-red border-ban-red'
+const winner = computed(() => {
+  if (roundWinner.value === 'player1') return 'player1'
+  if (roundWinner.value === 'player2') return 'player2'
+  return null
+})
+
+// 功能3：选边方 = loserPickMode==='winner' ? 胜者 : 败者
+const picker = computed(() => {
+  if (loserPickMode.value === 'winner') return winner.value
+  return loser.value
+})
+
+const pickerName = computed(() => {
+  if (picker.value === 'player1') return player1Name.value
+  if (picker.value === 'player2') return player2Name.value
+  return ''
+})
+
+// 选边方图例文案
+const pickerLegendLabel = computed(() => {
+  return loserPickMode.value === 'winner' ? '胜者选路' : '败者选路'
+})
+
+// 选边方身份色：player1=蓝方(pick-blue) / player2=红方(ban-red)，整局稳定
+const pickerIsBlue = computed(() => picker.value === 'player1')
+const pickerSelectedClass = computed(() =>
+  pickerIsBlue.value ? 'bg-pick-blue border-pick-blue' : 'bg-ban-red border-ban-red'
 )
-const loserRingClass = computed(() =>
-  loserIsBlue.value ? 'focus-visible:ring-pick-blue' : 'focus-visible:ring-ban-red'
+const pickerRingClass = computed(() =>
+  pickerIsBlue.value ? 'focus-visible:ring-pick-blue' : 'focus-visible:ring-ban-red'
 )
-const loserRoadBtnBase =
+const pickerRoadBtnBase =
   'flex-1 min-h-[56px] py-4 rounded-lg font-bold text-xl border-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed'
 
 const currentRound = computed(() => store.currentRound?.roundNumber || 1)
@@ -193,26 +219,30 @@ const isRoundComplete = computed(() => {
   return store.currentRound?.isRoundComplete || false
 })
 
-// 判断是否需要败者选路
+// 判断是否需要选路（败者/胜者选路模式需要；keep 模式跳过）
 const needsRoadSelection = computed(() => {
-  // 只有对局完成才需要败者选路
+  // 只有对局完成才需要选路
   if (!isRoundComplete.value) {
     return false
   }
-  // 如果是第一局，且败者是先输入ID的选手，不需要选路
-  if (currentRound.value === 1 && loser.value === firstPlayer.value) {
+  // keep 模式不换边，无需选路 UI（但仍需「下一小局」按钮，由 v-if 分支处理）
+  if (loserPickMode.value === 'keep') {
+    return false
+  }
+  // 如果是第一局，且选边方是先输入ID的选手，不需要选路
+  if (currentRound.value === 1 && picker.value === firstPlayer.value) {
     return false
   }
   return true
 })
 
-// 败者临时选择的道路（未确认）
-const loserRoad = ref(null)
+// 选边方临时选择的道路（未确认）
+const pickerRoad = ref(null)
 
-// 胜者自动分配的道路（与败者相反）
-const winnerRoad = computed(() => {
-  if (loserRoad.value === 2) return 4
-  if (loserRoad.value === 4) return 2
+// 对手自动分配的道路（与选边方相反）
+const otherRoad = computed(() => {
+  if (pickerRoad.value === 2) return 4
+  if (pickerRoad.value === 4) return 2
   return null
 })
 
@@ -230,45 +260,42 @@ const cancelFinishRound = () => {
   }
 }
 
-// 切换败者的道路选择（取消/选择）
-const toggleLoserRoad = (road) => {
-  if (loserRoad.value === road) {
-    loserRoad.value = null // 取消选择
+// 切换选边方的道路选择（取消/选择）
+const togglePickerRoad = (road) => {
+  if (pickerRoad.value === road) {
+    pickerRoad.value = null // 取消选择
   } else {
-    loserRoad.value = road
+    pickerRoad.value = road
   }
 }
 
 // 确认道路选择
 const confirmRoadSelection = () => {
-  if (!loserRoad.value) return
+  if (!pickerRoad.value) return
 
-  // 必须先同时更新败者所选道路与胜者（相反）道路，再开始下一局。
-  // 若只更新一方就 startRound，getBPSequence 会因缺少另一条道路而报错并生成空序列。
-  if (loser.value === 'player1') {
-    store.player1.road = loserRoad.value
-    store.player2.road = winnerRoad.value
-  } else {
-    store.player2.road = loserRoad.value
-    store.player1.road = winnerRoad.value
-  }
+  // 委托 store 统一处理：先同时更新双方 road 再 startRound（选边卡死修复约束）。
+  store.applyNextRoundSideSelection({
+    loser: loser.value,
+    winner: winner.value,
+    pickerRoad: pickerRoad.value
+  })
 
   // 重置临时状态
-  loserRoad.value = null
-
-  // 开始下一小局
-  const nextRound = currentRound.value + 1
-  store.startRound(nextRound)
-  store.saveToLocalStorage()
-
-  // 同步状态到其他客户端
-  if (connStore.roomMode !== 'local') {
-    connStore.syncState()
-  }
+  pickerRoad.value = null
 }
 
 const goToNextRound = () => {
-  // 直接进入下一小局
+  // keep 模式：不换边，委托 store 进入下一小局（统一同步逻辑）
+  if (loserPickMode.value === 'keep') {
+    store.applyNextRoundSideSelection({
+      loser: loser.value,
+      winner: winner.value,
+      pickerRoad: null
+    })
+    return
+  }
+
+  // 第一局选边方=先输入ID选手的免选路场景：直接进入下一小局
   const nextRound = currentRound.value + 1
   store.startRound(nextRound)
   store.saveToLocalStorage()

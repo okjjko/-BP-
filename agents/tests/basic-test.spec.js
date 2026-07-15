@@ -63,7 +63,7 @@ test.describe('基础功能测试', () => {
     await page.waitForTimeout(500);
 
     // 玩家1选择2路（点击第一个"2路"按钮）
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
     await page.waitForTimeout(200);
 
@@ -72,7 +72,7 @@ test.describe('基础功能测试', () => {
     expect(player1Road2Class).toContain('bg-pick-blue');
 
     // 玩家2选择4路
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
+    const road4Buttons = await page.locator('button:has-text("四路")').all();
     await road4Buttons[1].click();
     await page.waitForTimeout(200);
 
@@ -91,7 +91,7 @@ test.describe('基础功能测试', () => {
     await page.waitForTimeout(500);
 
     // 玩家1选择2路
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
     await page.waitForTimeout(200);
 
@@ -112,7 +112,7 @@ test.describe('基础功能测试', () => {
     await page.waitForTimeout(500);
 
     // 玩家1选择2路
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
     await page.waitForTimeout(200);
 
@@ -134,11 +134,11 @@ test.describe('基础功能测试', () => {
     await page.fill('#player2-input', '玩家B');
     await page.waitForTimeout(500);
 
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
     await page.waitForTimeout(200);
 
-    const road4Buttons = await page.locator('button:has-text("4路")').all();
+    const road4Buttons = await page.locator('button:has-text("四路")').all();
     await road4Buttons[1].click();
     await page.waitForTimeout(200);
 
@@ -170,7 +170,7 @@ test.describe('基础功能测试', () => {
     await page.waitForTimeout(500);
 
     // 点击各种按钮
-    const road2Buttons = await page.locator('button:has-text("2路")').all();
+    const road2Buttons = await page.locator('button:has-text("二路")').all();
     await road2Buttons[0].click();
     await page.waitForTimeout(500);
 
