@@ -1,9 +1,15 @@
 /**
- * 多人对战同步功能测试
+ * 多人对战同步功能测试（冒烟，UI 驱动）
+ *
+ * 网络层已从 PeerJS(P2P) 重构为 WebSocket 中心化（见 docs/network-protocol.md）。
+ * 本 spec 走 UI 操作（创建/加入房间），底层经 vite /ws proxy 连本地 ws hub
+ * （playwright.config.js 的 webServer 用 concurrently 同起 node server/index.js + vite）。
+ * 作为冒烟保留：验证 UI→roomManager→ws 链路通。
+ * 更深入的 ws 协议测试见 multiplayer-ws.spec.js。
  *
  * 测试场景：
  * 1. 模拟三个浏览器上下文（主办方、选手1、选手2）
- * 2. 验证 WebRTC 连接建立
+ * 2. 验证 WebSocket 连接建立
  * 3. 验证身份分配同步
  * 4. 验证 Ban/Pick 操作同步
  * 5. 验证 UI 更新同步

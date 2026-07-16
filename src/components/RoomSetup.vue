@@ -393,7 +393,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import roomManager from '@/utils/roomManager'
 import * as lobbyApi from '@/utils/lobbyApi'
-import webrtcConfig from '@/config/webrtc.config'
+import networkConfig from '@/config/network.config'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -597,7 +597,7 @@ const startLobbyHeartbeat = (code, secret) => {
     }
   }
   tick() // 立即发一次
-  lobbyHeartbeatTimer.value = setInterval(tick, webrtcConfig.lobby.heartbeatIntervalMs)
+  lobbyHeartbeatTimer.value = setInterval(tick, networkConfig.lobby.heartbeatIntervalMs)
 }
 
 const stopLobbyHeartbeat = () => {
@@ -697,7 +697,7 @@ const refreshLobbyList = async () => {
 
 const startLobbyPolling = () => {
   stopLobbyPolling()
-  lobbyPollTimer = setInterval(refreshLobbyList, webrtcConfig.lobby.listRefreshIntervalMs)
+  lobbyPollTimer = setInterval(refreshLobbyList, networkConfig.lobby.listRefreshIntervalMs)
 }
 
 const stopLobbyPolling = () => {

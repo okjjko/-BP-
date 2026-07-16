@@ -8,9 +8,9 @@
  * 调用方需自行 try/catch 并给出非阻断提示（登记失败 → 房间退化为私密，仍可用邀请码）。
  */
 import axios from 'axios'
-import webrtcConfig from '@/config/webrtc.config'
+import networkConfig from '@/config/network.config'
 
-const cfg = webrtcConfig.lobby
+const cfg = networkConfig.lobby
 
 // dev 环境默认走 vite 的 /lobby proxy（指向本地 lobby 实例），可用 VITE_LOBBY_BASE 覆盖；
 // 生产环境直接用配置的 baseUrl（https://okjjko.top/lobby）

@@ -1,194 +1,236 @@
 /**
- * 房间管理器 - WebRTC P2P 连接管理（重构版）
+ * 房间管理器 - WebSocket 中心化版（重构自 PeerJS P2P 版）
  *
- * 改进：
- * - 心跳机制：30s ping/pong 检测死连接
- * - 自动重连：断线后自动尝试重新加入房间
- * - 操作队列：防止快速操作导致竞态
- * - 连接状态监控：实时连接质量反馈
+ * 设计依据：docs/network-protocol.md（冻结契约）。
+ *
+ * 关键不变量（对消费者零改）：
+ * - 公共方法签名 100% 保持（createRoom / joinRoom / disconnect / broadcastState /
+ *   sendStateUpdate / broadcastToOthers / broadcastGameStart / broadcastCustomPlants /
+ *   getConnectionStats / getConnectedUsers / getConnectedPlayerNames / getStatus /
+ *   on / off）。
+ * - emit 事件名与 payload 字段与 PeerJS 版完全一致（roomCreated / connected /
+ *   userJoined / userLeft / stateUpdate / gameStart / customPlants / identityAssigned /
+ *   error / connectionStatus / reconnecting / reconnected / reconnectFailed /
+ *   connectionError）。
+ *
+ * 语义映射（PeerJS → WS 中心化）：
+ * - this.peer.id → 服务器分配的 this.clientId
+ * - this.connections Map → this.members[]（由 roster 首次快照 + userJoined/userLeft 增量维护）
+ * - host broadcastState / client sendStateUpdate 都发 C2S stateUpdate（服务器按 senderRole 转发）
+ * - getConnectedUsers / getConnectionStats / getConnectedPlayerNames 从 this.members 推导
+ *
+ * transport 可注入：生产用原生 WebSocket，测试/dev 可注入 FakeHub（见 src/utils/devTransport.js）。
+ * 默认导出 new RoomManager()，使用默认（原生 WebSocket）transport。
  */
 
-import Peer from 'peerjs'
-import webrtcConfig from '@/config/webrtc.config'
+import networkConfig from '@/config/network.config'
 
-// 心跳配置
-const HEARTBEAT_INTERVAL = 30000  // 30秒发送一次心跳
-const HEARTBEAT_TIMEOUT = 10000   // 10秒无回复视为断开
+// 心跳配置（契约 §7）
+const HEARTBEAT_INTERVAL = 30000  // 30s 发 ping
+const HEARTBEAT_TIMEOUT = 10000   // 10s 无 pong → heartbeat-lost
 
 // 重连配置
 const RECONNECT_MAX_ATTEMPTS = 5
-const RECONNECT_BASE_DELAY = 2000 // 基础延迟2秒
+const RECONNECT_BASE_DELAY = 2000 // 基础延迟 2s
+
+// 用户友好错误信息映射（参照 PeerJS 版 errorMessages，保留语义）
+const ERROR_MESSAGES = {
+  ROOM_NOT_FOUND: '找不到房间，请检查邀请码',
+  ROOM_FULL: '房间已满',
+  NAME_TAKEN: '该名字已被使用，请换一个',
+  INVALID_PARAMS: '请求参数错误',
+  INTERNAL: '服务器异常，请重试'
+}
+
+/**
+ * 默认 transport 工厂：生产用原生 WebSocket。
+ * connect(url, onMessage) → 返回 ws 句柄（同步），onopen/onclose/onerror 由调用方挂载。
+ * onMessage 在 ws.onmessage 中被调用，参数为 { data: string }。
+ */
+function _defaultTransportFactory() {
+  return {
+    connect(url, onMessage) {
+      const ws = new WebSocket(url)
+      ws.onmessage = (event) => onMessage(event)
+      return ws
+    }
+  }
+}
 
 class RoomManager {
-  constructor() {
-    this.peer = null
-    this.connections = new Map()
-    this.role = null
+  /**
+   * @param {object} [options]
+   * @param {object} [options.transport] 可注入 transport（生产缺省=原生 WebSocket）
+   */
+  constructor(options = {}) {
+    this.ws = null
+    this.clientId = null        // 服务器分配的客户端 ID（替代旧 this.peer.id）
+    this.role = null            // 'host' | 'player' | 'spectator'
     this.inviteCode = null
     this.eventHandlers = new Map()
     this.localVersion = 0
 
-    // 心跳相关
-    this._heartbeatTimers = new Map()   // peerId -> intervalId
-    this._heartbeatTimeouts = new Map() // peerId -> timeoutId
+    // 成员名册（替代旧 this.connections Map）
+    // member: { clientId, role, playerName, connected }
+    this.members = []
+
+    // 心跳相关（复用旧字段名 _heartbeatTimers/_heartbeatTimeouts，单连接场景只用一个键 'server'）
+    this._heartbeatTimers = new Map()
+    this._heartbeatTimeouts = new Map()
+    this._lastPingT = null
 
     // 重连相关
     this._reconnectAttempts = 0
     this._reconnectTimer = null
     this._isReconnecting = false
-    this._lastJoinParams = null  // 缓存上次加入房间的参数
+    this._lastJoinParams = null
 
-    // 消息队列
-    this._messageQueue = []
-    this._isProcessingQueue = false
+    // transport
+    this._transport = options.transport || _defaultTransportFactory()
   }
 
-  // ==================== 心跳机制 ====================
+  // ==================== 内部：发送 / 收消息 ====================
 
   /**
-   * 为连接启动心跳检测
+   * 经 transport 发送一条消息（JSON 序列化）。契约 §3 C2S 消息。
    */
-  _startHeartbeat(peerId, conn) {
-    this._stopHeartbeat(peerId)
+  _send(msg) {
+    if (!this.ws) {
+      console.warn('[RoomManager] ws 未建立，丢弃消息:', msg && msg.type)
+      return false
+    }
+    if (this.ws.readyState !== undefined && this.ws.readyState !== 1 /* OPEN */) {
+      console.warn('[RoomManager] ws 未 OPEN，丢弃消息:', msg && msg.type)
+      return false
+    }
+    try {
+      const payload = JSON.stringify(msg)
+      this.ws.send(payload)
+      return true
+    } catch (e) {
+      console.error('[RoomManager] 序列化/发送失败:', e)
+      return false
+    }
+  }
 
+  /**
+   * ws.onmessage 统一入口。JSON.parse → 内部消息处理 → 其余 emit(msg.type, msg)。
+   */
+  _handleMessage(event) {
+    let msg
+    try {
+      const raw = event && event.data !== undefined ? event.data : event
+      msg = typeof raw === 'string' ? JSON.parse(raw) : raw
+    } catch (e) {
+      console.error('[RoomManager] 消息解析失败:', e)
+      return
+    }
+    if (!msg || !msg.type) return
+
+    switch (msg.type) {
+      case 'pong':
+        this._handlePong(msg)
+        return
+      case 'roster':
+        this._applyRoster(msg)
+        return
+      case 'roomCreated':
+        this.clientId = msg.peerId || this.clientId
+        this.emit('roomCreated', msg)
+        return
+      case 'connected':
+        this.clientId = msg.peerId || this.clientId
+        this.emit('connected', msg)
+        return
+      case 'userJoined':
+        this._applyUserJoined(msg)
+        this.emit('userJoined', msg)
+        return
+      case 'userLeft':
+        this._applyUserLeft(msg)
+        this.emit('userLeft', msg)
+        return
+      case 'error':
+        this._handleServerError(msg)
+        return
+      // stateUpdate / gameStart / customPlants / identityAssigned / connectionStatus
+      // 直接 emit（事件名 = type，与契约 §4 约束一致）
+      default:
+        this.emit(msg.type, msg)
+        return
+    }
+  }
+
+  _applyRoster(msg) {
+    if (!Array.isArray(msg.members)) return
+    this.members = msg.members.map((m) => ({
+      clientId: m.clientId,
+      role: m.role,
+      playerName: m.playerName,
+      connected: m.connected !== false
+    }))
+  }
+
+  _applyUserJoined(msg) {
+    // 增量：避免重复
+    const exists = this.members.some((m) => m.clientId === msg.peerId)
+    if (!exists) {
+      this.members.push({
+        clientId: msg.peerId,
+        role: msg.role,
+        playerName: msg.playerName || null,
+        connected: true
+      })
+    }
+  }
+
+  _applyUserLeft(msg) {
+    this.members = this.members.filter((m) => m.clientId !== msg.peerId)
+  }
+
+  _handleServerError(msg) {
+    const code = msg.error && msg.error.code
+    const userFriendlyMessage =
+      msg.userFriendlyMessage || ERROR_MESSAGES[code] || '服务器返回错误'
+    const enriched = { ...msg, userFriendlyMessage }
+    this.emit('error', enriched)
+  }
+
+  // ==================== 心跳 ====================
+
+  _startHeartbeat() {
+    this._stopHeartbeat()
     const timer = setInterval(() => {
-      if (!conn.open) {
-        this._stopHeartbeat(peerId)
-        return
-      }
-
-      // 发送 ping
-      try {
-        conn.send({ type: 'ping', timestamp: Date.now() })
-      } catch (e) {
-        console.warn('[Heartbeat] 发送 ping 失败:', e)
-        this._handleHeartbeatTimeout(peerId)
-        return
-      }
-
-      // 设置超时等待 pong
+      this._lastPingT = Date.now()
+      const ok = this._send({ type: 'ping', t: this._lastPingT })
+      if (!ok) return
       const timeout = setTimeout(() => {
-        console.warn(`[Heartbeat] ${peerId} 心跳超时`)
-        this._handleHeartbeatTimeout(peerId)
+        console.warn('[Heartbeat] 心跳超时（无 pong）')
+        this.emit('connectionStatus', {
+          status: 'heartbeat-lost',
+          message: '与服务器的连接不稳定',
+          timestamp: Date.now()
+        })
       }, HEARTBEAT_TIMEOUT)
-
-      this._heartbeatTimeouts.set(peerId, timeout)
+      this._heartbeatTimeouts.set('server', timeout)
     }, HEARTBEAT_INTERVAL)
-
-    this._heartbeatTimers.set(peerId, timer)
+    this._heartbeatTimers.set('server', timer)
   }
 
-  /**
-   * 停止心跳检测
-   */
-  _stopHeartbeat(peerId) {
-    const timer = this._heartbeatTimers.get(peerId)
-    if (timer) {
-      clearInterval(timer)
-      this._heartbeatTimers.delete(peerId)
-    }
-    const timeout = this._heartbeatTimeouts.get(peerId)
-    if (timeout) {
-      clearTimeout(timeout)
-      this._heartbeatTimeouts.delete(peerId)
-    }
+  _stopHeartbeat() {
+    const t = this._heartbeatTimers.get('server')
+    if (t) { clearInterval(t); this._heartbeatTimers.delete('server') }
+    const to = this._heartbeatTimeouts.get('server')
+    if (to) { clearTimeout(to); this._heartbeatTimeouts.delete('server') }
   }
 
-  /**
-   * 停止所有心跳
-   */
-  _stopAllHeartbeats() {
-    this._heartbeatTimers.forEach((timer) => clearInterval(timer))
-    this._heartbeatTimers.clear()
-    this._heartbeatTimeouts.forEach((timeout) => clearTimeout(timeout))
-    this._heartbeatTimeouts.clear()
-  }
-
-  /**
-   * 处理心跳超时
-   */
-  _handleHeartbeatTimeout(peerId) {
-    console.warn(`[RoomManager] 连接 ${peerId} 心跳超时，视为断开`)
-    this.emit('connectionStatus', {
-      status: 'heartbeat-lost',
-      message: `与 ${peerId} 的连接不稳定`,
-      timestamp: Date.now()
-    })
-  }
-
-  /**
-   * 处理收到的心跳消息
-   */
-  _handleHeartbeatMessage(data, conn) {
-    if (data.type === 'ping') {
-      // 回复 pong
-      try {
-        conn.send({ type: 'pong', timestamp: data.timestamp })
-      } catch (e) {
-        // 忽略
-      }
-    } else if (data.type === 'pong') {
-      // 收到 pong，清除超时
-      const timeout = this._heartbeatTimeouts.get(conn.peer)
-      if (timeout) {
-        clearTimeout(timeout)
-        this._heartbeatTimeouts.delete(conn.peer)
-      }
-    }
-  }
-
-  // ==================== 消息队列 ====================
-
-  /**
-   * 将消息加入队列并发送
-   */
-  _enqueueMessage(conn, message) {
-    this._messageQueue.push({ conn, message, attempts: 0 })
-    this._processQueue()
-  }
-
-  /**
-   * 处理消息队列
-   */
-  async _processQueue() {
-    if (this._isProcessingQueue || this._messageQueue.length === 0) return
-
-    this._isProcessingQueue = true
-
-    while (this._messageQueue.length > 0) {
-      const item = this._messageQueue[0]
-
-      if (!item.conn.open) {
-        console.warn('[Queue] 连接已关闭，丢弃消息')
-        this._messageQueue.shift()
-        continue
-      }
-
-      try {
-        item.conn.send(item.message)
-        this._messageQueue.shift()
-        // 小延迟防止消息拥堵
-        await new Promise(resolve => setTimeout(resolve, 16))
-      } catch (error) {
-        item.attempts++
-        if (item.attempts >= 3) {
-          console.error('[Queue] 消息发送失败3次，丢弃:', error)
-          this._messageQueue.shift()
-        } else {
-          console.warn(`[Queue] 消息发送失败，重试 ${item.attempts}/3`)
-          await new Promise(resolve => setTimeout(resolve, 500))
-        }
-      }
-    }
-
-    this._isProcessingQueue = false
+  _handlePong(_msg) {
+    const to = this._heartbeatTimeouts.get('server')
+    if (to) { clearTimeout(to); this._heartbeatTimeouts.delete('server') }
   }
 
   // ==================== 自动重连 ====================
 
-  /**
-   * 尝试自动重连
-   */
   async _attemptReconnect() {
     if (!this._lastJoinParams || this._isReconnecting) return
     if (this._reconnectAttempts >= RECONNECT_MAX_ATTEMPTS) {
@@ -201,18 +243,16 @@ class RoomManager {
     }
 
     this._isReconnecting = true
-    this._reconnectAttempts++
+    this._reconnectAttempts += 1
 
     const delay = RECONNECT_BASE_DELAY * Math.pow(1.5, this._reconnectAttempts - 1)
-    console.log(`[RoomManager] ${delay / 1000}秒后尝试第 ${this._reconnectAttempts} 次重连...`)
-
     this.emit('reconnecting', {
       attempt: this._reconnectAttempts,
       maxAttempts: RECONNECT_MAX_ATTEMPTS,
       delay: Math.round(delay)
     })
 
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       this._reconnectTimer = setTimeout(resolve, delay)
     })
 
@@ -222,17 +262,12 @@ class RoomManager {
       this._reconnectAttempts = 0
       this._isReconnecting = false
       this.emit('reconnected', { inviteCode, role })
-      console.log('[RoomManager] 重连成功！')
     } catch (error) {
       this._isReconnecting = false
-      console.warn(`[RoomManager] 第 ${this._reconnectAttempts} 次重连失败:`, error.message)
       this._attemptReconnect()
     }
   }
 
-  /**
-   * 取消重连
-   */
   _cancelReconnect() {
     if (this._reconnectTimer) {
       clearTimeout(this._reconnectTimer)
@@ -242,35 +277,87 @@ class RoomManager {
     this._reconnectAttempts = 0
   }
 
+  // ==================== ws 连接生命周期 ====================
+
+  _wsUrl() {
+    return import.meta.env.DEV ? networkConfig.ws.devUrl : networkConfig.ws.prodUrl
+  }
+
+  /**
+   * 建立底层 ws 连接（若未建立）。返回 Promise，open 后 resolve(ws)。
+   */
+  _ensureConnected() {
+    if (this.ws && this.ws.readyState === 1 /* OPEN */) return Promise.resolve(this.ws)
+
+    return new Promise((resolve, reject) => {
+      const url = this._wsUrl()
+      let opened = false
+      try {
+        const ws = this._transport.connect(url, (event) => this._handleMessage(event))
+        this.ws = ws
+
+        ws.onopen = () => {
+          opened = true
+          this._startHeartbeat()
+          resolve(ws)
+        }
+        ws.onclose = (event) => {
+          this._stopHeartbeat()
+          if (!opened) {
+            // 连接阶段就失败
+            reject(new Error('无法连接到服务器，请检查网络'))
+          }
+          this.emit('connectionStatus', {
+            status: 'disconnected',
+            message: '连接已断开',
+            timestamp: Date.now()
+          })
+          // client 角色（非 host）触发重连
+          if (this.role && this.role !== 'host' && this._lastJoinParams) {
+            this._attemptReconnect()
+          }
+        }
+        ws.onerror = (e) => {
+          this.emit('connectionError', { error: e })
+          this.emit('error', {
+            type: 'connection',
+            error: e,
+            userFriendlyMessage: '连接错误，请检查网络'
+          })
+          if (!opened) reject(new Error('无法连接到服务器，请检查网络'))
+        }
+      } catch (e) {
+        reject(e)
+      }
+    })
+  }
+
   // ==================== 核心：创建/加入房间 ====================
 
   async createRoom() {
-    this.inviteCode = this.generateInviteCode()
-    const peerId = `bp-room-${this.inviteCode.toLowerCase()}`
-
-    this.peer = new Peer(peerId, {
-      ...webrtcConfig.peerjs,
-      config: webrtcConfig.config,
-      debug: webrtcConfig.debug
-    })
     this.role = 'host'
-
+    await this._ensureConnected()
+    this._send({ type: 'createRoom', role: 'host' })
+    // 等待 roomCreated
     return new Promise((resolve, reject) => {
-      this.peer.on('open', (id) => {
-        console.log('[RoomManager] 房间已创建，PeerID:', id)
-        this.emit('roomCreated', { inviteCode: this.inviteCode, peerId: id })
-        resolve(this.inviteCode)
-      })
-
-      this.peer.on('connection', (conn) => {
-        this.handleIncomingConnection(conn)
-      })
-
-      this._setupPeerErrorHandlers(reject)
+      const onCreated = (data) => {
+        this.off('roomCreated', onCreated)
+        this.off('error', onError)
+        this.inviteCode = data.inviteCode
+        resolve(data.inviteCode)
+      }
+      const onError = (data) => {
+        this.off('roomCreated', onCreated)
+        this.off('error', onError)
+        reject(new Error((data && data.userFriendlyMessage) || '创建房间失败'))
+      }
+      this.on('roomCreated', onCreated)
+      this.on('error', onError)
     })
   }
 
   generateInviteCode() {
+    // 保留公共方法（兼容旧调用）。WS 版下 inviteCode 由服务器生成，此方法仅用于本地兜底/测试。
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     let code = ''
     for (let i = 0; i < 6; i++) {
@@ -287,279 +374,124 @@ class RoomManager {
     this._lastJoinParams = { inviteCode, role, playerName }
     this._cancelReconnect()
 
-    const hostPeerId = `bp-room-${inviteCode.toLowerCase()}`
-    const clientPeerId = `${hostPeerId}-${role}-${Date.now()}`
+    await this._ensureConnected()
 
-    this.peer = new Peer(clientPeerId, {
-      ...webrtcConfig.peerjs,
-      config: webrtcConfig.config,
-      debug: webrtcConfig.debug
+    const ok = this._send({
+      type: 'joinRoom',
+      inviteCode,
+      role,
+      playerName
     })
+    if (!ok) throw new Error('发送 joinRoom 失败')
 
     return new Promise((resolve, reject) => {
-      this.peer.on('open', () => {
-        const conn = this.peer.connect(hostPeerId, {
-          reliable: true,
-          metadata: { role, playerName }
-        })
-
-        conn.on('open', () => {
-          console.log('[RoomManager] 已连接到主办方')
-          this.connections.set('host', conn)
-          this.setupConnectionHandlers(conn)
-          this._startHeartbeat('host', conn)
-          this.emit('connected', { peerId: hostPeerId, role: 'host' })
-          resolve()
-        })
-
-        conn.on('close', () => {
-          console.log('[RoomManager] 与主办方的连接已断开')
-          this._stopHeartbeat('host')
-          this.connections.delete('host')
-          this.emit('userLeft', { peerId: 'host', count: this.connections.size })
-
-          // 触发自动重连
-          if (this.role !== 'host') {
-            this._attemptReconnect()
-          }
-        })
-
-        conn.on('error', (error) => {
-          console.error('[RoomManager] 连接错误:', error)
-          this.emit('error', { type: 'connection', error })
-          reject(new Error('无法连接到主办方，请检查邀请码是否正确'))
-        })
-      })
-
-      this._setupPeerErrorHandlers(reject)
+      const onConnected = () => {
+        this.off('connected', onConnected)
+        this.off('error', onError)
+        resolve()
+      }
+      const onError = (data) => {
+        this.off('connected', onConnected)
+        this.off('error', onError)
+        reject(new Error((data && data.userFriendlyMessage) || '加入房间失败'))
+      }
+      this.on('connected', onConnected)
+      this.on('error', onError)
     })
   }
 
-  // ==================== 连接处理 ====================
+  // ==================== 广播与发送（C2S） ====================
 
-  handleIncomingConnection(conn) {
-    const peerId = conn.peer
-    const role = conn.metadata?.role || 'player'
-
-    console.log(`[RoomManager] 收到连接请求: ${peerId} (${role})`)
-
-    conn.on('open', () => {
-      console.log(`[RoomManager] ${peerId} 已连接`)
-      this.connections.set(peerId, conn)
-      this.setupConnectionHandlers(conn)
-      this._startHeartbeat(peerId, conn)
-      this.emit('userJoined', { peerId, role, count: this.connections.size })
-    })
-
-    conn.on('close', () => {
-      console.log(`[RoomManager] ${peerId} 断开连接`)
-      this._stopHeartbeat(peerId)
-      this.connections.delete(peerId)
-      this.emit('userLeft', { peerId, count: this.connections.size })
-    })
-
-    conn.on('error', (error) => {
-      console.error(`[RoomManager] 连接错误 (${peerId}):`, error)
-      this.emit('connectionError', { peerId, error })
-    })
-  }
-
-  setupConnectionHandlers(conn) {
-    conn.on('data', (data) => {
-      // 心跳消息特殊处理
-      if (data.type === 'ping' || data.type === 'pong') {
-        this._handleHeartbeatMessage(data, conn)
-        return
-      }
-
-      // ACK 确认
-      if (data.type === 'ack') {
-        return // 已确认，无需处理
-      }
-
-      // 业务消息
-      const messageTypes = ['stateUpdate', 'customPlants', 'chatMessage', 'gameStart', 'identityAssigned']
-      if (messageTypes.includes(data.type)) {
-        // 发送 ACK
-        try {
-          conn.send({ type: 'ack', messageId: data.timestamp })
-        } catch (e) {
-          // 忽略
-        }
-        this.emit(data.type, data)
-      }
-    })
-  }
-
-  // ==================== 错误处理 ====================
-
-  _setupPeerErrorHandlers(reject) {
-    const errorMessages = {
-      'peer-unavailable': '无法找到对方，请检查邀请码是否正确',
-      'disconnected': '网络连接已断开，请检查网络设置',
-      'network': '网络错误，请检查您的网络连接',
-      'ssl-unavailable': '需要 HTTPS 连接，请确保使用安全连接',
-      'server-error': '服务器错误，请检查 PeerJS 服务器是否正常运行',
-      'socket-error': '连接错误，请检查服务器地址和端口',
-      'socket-closed': '连接已关闭',
-      'unavailable-id': 'ID 不可用，请尝试重新创建房间'
-    }
-
-    this.peer.on('error', (error) => {
-      console.error('[RoomManager] Peer 错误:', error)
-      const userMessage = errorMessages[error.type] || `连接错误：${error.message || '未知错误'}`
-      this.emit('error', { type: 'peer', error, userFriendlyMessage: userMessage })
-      if (reject) reject(error)
-    })
-
-    this.peer.on('iceStateChange', (iceState) => {
-      const messages = {
-        'new': '正在初始化连接...',
-        'checking': '正在尝试建立网络连接...',
-        'connected': '网络连接已建立',
-        'completed': '连接建立完成',
-        'failed': '网络连接失败',
-        'disconnected': '网络连接已断开',
-        'closed': '连接已关闭'
-      }
-      if (messages[iceState]) {
-        this.emit('connectionStatus', {
-          status: iceState,
-          message: messages[iceState],
-          timestamp: Date.now()
-        })
-      }
-    })
-  }
-
-  // ==================== 广播与发送 ====================
-
-  broadcastState(gameState, version, excludePeerId = null) {
+  broadcastState(gameState, version, _excludePeerId = null) {
+    // 中心化：host 发 stateUpdate，服务器转发给除自己外所有成员
     if (this.role !== 'host') return
 
     this.localVersion = version
-    const message = {
+    this._send({
       type: 'stateUpdate',
-      senderId: this.peer.id,
       senderRole: this.role,
-      timestamp: Date.now(),
       version,
       gameState
-    }
-
-    this.connections.forEach((conn, peerId) => {
-      if (conn.open && peerId !== excludePeerId) {
-        this._enqueueMessage(conn, message)
-      }
     })
   }
 
-  broadcastToOthers(gameState, version, excludePeerId) {
+  broadcastToOthers(gameState, version, _excludePeerId) {
+    // host 转发段（契约 §5 第一版保留）：与 broadcastState 等价（服务器去重）
     if (this.role !== 'host') return
-
-    const message = {
+    this._send({
       type: 'stateUpdate',
-      senderId: this.peer.id,
       senderRole: this.role,
-      timestamp: Date.now(),
       version,
       gameState
-    }
-
-    this.connections.forEach((conn, peerId) => {
-      if (conn.open && peerId !== excludePeerId) {
-        this._enqueueMessage(conn, message)
-      }
     })
   }
 
   broadcastGameStart(player1Name, player2Name, player1Road, player2Road, globalBans, hiddenBuiltinPlants) {
     if (this.role !== 'host') return
-
-    const message = {
+    this._send({
       type: 'gameStart',
       player1Name, player2Name, player1Road, player2Road,
       globalBans: globalBans || [],
-      hiddenBuiltinPlants: hiddenBuiltinPlants || [],
-      timestamp: Date.now()
-    }
-
-    this.connections.forEach((conn) => {
-      if (conn.open) {
-        this._enqueueMessage(conn, message)
-      }
+      hiddenBuiltinPlants: hiddenBuiltinPlants || []
     })
   }
 
   sendStateUpdate(gameState, version) {
+    // client（player/spectator）发状态更新 → 服务器转发（含给 host）
     if (this.role === 'host') return
-
     this.localVersion = version
-    const hostConn = this.connections.get('host')
-
-    if (hostConn && hostConn.open) {
-      const message = {
-        type: 'stateUpdate',
-        senderId: this.peer.id,
-        senderRole: this.role,
-        timestamp: Date.now(),
-        version,
-        gameState
-      }
-      this._enqueueMessage(hostConn, message)
-    } else {
-      console.error('[RoomManager] 未连接到主办方')
-    }
+    this._send({
+      type: 'stateUpdate',
+      senderRole: this.role,
+      version,
+      gameState
+    })
   }
 
   async broadcastCustomPlants(config) {
     if (this.role !== 'host') return
-
-    const { plants, hiddenBuiltinPlants } = config
-    const message = {
+    const { plants, hiddenBuiltinPlants } = config || {}
+    this._send({
       type: 'customPlants',
-      timestamp: Date.now(),
       plants: plants || [],
       hiddenBuiltinPlants: hiddenBuiltinPlants || []
-    }
-
-    this.connections.forEach((conn) => {
-      if (conn.open) {
-        this._enqueueMessage(conn, message)
-      }
     })
   }
 
-  // ==================== 查询方法 ====================
+  /**
+   * 身份分配（定向单投）。契约 §6 关键路径。
+   * 由 host 调用，服务器按 playerName 定向投递给目标 client。
+   */
+  sendIdentityAssignment(playerName, playerNumber) {
+    this._send({ type: 'identityAssigned', playerName, playerNumber })
+  }
+
+  // ==================== 查询方法（从 this.members 推导） ====================
 
   getConnectionStats() {
-    const stats = { total: this.connections.size, players: 0, spectators: 0 }
-    this.connections.forEach((conn) => {
-      const role = conn.metadata?.role || 'player'
-      if (role === 'player') stats.players++
-      else if (role === 'spectator') stats.spectators++
+    const stats = { total: this.members.length, players: 0, spectators: 0 }
+    this.members.forEach((m) => {
+      if (m.role === 'player') stats.players += 1
+      else if (m.role === 'spectator') stats.spectators += 1
     })
     return stats
   }
 
   getConnectedUsers() {
-    const users = []
-    this.connections.forEach((conn, peerId) => {
-      users.push({
-        peerId,
-        role: conn.metadata?.role || 'player',
-        playerName: conn.metadata?.playerName || null,
-        connected: conn.open
-      })
-    })
-    return users
+    // 字段与 PeerJS 版兼容：peerId / role / playerName / connected
+    return this.members.map((m) => ({
+      peerId: m.clientId,
+      role: m.role,
+      playerName: m.playerName,
+      connected: m.connected !== false
+    }))
   }
 
   getConnectedPlayerNames() {
     const names = []
-    this.connections.forEach((conn) => {
-      if (conn.open && conn.metadata?.role === 'player' && conn.metadata?.playerName) {
-        names.push(conn.metadata.playerName)
+    this.members.forEach((m) => {
+      if (m.connected !== false && m.role === 'player' && m.playerName) {
+        names.push(m.playerName)
       }
     })
     return names
@@ -569,9 +501,9 @@ class RoomManager {
     return {
       role: this.role,
       inviteCode: this.inviteCode,
-      connected: this.connections.size,
+      connected: this.members.length,
       stats: this.getConnectionStats(),
-      peerId: this.peer?.id || null,
+      peerId: this.clientId || null,
       isReconnecting: this._isReconnecting
     }
   }
@@ -595,7 +527,7 @@ class RoomManager {
 
   emit(event, data) {
     const handlers = this.eventHandlers.get(event) || []
-    handlers.forEach(handler => {
+    handlers.forEach((handler) => {
       try { handler(data) } catch (error) {
         console.error(`[RoomManager] 事件处理器错误 (${event}):`, error)
       }
@@ -605,27 +537,28 @@ class RoomManager {
   // ==================== 断开连接 ====================
 
   disconnect() {
-    console.log('[RoomManager] 断开所有连接')
     this._cancelReconnect()
-    this._stopAllHeartbeats()
-    this._messageQueue = []
+    this._stopHeartbeat()
 
-    this.connections.forEach((conn) => {
-      if (conn.open) conn.close()
-    })
-    this.connections.clear()
-
-    if (this.peer) {
-      this.peer.destroy()
-      this.peer = null
+    // 通知服务器离开（尽力发送）
+    if (this.ws && this.ws.readyState === 1) {
+      try { this._send({ type: 'leave' }) } catch (_) { /* ignore */ }
     }
 
+    if (this.ws) {
+      try { this.ws.close && this.ws.close() } catch (_) { /* ignore */ }
+      this.ws = null
+    }
+
+    this.clientId = null
     this.role = null
     this.inviteCode = null
+    this.members = []
     this.localVersion = 0
     this._lastJoinParams = null
   }
 }
 
-// 导出单例
+// 导出单例（使用默认原生 WebSocket transport）
+export { RoomManager }
 export default new RoomManager()

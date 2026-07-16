@@ -38,6 +38,16 @@ const routes = [
   },
 ]
 
+// DEV only：多客户端 WebSocket 模拟器路由（生产构建经 import.meta.env.DEV 守卫 tree-shake）
+if (import.meta.env.DEV) {
+  routes.push({
+    path: '/dev/sim',
+    name: 'devSim',
+    component: () => import('@/components/dev/MultiClientSimulator.vue'),
+    meta: { title: 'DEV 多客户端模拟器', devOnly: true }
+  })
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes
@@ -45,6 +55,9 @@ const router = createRouter({
 
 // 路由守卫：根据游戏状态自动跳转
 router.beforeEach((to, from) => {
+  // dev 路由跳过游戏状态守卫
+  if (to.meta && to.meta.devOnly) return true
+
   const gameStore = useGameStore()
   const status = gameStore.gameStatus
 

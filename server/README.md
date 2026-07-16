@@ -1,12 +1,19 @@
-# bp-lobby-server（公共房间目录服务）
+# bp-server（中心化 WebSocket 服务器）
 
-为 BP 对战工具提供「公共房间列表」能力的轻量后端。房主开公开房时把房间登记到这里，
-其他人通过列表看到后，**复用现有 `roomManager.joinRoom(inviteCode)`** 直接加入。
-本服务**不参与 P2P 数据传输**（P2P 由 PeerJS 处理），只维护一个临时的房间目录。
+BP 对战工具的**单进程后端**，一个 Node 进程同时提供四项能力：
 
-- **零运行时依赖**：仅用 Node 内置 `http` / `crypto`，Node ≥ 18。
-- **内存存储**：房间是临时的（房主在线才有），无心跳超 60s 自动清理；进程重启即清空。
-- **API**：登记 / 查询 / 心跳 / 注销 共 4 个端点。
+1. **WebSocket hub**（`/ws`）—— 多人对战实时状态中转（房间管理、消息路由、身份分配、心跳、断线清理）。
+2. **lobby HTTP 路由**（`/lobby/*`、`/rooms`、`/health`）—— 公共房间目录（登记 / 查询 / 心跳 / 注销）。
+3. **静态文件托管**（`../dist/`）—— 前端构建产物（`/assets/*`、`/index.html`、`/plants/*`、`/favicon.ico`）。
+4. **SPA fallback** —— history 路由刷新（任意无扩展名 GET 回 `dist/index.html`）。
+
+> 架构变更：本服务已从 **P2P(PeerJS) + coturn + lobby 三服务** 重构为 **单进程中心化 WebSocket**。
+> 不再依赖 PeerJS、coturn、STUN/TURN。TLS 由 nginx 终止，Node 监听明文 :8080。
+> 协议契约见 `docs/network-protocol.md`（冻结，前后端共同遵循）。
+
+- **运行时依赖**：仅 `ws@^8.x`（`npm install`）。
+- **Node 版本**：≥ 18。
+- **存储**：房间与 lobby 目录均为内存 Map，进程重启即清空（房主重新开房即可）。
 
 ---
 
@@ -14,108 +21,185 @@
 
 ```bash
 cd server
-node lobby-server.js          # 默认监听 8800，可 PORT=9001 node lobby-server.js
+npm install                 # 安装 ws
+npm start                   # = node index.js，默认监听 8080（可 PORT=8081 npm start）
 ```
 
-验证（另开终端）：
+启动后日志：
+
+```
+[server] BP 中心化服务已启动，监听 :8080
+[server]   ws     : ws://localhost:8080/ws
+[server]   lobby  : http://localhost:8080/lobby/rooms
+[server]   health : http://localhost:8080/health
+[server]   static : D:\...\dist
+```
+
+### dev 联调（前端 + 后端）
 
 ```bash
-curl http://localhost:8800/rooms
-# {"ok":true,"rooms":[],"serverTime":...}
+# 终端 1：起后端
+cd server && npm start              # :8080
 
-# 登记一个公开房间
-curl -X POST http://localhost:8800/rooms \
-  -H "Content-Type: application/json" \
-  -H "Origin: http://localhost:3000" \
-  -d '{"inviteCode":"ABC234","hostName":"测试房主"}'
-# {"ok":true,"inviteCode":"ABC234","hostSecret":"...","createdAt":...}
-
-# 查询
-curl -H "Origin: http://localhost:3000" http://localhost:8800/rooms
-
-# 心跳（用上一步返回的 hostSecret）
-curl -X POST http://localhost:8800/rooms/ABC234/heartbeat \
-  -H "Content-Type: application/json" \
-  -H "X-Host-Secret: <hostSecret>" \
-  -d '{"playerCount":1,"spectatorCount":0}'
-
-# 注销
-curl -X DELETE http://localhost:8800/rooms/ABC234 -H "X-Host-Secret: <hostSecret>"
+# 终端 2：起前端（vite proxy /ws → :8080）
+npm run dev                         # :3000
 ```
 
-> 注：CORS 白名单默认含 `https://your-domain.com`、`http://localhost:3000`、`http://127.0.0.1:3000`。
-> 用 curl 测试时浏览器不参与，可省略 `Origin`；若要验证 CORS，需带白名单内的 Origin。
+vite 必须配置 `/ws` proxy（`{ target: 'http://localhost:8080', ws: true }`），否则 dev 连不上 ws。
+
+### 路由优先级（重要）
+
+| 优先级 | 路径 | 行为 |
+|---|---|---|
+| 1（upgrade） | `/ws` | WebSocket 握手（由 `ws` 库在 upgrade 事件拦截） |
+| 2 | `/lobby/*`、`/rooms`、`/rooms/:code`、`/rooms/:code/heartbeat`、`/health` | lobby HTTP |
+| 2.5 | `/lobby/*` 未匹配子路由 | 404 JSON（**不** SPA fallback，避免 `/lobby/rooms` 被吞） |
+| 3 | `/assets/*`、`/plants/*`、`/favicon.ico` 等带扩展名 | 静态文件，不存在 → 404 |
+| 4 | `/`、`/some/spa/route` 等无扩展名 GET | `dist/index.html`（SPA history 刷新） |
+| 5 | dist 不存在 | 简短占位 HTML（ws/lobby 仍可用，便于纯后端自测） |
 
 ---
 
-## HTTP API 一览
+## lobby HTTP API 一览
 
 | 方法 | 路径 | 说明 | 成功响应 |
 |---|---|---|---|
-| GET | `/` 或 `/health` | 健康检查 | `200 {ok, service, rooms, uptime}` |
-| POST | `/rooms` | 登记公开房间。Body `{inviteCode, hostName}` | `200 {ok, inviteCode, hostSecret, createdAt}` |
-| GET | `/rooms` | 查询房间列表（不含 hostSecret） | `200 {ok, rooms:[...], serverTime}` |
+| GET | `/health` 或 `/lobby/health` | 健康检查 | `200 {ok, service, rooms, uptime}` |
+| POST | `/rooms` 或 `/lobby/rooms` | 登记公开房间。Body `{inviteCode, hostName}` | `200 {ok, inviteCode, hostSecret, createdAt}` |
+| GET | `/rooms` 或 `/lobby/rooms` | 查询房间列表（不含 hostSecret） | `200 {ok, rooms:[...], serverTime}` |
 | POST | `/rooms/:code/heartbeat` | 心跳。Header `X-Host-Secret`。Body `{playerCount, spectatorCount}` | `200 {ok, lastHeartbeat}` |
 | DELETE | `/rooms/:code` | 注销。Header `X-Host-Secret` | `200 {ok}` |
+
+> 注：`/lobby/*` 与无前缀路径都接受（兼容 nginx 是否 strip `/lobby`）。
+> 但裸 `GET /` 是 SPA index.html，不是 health。健康检查用 `/health`。
 
 错误码：`400 INVALID_PARAMS` / `403 FORBIDDEN`（secret 不匹配）/ `404 ROOM_NOT_FOUND` /
 `409 ROOM_EXISTS` / `429 RATE_LIMITED`。
 
 保活数值：房主心跳间隔 25s（前端）→ 服务端 TTL 60s 容忍 2 次心跳丢失 → 30s 定时 + 查询懒清理双保险 → 房间最长存活 6h。
 
+CORS 白名单默认含 `https://okjjko.top`、`http://localhost:3000`、`http://127.0.0.1:3000`。放行额外域名用 `LOBBY_EXTRA_ORIGINS` 环境变量（逗号分隔）。
+
 ---
 
-## ECS 部署（与现有 PeerJS / coturn 同机）
+## WebSocket 协议
 
-参照 `docs/SERVER-SETUP.md` 的既有 PeerJS 部署范式（PM2 + nginx + Let's Encrypt）：
+完整契约见 `docs/network-protocol.md`。要点：
+
+- 连接地址：dev `ws://localhost:3000/ws`（vite proxy）/ prod `wss://okjjko.top/ws`（nginx 反代）。
+- C2S：`createRoom` / `joinRoom` / `stateUpdate` / `gameStart` / `customPlants` / `identityAssigned` / `ping` / `leave`。
+- S2C：`roomCreated` / `connected` / `roster` / `userJoined` / `userLeft` / `stateUpdate` / `gameStart` / `customPlants` / `identityAssigned` / `pong` / `error` / `connectionStatus`。
+- 转发规则：`stateUpdate` 广播给同房除发送者外所有人（含 host）；`gameStart`/`customPlants` 广播除 host 外；`identityAssigned` 按 `playerName` 定向单投。
+- 心跳：服务器 30s ping，45s 无响应断开清理（与客户端 30s ping 互补）。
+- 断线：普通成员离开广播 `userLeft`；host 断开清房并通知其他成员 `connectionStatus:{status:'host-left'}`。
+
+---
+
+## 部署（单进程 + nginx）
+
+### 1. 上传与启动
 
 ```bash
-# 1. 上传 server/ 到 ECS（零依赖，无需 npm install）
-scp -r server/ root@your-domain.com:/opt/bp-lobby-server/
+# 上传 server/ 与前端 dist/
+scp -r server/ root@your-domain.com:/opt/bp-server/
+# 前端构建产物（在项目根目录）
+npm run build
+scp -r dist/ root@your-domain.com:/opt/bp-tool/dist/   # dist 需在 server/ 的上级目录
 
-# 2. 用 PM2 启动（复用已配置的 pm2 startup）
-cd /opt/bp-lobby-server
-pm2 start ecosystem.config.cjs
-pm2 save
-
-# 3. nginx 反代到 https 子路径（追加到现有 server 块，复用现有 Let's Encrypt 证书）
-#    location /lobby/ {
-#        proxy_pass http://127.0.0.1:8800/;
-#        proxy_http_version 1.1;
-#        proxy_set_header Host $host;
-#        proxy_set_header X-Real-IP $remote_addr;
-#        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-#        proxy_set_header X-Forwarded-Proto $scheme;
-#    }
-nginx -t && nginx -s reload
-
-# 4. 验证（8800 不对公网开放，仅走反代）
-curl https://your-domain.com/lobby/rooms
-# {"ok":true,"rooms":[],"serverTime":...}
+# 启动
+ssh root@your-domain.com
+cd /opt/bp-server && npm install
+pm2 start ecosystem.config.cjs      # 监听 8080
+pm2 save && pm2 startup
 ```
 
-**为什么必须 nginx 反代到 https**：前端部署在 Vercel（https），直接请求 `http://your-domain.com:8800`
-会触发浏览器的**混合内容（mixed content）拦截**；反代到 `https://your-domain.com/lobby` 后同协议同域，
-彻底解决。8800 端口不对公网开放，仅本机 nginx 访问。
+### 2. nginx 反代（终止 TLS + wss upgrade）
 
-**放行 vercel 域名**（如部署后前端域名为 `https://xxx.vercel.app`），在 PM2 环境变量里追加：
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate     /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # 静态前端 + SPA + lobby HTTP —— 全部反代到 Node :8080
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket upgrade —— wss 握手必须的三个头 + 调大超时
+    location /ws {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;          # 必须
+        proxy_set_header Connection "upgrade";           # 必须
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;                        # 长连接，防 idle 断开
+        proxy_send_timeout 3600s;
+    }
+}
+
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+> 阿里云 Alibaba Cloud Linux 的 nginx 可能是 `aa_nginx` 包，命令等价。
+
+```bash
+nginx -t && nginx -s reload
+```
+
+### 3. 验证
+
+```bash
+curl https://your-domain.com/health                      # {"ok":true,...}
+curl https://your-domain.com/lobby/rooms                 # {"ok":true,"rooms":[],...}
+# 浏览器打开 https://your-domain.com ，F12 Network/WS 看到 /ws 101 Switching Protocols 即成功
+```
+
+8080 端口不对公网开放，仅本机 nginx 访问。
+
+### 4. 放行前端域名（若前端部署在 vercel 等其它域名）
+
+编辑 `ecosystem.config.cjs` 的 env：
 
 ```js
-// ecosystem.config.cjs 的 env
-LOBBY_EXTRA_ORIGINS: 'https://xxx.vercel.app'
+env: { NODE_ENV: 'production', PORT: 8080, LOBBY_EXTRA_ORIGINS: 'https://your-project.vercel.app' }
 ```
 
-改完 `pm2 restart bp-lobby-server`。
+`pm2 restart bp-server`。
 
 ---
 
 ## 运维
 
 ```bash
-pm2 logs bp-lobby-server       # 查看日志
-pm2 restart bp-lobby-server    # 重启（会清空内存房间目录）
-pm2 monit                      # 监控
+pm2 logs bp-server            # 日志
+pm2 restart bp-server         # 重启（清空内存房间目录与 ws 房间）
+pm2 monit                     # 监控
 ```
 
-> 进程重启会清空房间目录（内存存储）。房主的心跳会在下一个周期自动重新登记——
-> 但已开房的房主需要重新「创建公开房间」。这是轻量设计的可接受权衡。
+> 进程重启会清空：① lobby 公开房间目录；② ws 实时房间。房主需重新「创建房间」。
+> 这是内存存储的可接受权衡（BP 是回合制短会话）。
+
+---
+
+## 文件结构
+
+```
+server/
+├── index.js              # 主入口：http server + ws hub + 静态托管 + SPA fallback
+├── lobby-server.js       # lobby handler 模块（export，由 index.js 挂载）
+├── package.json          # ws 依赖 + start 脚本
+├── ecosystem.config.cjs  # PM2 配置
+└── README.md             # 本文件
+```

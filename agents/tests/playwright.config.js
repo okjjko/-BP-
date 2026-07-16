@@ -35,10 +35,12 @@ export default defineConfig({
   // 全局超时设置
   timeout: 60000, // 单个测试60秒超时
 
-  // 启动开发服务器
+  // 启动本地 ws hub(:8080) + 前端 vite(:3000)：用 server/dev-all.mjs 单进程拉起两个子进程
+  // （绕开 concurrently 在 Windows cmd 下的引号问题；比 webServer 数组更稳）。前端经 vite /ws proxy 反代到 8080。
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000', // 修改为3000端口
+    command: 'node server/dev-all.mjs',
+    cwd: process.cwd(),
+    url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

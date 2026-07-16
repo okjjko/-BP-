@@ -1,14 +1,17 @@
 {
-  "name": "bp-lobby-server",
-  "version": "1.0.0",
+  "name": "bp-server",
+  "version": "2.0.0",
   "private": true,
-  "description": "BP 对战工具 - 公共房间目录服务（lobby）",
+  "description": "BP 对战工具 - 中心化 WebSocket 服务器（ws hub + lobby 目录 + 静态托管 三合一）",
   "type": "module",
-  "main": "lobby-server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node lobby-server.js"
+    "start": "node index.js"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   }
 }

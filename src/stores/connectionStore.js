@@ -101,12 +101,7 @@ export const useConnectionStore = defineStore('connection', {
     },
 
     _sendIdentityAssignment(playerName, playerNumber) {
-      const connections = roomManager.connections
-      connections.forEach((conn) => {
-        if (conn.metadata?.playerName === playerName && conn.open) {
-          conn.send({ type: 'identityAssigned', playerNumber, playerName })
-        }
-      })
+      roomManager.sendIdentityAssignment(playerName, playerNumber)
     },
 
     receiveIdentityAssignment(playerNumber) {

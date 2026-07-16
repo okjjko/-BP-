@@ -8,8 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies (first time only)
 npm install
 
-# Start development server
+# Start development server（一键启动 ws server:8080 + vite:3000，多人对战需要两者同时运行）
 npm run dev
+
+# 仅前端 / 仅后端（分进程调试用）
+npm run dev:web      # vite:3000
+npm run dev:server   # ws server:8080（多人对战的后端；不运行则创建房间时报 ws proxy ECONNREFUSED）
 
 # Build for production
 npm run build
@@ -19,6 +23,20 @@ npm run preview
 ```
 
 ## Testing & Quality Assurance
+
+**单元测试（vitest，多人对战回归主力）：**
+
+多人对战与状态同步的纯逻辑用 vitest + 内存 FakeHub 测试（两端套 `JSON.parse(JSON.stringify())` 复刻真实 ws 序列化边界），毫秒级、可离线 CI 跑，是改多人功能时的首选回归手段。
+
+```bash
+npm run test:unit          # watch 模式
+npm run test:unit:run      # 单次运行（CI）
+```
+
+- `src/utils/__tests__/roomManager.spec.js` - WebSocket roomManager：createRoom/joinRoom 成员同步、stateUpdate 转发（不回声发送者）、identityAssigned 定向、版本号/序列化鲁棒性、断线重连
+- `src/stores/__tests__/connectionStore.spec.js` - isMyTurn 权限（host/player/spectator）、版本号去重、远端状态 apply
+- `src/utils/devTransport.js` - 内存 FakeHub（单元测试与 dev 面板共用）；dev 多客户端模拟面板在 `src/components/dev/MultiClientSimulator.vue`（路由 `/dev/sim`，`import.meta.env.DEV` 守卫，不进生产构建）
+- 真实 server 协议端到端：本地 `node server/index.js` + ws 客户端联调（契约见 `docs/network-protocol.md`）；Playwright E2E 见下方 `agents/tests/multiplayer-ws.spec.js`（本地 ws server，不依赖外网）
 
 **Agent Testing System:**
 
@@ -197,29 +215,32 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 
 **Multiplayer Networking:**
 
-- `src/utils/roomManager.js` - WebRTC P2P connection manager using PeerJS
-  - Host creates room with invite code (6-char alphanumeric)
-  - Players/spectators join via invite code
-  - Star topology: all clients connect to host, host broadcasts state updates
-  - Message types: `stateUpdate`, `customPlants`, `gameStart`, `identityAssigned`
-  - **WebRTC Configuration**: Uses STUN/TURN servers for NAT traversal (configured in `src/config/webrtc.config.js`)
-  - **ICE State Monitoring**: Real-time connection status feedback via `iceStateChange` events
-  - **Connection Status Display**: Visual indicator in RoomSetup.vue showing connection state
+- **架构（中心化 WebSocket，2026-07 重构）**：放弃 P2P(PeerJS)/TURN/coturn，改为**单一 Node 进程**同时提供 ws hub + lobby HTTP + 静态前端 dist + SPA fallback 四合一能力。所有游戏状态经服务器中转，连接稳定性等同于普通网站，不再依赖 NAT 穿透。协议契约见 `docs/network-protocol.md`（冻结，禁止单方面偏离）。
 
-- `src/config/webrtc.config.js` - WebRTC server configuration
-  - PeerJS server settings (host, port, path, secure)
-  - ICE servers list (STUN/TURN)
-  - Connection timeout and retry settings
-  - `lobby` block: 公共房间目录服务地址、心跳/列表刷新间隔
-  - See `docs/SERVER-SETUP.md` for deployment instructions
+- `server/index.js` - **统一入口（单进程）**
+  - WebSocket hub（`/ws`）：房间管理、消息路由、身份分配、心跳（服务器 30s ping / 45s 超时断开）、断线清理
+  - lobby HTTP 路由（`/lobby/*`、`/rooms`、`/health`）：公共房间目录（复用 `lobby-server.js` 的 handler）
+  - 静态文件（`../dist/`）+ SPA fallback（history 刷新）
+  - 端口 `process.env.PORT || 8080`；启动 `cd server && npm install && npm start`
 
-- `server/lobby-server.js` - **公共房间目录服务（lobby，可选增强层）**
-  - 维护临时"公共房间目录"：房主可开"对所有人开放"的房间，其他人从列表一键加入（省去邀请码传递）
-  - **不参与 P2P 数据传输**：加入时仍复用 `roomManager.joinRoom(inviteCode)`，WebRTC 架构零改动
-  - 内存存储 + TTL 自动清理（无心跳 60s 过期）；零运行时依赖（Node 原生 http）
-  - API：登记/查询/心跳/注销（见 `server/README.md`），nginx 反代到 `https://your-domain.com/lobby`
-  - lobby 任何故障都降级为私密房间（仍可用邀请码），不阻断 BP
-  - 前端封装：`src/utils/lobbyApi.js`（registerRoom/listRooms/heartbeat/unregisterRoom）
+- `server/lobby-server.js` - lobby handler 模块（export `handleLobbyRequest/isLobbyPath/startLobbyCleanupTimer`，由 index.js 挂载；不再自启动）。行为/CORS/限流/TTL(60s)/最大存活(6h) 与重构前一致。
+
+- `server/package.json` - 唯一运行时依赖 `ws@^8.x`，ESM（`type:module`），`start: node index.js`。
+
+- `src/utils/roomManager.js` - WebSocket 中心化版（重构自 PeerJS）。**保持公共方法签名 + emit 事件名 + payload 不变**（消费者 connectionStore/GameSetup.vue/RoomSetup.vue 几乎零改）。新增 `sendIdentityAssignment(playerName, playerNumber)`；transport 可注入（生产原生 WebSocket，测试/dev 注入 FakeHub）。
+
+- `src/config/network.config.js` - ws 连接地址（dev `ws://localhost:3000/ws` / prod `wss://okjjko.top/ws`）+ lobby 配置（baseUrl/心跳/刷新间隔，原 webrtc.config.js 的 lobby 块迁入）。
+
+- **消息类型**（契约 §3/§4）：
+  - C2S：`createRoom` / `joinRoom` / `stateUpdate` / `gameStart` / `customPlants` / `identityAssigned` / `ping` / `leave`
+  - S2C：`roomCreated` / `connected` / `roster` / `userJoined` / `userLeft` / `stateUpdate` / `gameStart` / `customPlants` / `identityAssigned` / `pong` / `error` / `connectionStatus`
+  - 转发规则：`stateUpdate` 广播给同房除发送者外所有人（含 host）；`gameStart`/`customPlants` 广播除 host 外；`identityAssigned` 按 `playerName` 定向单投（joinRoom 校验同房 playerName 唯一，冲突返 `NAME_TAKEN`）。
+
+- **连接地址**：dev `ws://localhost:3000/ws`（vite proxy，需配 `{target:'http://localhost:8080', ws:true}`）；prod `wss://okjjko.top/ws`（nginx 终止 TLS 并反代到 Node :8080，需 `Upgrade`/`Connection:upgrade` 头与 `proxy_read_timeout 3600s`）。
+
+- **部署**：单 Node 进程 + nginx TLS 终止。不再需要 PeerJS server / coturn / STUN / TURN。8080 不对公网开放，仅本机 nginx 访问。详见 `docs/SERVER-SETUP.md` 与 `server/README.md`。
+
+- **已移除**：`src/config/webrtc.config.js`（peerjs/config/timeout/retry 废弃，lobby 三字段迁至 `network.config.js`）、PeerJS 依赖、coturn TURN 配置。
 
 **Multiplayer UI:**
 

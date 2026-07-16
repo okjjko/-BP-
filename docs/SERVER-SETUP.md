@@ -1,6 +1,11 @@
 # 服务器部署指南
 
-本文档说明如何在阿里云服务器上部署 PeerJS 和 TURN 服务器，实现公网环境下的多人对战连接。
+本文档说明如何在云服务器上部署 BP 对战工具的**单进程中心化 WebSocket 后端**。
+
+> **架构变更（2026-07）**：已从「PeerJS 信令 + coturn TURN + lobby 三服务」重构为
+> **单一 Node 进程**（ws hub + lobby HTTP + 静态前端 dist + SPA fallback 四合一）。
+> 不再需要 PeerJS、coturn、STUN/TURN。TLS 由 nginx 终止，Node 监听明文 :8080。
+> 详细后端文档见 `server/README.md`，协议契约见 `docs/network-protocol.md`。
 
 ## 目录
 
@@ -16,71 +21,62 @@
 
 ## 前置要求
 
-- **服务器**：阿里云 ECS 服务器（1核 2GB 内存即可）
-- **操作系统**：Ubuntu 20.04+ 或 CentOS 7+
-- **域名**（可选）：用于 SSL 证书，建议配置
-- **权限**：服务器 root 权限或 sudo 权限
+- **服务器**：阿里云 ECS（1核 2GB 内存即可；多人对战为回合制、每次几十字节，资源消耗极低）
+- **操作系统**：Ubuntu 20.04+ 或 Alibaba Cloud Linux 3+
+- **域名**：用于 SSL 证书（强烈建议，否则 wss 无法工作）
+- **权限**：root 或 sudo
 
 ---
 
 ## 架构说明
 
 ```
-┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
-│   客户端 A       │         │  阿里云服务器      │         │   客户端 B       │
-│                 │         │                  │         │                 │
-│  PeerJS Client  │◄──────►│  PeerJS Server   │◄──────►│  PeerJS Client  │
-│  (信令连接)      │         │  (端口 9000)      │         │  (信令连接)      │
-└─────────────────┘         └──────────────────┘         └─────────────────┘
+┌──────────────┐         ┌──────────────────────┐         ┌──────────────┐
+│  客户端 A     │         │   nginx (TLS 终止)    │         │  客户端 B     │
+│              │  wss    │                      │  ws     │              │
+│  WebSocket ◄─┼────────►│  443 → 127.0.0.1:8080├────────►│  WebSocket   │
+│              │         │  (Upgrade 头透传)     │         │              │
+└──────────────┘         └──────────┬───────────┘         └──────────────┘
                                     │
-                                    │ 帮助建立连接
                                     ▼
-┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
-│   客户端 A       │         │  TURN Server     │         │   客户端 B       │
-│                 │◄──────►│  (coturn)        │◄──────►│                 │
-│  WebRTC Data    │  (P2P  │  (端口 3478)      │  中继   │  WebRTC Data    │
-│                 │  或    │                  │         │                 │
-└─────────────────┘  中继  └──────────────────┘         └─────────────────┘
+                         ┌──────────────────────┐
+                         │  Node :8080 (单进程)  │
+                         │  · ws hub /ws         │  ← 实时状态中转
+                         │  · lobby /rooms       │  ← 公共房间目录
+                         │  · 静态 dist          │  ← 前端构建产物
+                         │  · SPA fallback       │  ← history 刷新
+                         └──────────────────────┘
 ```
 
-**工作流程：**
-
-1. **信令阶段**：客户端通过 PeerJS 服务器交换连接信息
-2. **连接建立**：尝试直接 P2P 连接（STUN 帮助 NAT 穿透）
-3. **数据传输**：
-   - 如果可以 P2P：直接传输，无需服务器参与
-   - 如果无法 P2P：通过 TURN 服务器中继数据
+**工作流程**：每个客户端与服务器维持一条 WebSocket 连接；所有游戏状态由服务器中转。
+不再有 P2P 握手、NAT 穿透、TURN 中继——连接稳定性等同于普通网站。
 
 ---
 
 ## 快速部署
 
-如果您熟悉 Linux 服务器操作，可以使用以下快速部署命令：
-
 ```bash
-# 1. 安装依赖
-apt-get update && apt-get install -y nodejs coturn certbot
-
-# 2. 安装 PM2
+# 1. 安装 Node 18+ 与 PM2、nginx
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+apt-get install -y nodejs nginx
 npm install -g pm2
 
-# 3. 部署 PeerJS 服务器
-mkdir -p /opt/peerjs-server && cd /opt/peerjs-server
-npm init -y
-npm install peer express
+# 2. 上传代码（server/ + 根目录构建的 dist/）
+#    要求部署后 server/index.js 的 ../dist 能访问到前端构建产物
+git clone <repo> /opt/bp-tool && cd /opt/bp-tool
+npm install && npm run build          # 生成 dist/
 
-# 创建 server.js (见下方详细代码)
-# ...
+# 3. 启动后端
+cd server && npm install
+pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
 
-# 4. 配置 TURN 服务器
-# 编辑 /etc/turnserver.conf (见下方详细配置)
-# ...
+# 4. 申请证书 + 配置 nginx（见下文）
+certbot certonly --standalone -d your-domain.com
+# 编辑 nginx 配置后
+nginx -t && nginx -s reload
 
-# 5. 开放防火墙
-ufw allow 9000/tcp
-ufw allow 3478/tcp
-ufw allow 3478/udp
-ufw allow 49152:65535/udp
+# 5. 开放防火墙：仅 80/443，8080 不对公网开放
+ufw allow 80/tcp && ufw allow 443/tcp
 ```
 
 ---
@@ -89,899 +85,266 @@ ufw allow 49152:65535/udp
 
 ### 第一步：安装依赖
 
-#### 1.1 更新系统
-
 ```bash
-apt-get update
-apt-get upgrade -y
-```
+apt-get update && apt-get upgrade -y
 
-#### 1.2 安装 Node.js 18.x
-
-```bash
-# 检查是否已安装
-node -v
-
-# 如果未安装或版本过低
+# Node.js 18+
 curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 apt-get install -y nodejs
+node -v   # v18.x.x
 
-# 验证安装
-node -v   # 应显示 v18.x.x
-npm -v    # 应显示 9.x.x 或更高
-```
+# nginx
+apt-get install -y nginx
 
-#### 1.3 安装 coturn
-
-```bash
-apt-get install -y coturn
-
-# 验证安装
-turnserver --version
-```
-
-#### 1.4 安装 PM2
-
-```bash
+# PM2
 npm install -g pm2
-
-# 验证安装
 pm2 --version
-```
 
----
-
-### 第二步：部署 PeerJS 服务器
-
-#### 2.1 创建项目目录
-
-```bash
-mkdir -p /opt/peerjs-server
-cd /opt/peerjs-server
-```
-
-#### 2.2 初始化项目
-
-```bash
-npm init -y
-npm install peer express
-```
-
-#### 2.3 创建服务器代码
-
-```bash
-nano server.js
-```
-
-**HTTP 版本（测试用，无需 SSL）：**
-
-```javascript
-const Express = require('express');
-const PeerServer = require('peer').ExpressPeerServer;
-
-const app = Express();
-
-// 使用 HTTP（仅用于测试，生产环境请使用 HTTPS）
-app.use('/peerjs', PeerServer(null, {
-  debug: true,
-  path: '/peerjs',
-  allow_discovery: true
-}));
-
-const PORT = 9000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`PeerJS 服务器运行在端口 ${PORT}`);
-  console.log(`访问地址: http://$(hostname -I | awk '{print $1}'):${PORT}/peerjs`);
-});
-```
-
-**HTTPS 版本（生产环境推荐）：**
-
-```javascript
-const Express = require('express');
-const PeerServer = require('peer').ExpressPeerServer;
-const https = require('https');
-const fs = require('fs');
-
-const app = Express();
-
-// HTTPS 配置（需要先获取 SSL 证书，见下方）
-const options = {
-  key: fs.readFileSync('/etc/letsencrypt/live/your-domain.com/privkey.pem'),
-  cert: fs.readFileSync('/etc/letsencrypt/live/your-domain.com/fullchain.pem')
-};
-
-const server = https.createServer(options, app);
-
-app.use('/peerjs', PeerServer(server, {
-  debug: true,
-  path: '/peerjs',
-  allow_discovery: true
-}));
-
-const PORT = 9000;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`PeerJS 服务器运行在端口 ${PORT}`);
-  console.log(`访问地址: https://your-domain.com:${PORT}/peerjs`);
-});
-```
-
-#### 2.4 配置 SSL 证书（可选但推荐）
-
-**安装 Certbot：**
-
-```bash
+# Certbot（SSL）
 apt-get install -y certbot
 ```
 
-**获取证书：**
+> 阿里云 Alibaba Cloud Linux 用户：nginx 可能是 `aa_nginx` 包（`dnf install aa_nginx`），命令与配置等价。
+
+### 第二步：上传代码并构建前端
 
 ```bash
-# 替换为您的域名
+# 在服务器上
+mkdir -p /opt/bp-tool && cd /opt/bp-tool
+git clone <your-repo> .            # 或 scp 上传
+npm install
+npm run build                     # 生成 dist/
+
+# 目录结构（关键）：
+# /opt/bp-tool/
+#   dist/                 ← 前端构建产物（被 server 当静态托管）
+#   server/
+#     index.js            ← ../dist 即指向 /opt/bp-tool/dist
+```
+
+> `server/index.js` 用 `path.resolve(__dirname, '..', 'dist')` 定位 dist，
+> 因此 **server/ 必须与 dist/ 同级**（即 dist 在 server 的上级目录）。
+
+### 第三步：启动 Node 后端
+
+```bash
+cd /opt/bp-tool/server
+npm install                       # 安装 ws
+pm2 start ecosystem.config.cjs    # 监听 127.0.0.1 隐含的 :8080（0.0.0.0，但防火墙只放 80/443）
+pm2 save
+pm2 startup                       # 按提示执行返回的命令，开机自启
+```
+
+验证：
+
+```bash
+curl http://localhost:8080/health
+# {"ok":true,"service":"bp-server","rooms":0,"uptime":...}
+
+pm2 logs bp-server                # 应看到「BP 中心化服务已启动，监听 :8080」
+```
+
+### 第四步：申请 SSL 证书
+
+```bash
+# 临时停 nginx 让 certbot 占用 80
+nginx -s stop 2>/dev/null || true
 certbot certonly --standalone -d your-domain.com
 
-# 证书将保存在：
-# /etc/letsencrypt/live/your-domain.com/privkey.pem
+# 证书位置：
 # /etc/letsencrypt/live/your-domain.com/fullchain.pem
-```
+# /etc/letsencrypt/live/your-domain.com/privkey.pem
 
-**设置自动续期：**
-
-```bash
-# 添加定时任务
+# 自动续期
 crontab -e
-
-# 添加以下行（每天凌晨 2 点检查并续期）
-0 2 * * * certbot renew --quiet --post-hook "pm2 restart peerjs-server"
+# 添加：每天凌晨检查续期，续期后重载 nginx
+0 2 * * * certbot renew --quiet --post-hook "nginx -s reload"
 ```
 
-#### 2.5 启动 PeerJS 服务器
+### 第五步：配置 nginx（TLS 终止 + wss 反代）
+
+编辑 `/etc/nginx/sites-available/bp-tool`（或 `conf.d/bp-tool.conf`）：
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate     /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # 静态前端 + SPA + lobby HTTP —— 全部反代到 Node :8080
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket upgrade（wss 握手关键）
+    location /ws {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;          # 必须
+        proxy_set_header Connection "upgrade";           # 必须
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;                        # 长连接，防 idle 断开
+        proxy_send_timeout 3600s;
+    }
+}
+
+# 80 → 443 跳转
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+启用并重载：
 
 ```bash
-# 使用 PM2 启动
-pm2 start server.js --name peerjs-server
-
-# 保存 PM2 配置
-pm2 save
-
-# 设置开机自启
-pm2 startup
-# 按照提示执行返回的命令
+ln -sf /etc/nginx/sites-available/bp-tool /etc/nginx/sites-enabled/
+nginx -t && nginx -s reload
 ```
 
-#### 2.6 验证 PeerJS 服务器
+### 第六步：防火墙 / 安全组
+
+仅放行 80、443。**8080 不对公网开放**（仅本机 nginx 访问）。
 
 ```bash
-# 查看服务状态
-pm2 status peerjs-server
-
-# 查看日志
-pm2 logs peerjs-server
-
-# 测试访问
-curl http://localhost:9000/peerjs
-# 应返回: {"name":"peerjs-server"}
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw deny 8080/tcp
 ```
+
+阿里云安全组同理：入方向只开 80/443。
+
+### 第七步：验证
+
+```bash
+curl https://your-domain.com/health                    # {"ok":true,...}
+curl https://your-domain.com/lobby/rooms               # {"ok":true,"rooms":[],...}
+
+# 浏览器打开 https://your-domain.com
+# F12 → Network → WS：应看到 /ws 连接，状态 101 Switching Protocols
+```
+
+三端（host + 2 player）跑一小局 BP，验证状态同步、身份分配、断线重连。
 
 ---
 
-### 第三步：部署 TURN 服务器
+## 前端配置
 
-#### 3.1 生成认证凭证
+前端 ws 地址在 `src/config/network.config.js`（dev/prod 分离，由 B agent 维护）：
 
-```bash
-# 生成一个随机密码（记下这个密码）
-openssl rand -hex 16
-# 输出示例: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
-```
-
-#### 3.2 创建 TURN 用户
-
-```bash
-# 格式：turnadmin -a -u 用户名 -p 密码 -r 域名
-# 替换为您的实际密码
-turnadmin -a -u bpuser -p a1b2c3d4e5f6g7h8 -r your-domain.com
-
-# 如果使用服务器 IP 而非域名
-turnadmin -a -u bpuser -p a1b2c3d4e5f6g7h8 -r $(hostname -I | awk '{print $1}')
-```
-
-#### 3.3 配置 coturn
-
-**编辑配置文件：**
-
-```bash
-nano /etc/turnserver.conf
-```
-
-**粘贴以下配置：**
-
-```ini
-# 监听设备（根据实际情况调整）
-listening-device=eth0
-listening-port=3478
-
-# 中继设备
-relay-device=eth0
-relay-ip=your-server-ip
-
-# 外部 IP 地址（重要！替换为您的服务器公网 IP）
-external-ip=your-server-ip
-
-# 认证方式
-lt-cred-mech
-
-# 用户凭证（替换为您生成的密码）
-user=bpuser:a1b2c3d4e5f6g7h8
-
-# 域名
-realm=your-domain.com
-
-# 日志配置
-log-file=/var/log/turnserver.log
-verbose
-
-# 启用 STUN/TURN 功能
-fingerprint
-
-# 不使用 CLI
-no-cli
-
-# 禁用旧版本 TLS
-no-tlsv1
-no-tlsv1.1
-
-# 支持的传输协议
-```
-
-**注意**：将以下替换为实际值：
-- `your-server-ip`：您的服务器公网 IP
-- `a1b2c3d4e5f6g7h8`：您生成的密码
-- `your-domain.com`：您的域名（如无域名，使用服务器 IP）
-
-#### 3.4 配置防火墙
-
-**使用 ufw（Ubuntu）：**
-
-```bash
-# PeerJS 端口
-ufw allow 9000/tcp
-
-# TURN 端口
-ufw allow 3478/tcp
-ufw allow 3478/udp
-
-# TURN 中继端口范围
-ufw allow 49152:65535/udp
-
-# 查看防火墙状态
-ufw status
-```
-
-**使用 iptables：**
-
-```bash
-# PeerJS 端口
-iptables -A INPUT -p tcp --dport 9000 -j ACCEPT
-
-# TURN 端口
-iptables -A INPUT -p tcp --dport 3478 -j ACCEPT
-iptables -A INPUT -p udp --dport 3478 -j ACCEPT
-iptables -A INPUT -p udp --dport 49152:65535 -j ACCEPT
-
-# 保存规则
-service iptables save
-# 或
-iptables-save > /etc/iptables/rules.v4
-```
-
-#### 3.5 阿里云安全组配置
-
-1. 登录阿里云控制台
-2. 进入 **云服务器 ECS** → **实例**
-3. 点击您的实例 → **安全组**
-4. 点击 **配置规则** → **添加安全组规则**
-
-**添加以下入方向规则：**
-
-| 协议类型 | 端口范围 | 授权对象 | 描述 |
-|---------|---------|---------|------|
-| TCP | 9000 | 0.0.0.0/0 | PeerJS 服务器 |
-| TCP | 3478 | 0.0.0.0/0 | TURN TCP |
-| UDP | 3478 | 0.0.0.0/0 | TURN UDP |
-| UDP | 49152-65535 | 0.0.0.0/0 | TURN 中继 |
-
-#### 3.6 启动 coturn 服务
-
-```bash
-# 启用服务
-systemctl enable coturn
-
-# 启动服务
-systemctl start coturn
-
-# 检查服务状态
-systemctl status coturn
-
-# 查看日志
-tail -f /var/log/turnserver.log
-```
-
-#### 3.7 测试 TURN 服务器
-
-**方法 1：使用 Trickle ICE 测试工具**
-
-1. 访问：https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/
-2. 在 **"STUN or TURN URI"** 输入：
-   ```
-   turn:your-server-ip:3478
-   ```
-3. 在 **"TURN username"** 输入：
-   ```
-   bpuser
-   ```
-4. 在 **"TURN password"** 输入：
-   ```
-   a1b2c3d4e5f6g7h8
-   ```
-5. 点击 **"Gather candidates"**
-
-**预期结果：**
-- 应该看到 `srflx`（STUN 成功）
-- 应该看到 `relay`（TURN 成功）
-
-**方法 2：命令行测试**
-
-```bash
-# 安装 turnutils_uclient
-apt-get install -y turnserver
-
-# 测试 TURN 服务器
-turnutils_uclient -v -u bpuser -w a1b2c3d4e5f6g7h8 your-server-ip
-```
-
----
-
-### 第四步：更新前端配置
-
-#### 4.1 编辑前端配置文件
-
-编辑项目中的 `src/config/webrtc.config.js`：
-
-```javascript
-export default {
-  debug: 2,
-
-  // PeerJS 服务器配置
-  peerjs: {
-    host: 'your-domain.com',    // 替换为您的域名或服务器 IP
-    port: 9000,                  // PeerJS 端口
-    path: '/peerjs',
-    secure: true                 // 使用 HTTPS（生产环境）
-  },
-
-  // ICE 服务器配置
-  config: {
-    iceServers: [
-      // 公共 STUN 服务器
-      { urls: 'stun:stun.l.google.com:19302' },
-
-      // 自建 TURN 服务器
-      {
-        urls: [
-          'turn:your-domain.com:3478?transport=udp',
-          'turn:your-domain.com:3478?transport=tcp'
-        ],
-        username: 'bpuser',
-        credential: 'a1b2c3d4e5f6g7h8'  // 您生成的密码
-      }
-    ]
-  },
-
-  timeout: {
-    connection: 30000,
-    heartbeat: 15000
-  },
-
-  retry: {
-    maxAttempts: 3,
-    delay: 2000
+```js
+{
+  ws: {
+    devUrl: 'ws://localhost:3000/ws',     // dev 经 vite proxy → 本地 :8080
+    prodUrl: 'wss://your-domain.com/ws'   // 生产 nginx 反代 → :8080
   }
 }
 ```
 
-#### 4.2 重新构建前端
+dev 必须在 `vite.config.js` 配置 `/ws` proxy（`{ target: 'http://localhost:8080', ws: true }`）。
+
+放行前端域名（若前端部署在 vercel 等非 your-domain.com 域名，lobby CORS 需要）：
 
 ```bash
-# 在项目根目录
-npm run build
-
-# 或使用开发服务器测试
-npm run dev
+# 编辑 server/ecosystem.config.cjs 的 env
+LOBBY_EXTRA_ORIGINS: 'https://your-project.vercel.app'
+pm2 restart bp-server
 ```
-
----
-
-### 第五步（可选）：部署公共房间目录服务（lobby）
-
-> 公共房间列表功能需要本服务。若仅需"邀请码"私密开房，可跳过本步。
-> lobby 是可选增强层：部署失败不影响 BP 本身（房间退化为私密，仍可用邀请码）。
-
-lobby 服务让房主可开"对所有人开放"的房间，其他人从公共列表一键加入，省去邀请码传递。
-它**不参与 P2P 数据传输**（P2P 仍由 PeerJS 处理），只维护一个临时房间目录。零运行时依赖
-（Node 原生 http + 内存存储），与 PeerJS/coturn 同机部署。
-
-#### 5.1 上传并启动（PM2）
-
-```bash
-# 上传 server/ 目录到 ECS（零依赖，无需 npm install）
-scp -r server/ root@your-domain.com:/opt/bp-lobby-server/
-
-# 用 PM2 启动（复用已配置的 pm2 startup）
-cd /opt/bp-lobby-server
-pm2 start ecosystem.config.cjs    # 监听 8800
-pm2 save
-```
-
-#### 5.2 nginx 反代到 https 子路径（必须）
-
-前端部署在 https，直接请求 `http://your-domain.com:8800` 会触发**混合内容拦截**。
-必须反代到 `https://your-domain.com/lobby`（复用现有 Let's Encrypt 证书），8800 不对公网开放：
-
-```nginx
-location /lobby/ {
-    proxy_pass http://127.0.0.1:8800/;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-```bash
-nginx -t && nginx -s reload
-curl https://your-domain.com/lobby/rooms   # 应返回 {"ok":true,"rooms":[]}
-```
-
-#### 5.3 放行前端域名（CORS）
-
-lobby 默认放行 `https://your-domain.com` 与 `http://localhost:3000`。若前端部署在 vercel 等其他域名，
-在 `server/ecosystem.config.cjs` 的 env 追加 `LOBBY_EXTRA_ORIGINS`，然后 `pm2 restart bp-lobby-server`：
-
-```js
-env: { NODE_ENV: 'production', PORT: 8800, LOBBY_EXTRA_ORIGINS: 'https://your-project.vercel.app' }
-```
-
-详细 API 与运维见 `server/README.md`。房间无心跳 60s 自动过期清理；进程重启会清空目录。
 
 ---
 
 ## 前端项目更新部署
 
-当本地代码推送到 GitHub 后，在服务器上执行以下命令更新前端项目：
-
-> ℹ️ 以下命令中的 `/var/www/bp-tool` 为默认路径示例，实际以你服务器的部署位置为准。
-
-### 更新步骤
-
 ```bash
-# 1. 进入项目目录
-cd /var/www/bp-tool
-
-# 2. 拉取最新代码
+cd /opt/bp-tool
 git pull origin master
-
-# 3. 安装依赖（如有新增）
-npm install
-
-# 4. 构建生产版本
-npm run build
-
-# 5. 重启 nginx
-nginx -s reload
+npm install                # 如有新依赖
+npm run build              # 重新生成 dist/（server 静态托管自动生效，无需重启）
+# 若改了 server/ 代码：
+cd server && npm install && pm2 restart bp-server
 ```
 
-### 完整示例
-
-```bash
-[root@server ~]# cd /var/www/bp-tool
-[root@server bp-tool]# git pull origin master
-remote: Enumerating objects: 20, done.
-remote: Counting objects: 100% (20/20), done.
-remote: Total 13 (delta 6), reused 0 (delta 0)
-Unpacking objects: 100% (13/13), 12.70 KiB | 3.17 MiB/s
-[root@server bp-tool]# npm install
-up to date, audited 122 packages in 4s
-[root@server bp-tool]# npm run build
-vite v5.4.21 building for production...
-✓ 91 modules transformed.
-built in 4.24s
-[root@server bp-tool]# nginx -s reload
-```
-
-### nginx 常用命令
-
-> 注：阿里云 Alibaba Cloud Linux 用户的 nginx 可能是 `aa_nginx` 包（命令名/包名即 `aa_nginx`），下列命令完全等价。
-
-```bash
-# 重载配置（推荐，不中断服务）
-nginx -s reload
-
-# 停止服务
-nginx -s stop
-
-# 启动服务
-nginx
-
-# 测试配置文件
-nginx -t
-
-# 查看版本
-nginx -v
-```
-
-### 验证更新
-
-更新完成后，访问您的网站确认：
-
-```
-http://你的服务器IP
-```
-
-打开浏览器开发者工具（F12），在 Network 标签勾选 "Disable cache"，然后刷新页面验证资源是否更新。
+> 仅前端变更：`npm run build` 后无需重启 Node（server 每次请求读 dist 文件）。
+> 仅 server 变更：`pm2 restart bp-server`（会清空内存房间，房主需重新开房）。
 
 ---
 
 ## 维护命令
 
-### PeerJS 服务器管理
-
 ```bash
-# 查看状态
-pm2 status
+pm2 status                          # 查看进程状态
+pm2 logs bp-server                  # 实时日志
+pm2 logs bp-server --lines 200      # 最近 200 行
+pm2 restart bp-server               # 重启（清空房间目录与 ws 房间）
+pm2 monit                           # CPU/内存监控
+pm2 show bp-server                  # 详细信息
 
-# 查看日志
-pm2 logs peerjs-server
-
-# 重启服务
-pm2 restart peerjs-server
-
-# 停止服务
-pm2 stop peerjs-server
-
-# 查看详细信息
-pm2 show peerjs-server
-```
-
-### TURN 服务器管理
-
-```bash
-# 查看服务状态
-systemctl status coturn
-
-# 启动服务
-systemctl start coturn
-
-# 停止服务
-systemctl stop coturn
-
-# 重启服务
-systemctl restart coturn
-
-# 查看日志
-tail -f /var/log/turnserver.log
-
-# 查看端口监听
-netstat -tulpn | grep 3478
-```
-
-### 日志管理
-
-```bash
-# PeerJS 日志
-pm2 logs --lines 100 peerjs-server
-
-# TURN 日志（最后 100 行）
-tail -n 100 /var/log/turnserver.log
-
-# TURN 日志（实时）
-tail -f /var/log/turnserver.log
-
-# 清理旧日志（可选）
-truncate -s 0 /var/log/turnserver.log
+nginx -t                             # 测试配置
+nginx -s reload                      # 重载配置（不中断服务）
 ```
 
 ---
 
 ## 故障排查
 
-### 问题 1：PeerJS 服务器无法启动
+### 问题 1：浏览器 ws 连接失败（502/400/无 101）
 
-**症状：**
-```bash
-pm2 status peerjs-server
-# 显示: errored
-```
+- 检查 nginx `/ws` location 是否有 `Upgrade`/`Connection: upgrade` 头（缺一会握手失败）。
+- 检查 `proxy_read_timeout` 是否过小（默认 60s 会让长连接断开，应 ≥ 3600s）。
+- `pm2 logs bp-server` 看是否启动成功、有无监听 :8080。
+- `curl http://localhost:8080/health` 在服务器本机验证 Node 在跑。
 
-**排查步骤：**
+### 问题 2：连接频繁断开
 
-1. 查看日志：
-   ```bash
-   pm2 logs peerjs-server
-   ```
+- 服务器侧心跳：30s ping，45s 无响应断开。若客户端网络差，可能触发。检查客户端 30s ping 是否正常。
+- nginx `proxy_read_timeout` 是否被中间网络节点中断（调大到 3600s）。
+- `pm2 logs` 看是否有 `[ws] 连接错误` 日志。
 
-2. 检查端口是否被占用：
-   ```bash
-   netstat -tulpn | grep 9000
-   ```
+### 问题 3：SPA 刷新 404
 
-3. 检查 SSL 证书（如果使用 HTTPS）：
-   ```bash
-   ls -la /etc/letsencrypt/live/your-domain.com/
-   ```
+- 确认 `dist/` 存在于 `server/` 的上级目录。
+- 确认 nginx `location /` 反代到 :8080（SPA fallback 由 Node 处理，不是 nginx）。
+- `curl http://localhost:8080/some/spa/route` 应返回 index.html。
 
-4. 重启服务：
-   ```bash
-   pm2 restart peerjs-server
-   ```
+### 问题 4：lobby 公共房间列表为空
 
----
+- 房主需在创建房间时勾选「公开房间」才会登记到 lobby。
+- 房主心跳 25s 一次，TTL 60s。若房主掉线超过 60s 房间会被清理。
+- `curl https://your-domain.com/lobby/rooms` 验证。
 
-### 问题 2：TURN 服务器无法连接
+### 问题 5：房间状态不同步
 
-**症状：**
-- Trickle ICE 测试中没有 `relay` 候选
-- 客户端连接失败
-
-**排查步骤：**
-
-1. 检查服务状态：
-   ```bash
-   systemctl status coturn
-   ```
-
-2. 检查端口监听：
-   ```bash
-   netstat -tulpn | grep 3478
-   ```
-
-3. 检查防火墙：
-   ```bash
-   ufw status
-   ```
-
-4. 检查阿里云安全组配置
-
-5. 查看日志：
-   ```bash
-   tail -f /var/log/turnserver.log
-   ```
-
-6. 验证用户凭证：
-   ```bash
-   # 重新创建用户
-   turnadmin -a -u bpuser -p your-password -r your-domain.com
-   systemctl restart coturn
-   ```
-
----
-
-### 问题 3：客户端连接失败
-
-**症状：**
-- 浏览器控制台显示连接错误
-- "peer-unavailable" 错误
-
-**排查步骤：**
-
-1. 检查前端配置：
-   ```javascript
-   // src/config/webrtc.config.js
-   // 确认 host、port、secure 配置正确
-   ```
-
-2. 测试 PeerJS 服务器：
-   ```bash
-   curl http://your-domain.com:9000/peerjs
-   ```
-
-3. 检查浏览器控制台错误：
-   - 打开开发者工具（F12）
-   - 查看 Console 标签
-   - 查找错误信息
-
-4. 检查网络连接：
-   ```bash
-   ping your-domain.com
-   telnet your-domain.com 9000
-   ```
-
----
-
-### 问题 4：连接建立后经常断开
-
-**症状：**
-- 连接几分钟后自动断开
-- 需要频繁重新连接
-
-**可能原因：**
-1. NAT 会话超时
-2. 服务器资源不足
-3. 网络不稳定
-
-**解决方案：**
-
-1. 检查服务器资源：
-   ```bash
-   free -h      # 内存使用
-   df -h        # 磁盘使用
-   top          # CPU 使用
-   ```
-
-2. 检查 TURN 服务器日志：
-   ```bash
-   tail -f /var/log/turnserver.log
-   ```
-
-3. 调整 keep-alive 设置（在 webrtc.config.js 中）
+- 检查 `stateUpdate.version` 是否单调递增（接收方按 version 去重）。
+- `pm2 logs` 看 `[ws]` 转发日志。
+- 协议契约详见 `docs/network-protocol.md`。
 
 ---
 
 ## 成本估算
 
-### 服务器成本
+| 项目 | 规格 | 月成本 |
+|---|---|---|
+| 阿里云 ECS | 1核 2GB | 30-50 元 |
+| 流量 | 回合制，每局 < 1MB | < 1 元 |
+| SSL 证书 | Let's Encrypt | 免费 |
+| 域名 | 可选 | 约 50 元/年 |
 
-| 配置 | 价格 | 说明 |
-|-----|------|------|
-| 1核 2GB | 约 30-50 元/月 | 按量付费 |
-| 2核 4GB | 约 60-100 元/月 | 推荐 |
-
-### 流量成本
-
-| 场景 | 流量消耗 | 成本 |
-|-----|---------|------|
-| 局域网 P2P | 0 MB | 免费 |
-| 公网 P2P | 几 KB/次 | 几乎免费 |
-| TURN 中继 | 1-2 MB/分钟 | 取决于流量包 |
-
-**估算**：
-- 100 对局/月 ≈ 200 MB 流量
-- 按阿里云流量价格：约 0.8 元/GB
-- 月成本：< 1 元
-
-### 免费额度
-
-- **SSL 证书**：免费（Let's Encrypt）
-- **STUN 服务器**：免费（公共 Google STUN）
-
----
-
-## 性能优化
-
-### 1. 启用 TCP 缓解
-
-```bash
-# 编辑 /etc/sysctl.conf
-nano /etc/sysctl.conf
-
-# 添加以下内容
-net.core.rmem_max = 134217728
-net.core.rmem_default = 131072
-net.core.wmem_max = 134217728
-net.core.wmem_default = 131072
-net.ipv4.tcp_rmem = 4096 87380 67108864
-net.ipv4.tcp_wmem = 4096 65536 67108864
-
-# 应用配置
-sysctl -p
-```
-
-### 2. 调整 TURN 服务器配置
-
-编辑 `/etc/turnserver.conf`：
-
-```ini
-# 增加最大带宽
-max-bps=10000000
-
-# 调整总配额
-total-quota=500000000
-
-# 调整每用户配额
-user-quota=100000000
-```
-
-### 3. 使用 Nginx 反向代理（可选）
-
-```bash
-# 安装 Nginx
-apt-get install -y nginx
-
-# 配置反向代理
-nano /etc/nginx/sites-available/peerjs
-```
-
-```nginx
-upstream peerjs_backend {
-    server localhost:9000;
-}
-
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location /peerjs {
-        proxy_pass http://peerjs_backend;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-}
-```
-
----
-
-## 安全建议
-
-### 1. 使用强密码
-
-TURN 密码应至少 32 字符，使用随机生成：
-
-```bash
-openssl rand -hex 32
-```
-
-### 2. 限制访问频率
-
-使用 Nginx 限制请求频率：
-
-```nginx
-limit_req_zone $binary_remote_addr zone=peerjs:10m rate=10r/s;
-
-location /peerjs {
-    limit_req zone=peerjs burst=20;
-    # ...
-}
-```
-
-### 3. 启用防火墙限制
-
-仅允许特定 IP 访问（如需要）：
-
-```bash
-ufw allow from 1.2.3.4 to any port 9000
-```
-
-### 4. 定期更新
-
-```bash
-# 更新系统
-apt-get update && apt-get upgrade -y
-
-# 更新 Node.js 依赖
-cd /opt/peerjs-server
-npm update
-```
+**不再需要**：PeerJS server、coturn TURN、STUN、中继流量包。
 
 ---
 
 ## 参考资料
 
-- [PeerJS 官方文档](https://peerjs.com/docs/)
-- [coturn GitHub](https://github.com/coturn/coturn)
-- [WebRTC ICE 原理](https://webrtc.org/getting-started/turn-server)
-- [阿里云 ECS 文档](https://help.aliyun.com/product/25365.html)
-- [Let's Encrypt 文档](https://letsencrypt.org/docs/)
-
----
-
-## 联系支持
-
-如果遇到问题，请：
-
-1. 查看本文档的故障排查部分
-2. 检查服务器日志
-3. 搜索错误信息
-4. 在项目 GitHub 提交 Issue
+- [ws (WebSocket library) 文档](https://github.com/websockets/ws)
+- [nginx WebSocket proxying](https://nginx.org/en/docs/http/websocket.html)
+- [协议契约](network-protocol.md)
+- [后端 README](../server/README.md)
+- [Let's Encrypt](https://letsencrypt.org/docs/)

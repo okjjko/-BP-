@@ -1,23 +1,21 @@
 /**
- * 公共房间目录服务（lobby service）
+ * 公共房间目录服务（lobby service）—— handler 模块
  *
  * 作用：维护一个临时的"公共房间目录"。房主开公开房时登记，其他人在列表中看到后，
- *   直接复用现有 roomManager.joinRoom(inviteCode) 加入。本服务【不参与 P2P 数据传输】——
- *   P2P 由 roomManager（PeerJS）处理；本服务只做房间目录的登记 / 查询 / 心跳 / 注销。
+ *   复用 roomManager.joinRoom(inviteCode) 加入。本服务【不参与实时数据传输】——
+ *   实时状态由 server/index.js 的 ws hub 处理；本模块只做房间目录的登记 / 查询 / 心跳 / 注销。
  *
- * 设计：Node 原生 http + 内存 Map，零运行时依赖。房间是临时的（房主在线才有），
- *   无心跳超 60s 视为下线自动清理；进程重启即清空（重新开房即可，可接受）。
+ * 设计：Node 原生 http handler + 内存 Map，零运行时依赖（除主进程外）。房间是临时的
+ *   （房主在线才有），无心跳超 60s 视为下线自动清理；进程重启即清空。
  *
- * 部署：与现有 PeerJS:9000 / coturn:3478 同 ECS，监听 8800，由 nginx 反代到
- *   https://okjjko.top/lobby（解决 https 前端的混合内容问题）。详见 README.md。
+ * 本模块只 export handler 与工具，由 server/index.js 统一挂载到 http server。
+ * 不再自启动 createServer/listen，不注册 SIGINT（交给 index.js）。
  */
 
-import http from 'node:http'
 import crypto from 'node:crypto'
 
 // ==================== 配置 ====================
 
-const PORT = Number(process.env.PORT) || 8800
 const TTL_MS = Number(process.env.LOBBY_TTL_MS) || 60 * 1000                  // 心跳过期阈值：60s 无心跳视为下线
 const MAX_AGE_MS = Number(process.env.LOBBY_MAX_AGE_MS) || 6 * 60 * 60 * 1000 // 房间最大存活：6h（硬上限，防内存占用）
 const CLEANUP_INTERVAL_MS = Number(process.env.LOBBY_CLEANUP_MS) || 30 * 1000 // 兜底清理扫描间隔
@@ -213,12 +211,24 @@ function handleDelete(req, res, origin, code) {
 }
 
 function handleHealth(res, origin) {
-  sendJson(res, 200, { ok: true, service: 'bp-lobby-server', rooms: rooms.size, uptime: process.uptime() }, origin)
+  sendJson(res, 200, { ok: true, service: 'bp-server', rooms: rooms.size, uptime: process.uptime() }, origin)
 }
 
-// ==================== HTTP 服务 ====================
+// ==================== HTTP 挂载入口 ====================
 
-const server = http.createServer(async (req, res) => {
+/**
+ * 处理一条 lobby HTTP 请求。
+ * 由 index.js 在确认路径属于 lobby（/lobby/* 或裸 /rooms、/health 等）后调用。
+ * 返回 true 表示已处理（已 res.end）；false 表示路径不匹配 lobby 路由（交回 index.js 走 SPA fallback）。
+ *
+ * 兼容 nginx 是否 strip /lobby 前缀：parts[0]==='lobby' 时 shift。
+ *
+ * @param {IncomingMessage} req
+ * @param {ServerResponse} res
+ * @param {string} pathname  已 normalize 的 pathname（无 query）
+ * @returns {Promise<boolean>} 是否已处理
+ */
+export async function handleLobbyRequest(req, res, pathname) {
   const origin = allowOrigin(req)
   const ip = clientIp(req)
 
@@ -232,52 +242,82 @@ const server = http.createServer(async (req, res) => {
     }
     if (origin) headers['Access-Control-Allow-Origin'] = origin
     res.writeHead(204, headers)
-    return res.end()
+    res.end()
+    return true
   }
 
-  // 解析路径（兼容有无 /lobby 前缀，取决于 nginx 反代是否 strip 前缀）
-  let pathname
-  try {
-    pathname = new URL(req.url, 'http://localhost').pathname
-  } catch (e) {
-    return sendJson(res, 400, { ok: false, error: 'BAD_URL' }, origin)
-  }
   const parts = pathname.split('/').filter(Boolean)
   if (parts[0] === 'lobby') parts.shift()  // 容错：nginx 未 strip /lobby 前缀
 
   try {
-    // GET / 或 /health —— 健康检查
+    // GET / 或 /health —— 健康检查（注意：裸 / 由 index.js 走 SPA fallback，仅 /health、/lobby、/lobby/health 走这里）
     if ((parts.length === 0 || (parts.length === 1 && parts[0] === 'health')) && req.method === 'GET') {
-      return handleHealth(res, origin)
+      handleHealth(res, origin)
+      return true
     }
 
     // /rooms 及子路由
     if (parts[0] === 'rooms') {
       if (parts.length === 1) {
-        if (req.method === 'POST') return await handlePostRooms(req, res, origin, ip)
-        if (req.method === 'GET') return handleGetRooms(res, origin, ip)
+        if (req.method === 'POST') { await handlePostRooms(req, res, origin, ip); return true }
+        if (req.method === 'GET') { handleGetRooms(res, origin, ip); return true }
       } else if (parts.length === 2 && req.method === 'DELETE') {
-        return handleDelete(req, res, origin, normalizeCode(parts[1]))
+        handleDelete(req, res, origin, normalizeCode(parts[1]))
+        return true
       } else if (parts.length === 3 && parts[2] === 'heartbeat' && req.method === 'POST') {
-        return await handleHeartbeat(req, res, origin, normalizeCode(parts[1]))
+        await handleHeartbeat(req, res, origin, normalizeCode(parts[1]))
+        return true
       }
     }
 
-    sendJson(res, 404, { ok: false, error: 'NOT_FOUND', path: pathname }, origin)
+    // 不匹配任何 lobby 路由：交回 index.js（让其决定 404 或 SPA fallback）
+    return false
   } catch (err) {
     console.error('[lobby] 处理异常:', err)
     if (!res.headersSent) sendJson(res, 500, { ok: false, error: 'INTERNAL' }, origin)
+    return true
   }
-})
+}
 
-server.listen(PORT, () => {
-  console.log(`[lobby] 公共房间目录服务已启动，监听 :${PORT}`)
-  console.log(`[lobby] 允许的 Origin: ${[...ALLOWED_ORIGINS].join(', ')}`)
-})
+/**
+ * 判断 pathname 是否应该交给 lobby handler。
+ * 用于 index.js 路由优先级判断（避免把 /rooms 等当 SPA fallback）。
+ * @param {string} pathname
+ * @returns {boolean}
+ */
+export function isLobbyPath(pathname) {
+  const parts = pathname.split('/').filter(Boolean)
+  const hasLobbyPrefix = parts[0] === 'lobby'
+  if (hasLobbyPrefix) parts.shift()
+  // 裸 / 或 /lobby 不算 lobby 路由（交给 SPA fallback 返回 index.html）
+  if (parts.length === 0) return hasLobbyPrefix ? true : false
+  // /lobby/* 整个命名空间都属于 lobby：未匹配具体子路由时由 index.js 返回 404（不 SPA fallback）
+  if (hasLobbyPrefix) return true
+  if (parts[0] === 'health') return true                 // /health
+  if (parts[0] === 'rooms') return true                  // /rooms、/rooms/:code、/rooms/:code/heartbeat
+  return false
+}
 
-// 兜底定时清理（即便无人查询也清；.unref 让进程能正常退出）
-const cleanupTimer = setInterval(cleanupExpired, CLEANUP_INTERVAL_MS)
-cleanupTimer.unref()
+/**
+ * 启动 lobby 兜底定时清理。由 index.js 在启动时调用一次。
+ * 返回 timer 引用（便于测试；.unref 已在内部处理，不阻塞进程退出）。
+ */
+export function startLobbyCleanupTimer() {
+  const timer = setInterval(cleanupExpired, CLEANUP_INTERVAL_MS)
+  timer.unref()
+  return timer
+}
 
-process.on('SIGINT', () => { console.log('[lobby] 收到 SIGINT，退出'); process.exit(0) })
-process.on('SIGTERM', () => { console.log('[lobby] 收到 SIGTERM，退出'); process.exit(0) })
+// 便于测试/运维的内省导出
+export function getLobbyStats() {
+  return { rooms: rooms.size, allowedOrigins: [...ALLOWED_ORIGINS] }
+}
+
+export const _internal = {
+  rooms,
+  cleanupExpired,
+  normalizeCode,
+  isValidCode,
+  isValidHostName,
+  ALLOWED_ORIGINS
+}

@@ -13,13 +13,20 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     strictPort: false,
-    // dev 环境：将 /lobby 代理到本地 lobby 目录服务（server/lobby-server.js，默认 8800）
-    // 生产环境前端直接用 https://okjjko.top/lobby（见 src/config/webrtc.config.js），不走此 proxy
+    // dev 环境：将 /lobby 代理到本地 server/index.js（lobby 已与 ws hub 同进程，默认 8080）
+    // 生产环境前端直接用 https://okjjko.top/lobby（见 src/config/network.config.js），不走此 proxy
     proxy: {
       '/lobby': {
-        target: process.env.LOBBY_TARGET || 'http://localhost:8800',
+        target: process.env.LOBBY_TARGET || 'http://localhost:8080',
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/lobby/, '')
+      },
+      // WebSocket 代理：dev 经 /ws 连本地 ws hub（server/index.js，默认 8080）
+      // 生产环境前端用 wss://okjjko.top/ws（见 src/config/network.config.js），由 nginx 终止 TLS 并反代
+      '/ws': {
+        target: process.env.WS_TARGET || 'http://localhost:8080',
+        ws: true,
+        changeOrigin: true
       }
     }
   },
