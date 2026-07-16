@@ -20,6 +20,9 @@
           <PlayerInfo player="player2" />
         </div>
       </div>
+
+      <!-- 当前比赛规则摘要（所有角色可见，只读） -->
+      <RulesSummary />
     </div>
 
     <!-- 全局状态栏：永久禁用 + 已使用植物 -->
@@ -129,6 +132,7 @@ import PickArea from '@/components/PickArea.vue'
 import UsedPlants from '@/components/UsedPlants.vue'
 import PlantSelector from '@/components/PlantSelector.vue'
 import PositionSetup from '@/components/PositionSetup.vue'
+import RulesSummary from '@/components/RulesEditor/RulesSummary.vue'
 import PlantManager from '@/components/PlantManager/index.vue'
 
 const store = useGameStore()

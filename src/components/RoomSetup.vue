@@ -227,6 +227,16 @@
             </div>
           </div>
 
+          <!-- 规则配置区（仅 host 可见；赛前 gameStatus===setup 时可编辑，编辑器内部自行判定权限） -->
+          <div class="rules-config-section mt-4 rounded-lg border border-purple-500/30 bg-purple-900/10 p-3">
+            <div class="mb-2 flex items-center gap-1.5 text-xs font-bold text-purple-300">
+              <Crown :size="14" />
+              赛前规则配置（仅主办方可改）
+            </div>
+            <SideRulesEditor />
+            <BPRulesEditor />
+          </div>
+
           <!-- 确认开始按钮 -->
           <button
             @click="confirmStart"
@@ -394,6 +404,8 @@ import {
   CircleX, Lock, HelpCircle, Loader2,
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'
+import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const emit = defineEmits(['startGame', 'cancel'])
 const store = useGameStore()
