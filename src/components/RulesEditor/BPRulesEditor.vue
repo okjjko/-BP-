@@ -10,6 +10,16 @@
     </summary>
 
     <div class="px-4 pb-4 pt-2 space-y-5">
+      <!-- 多人对局进行中锁定提示 -->
+      <div
+        v-if="!store.isRuleEditable"
+        class="text-xs text-gray-500 bg-gray-800/40 border border-gray-700/50 rounded-md px-3 py-2 flex items-center gap-2"
+      >
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <span>规则已锁定（对局进行中）</span>
+      </div>
       <!-- 功能4：同种植物使用上限 -->
       <section class="rounded-lg bg-black/20 border border-white/5 p-3">
         <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -23,6 +33,7 @@
               min="1"
               max="5"
               :value="maxPlantUsage"
+              :disabled="!canEditRules"
               @input="onMaxUsageInput"
               class="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
             />
@@ -39,6 +50,7 @@
             <!-- 预设模板下拉 -->
             <select
               v-model="selectedPreset"
+              :disabled="!canEditRules"
               @change="applyPreset"
               class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
             >
@@ -49,6 +61,7 @@
             <button
               type="button"
               @click="resetToDefault"
+                  :disabled="!canEditRules"
               class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
             >
               重置为默认
@@ -74,6 +87,7 @@
                 <button
                   type="button"
                   @click="addStep(stageIdx)"
+                  :disabled="!canEditRules"
                   class="text-[11px] px-1.5 py-0.5 rounded bg-pick-blue/20 hover:bg-pick-blue/40 text-pick-blue border border-pick-blue/40 transition-colors"
                 >
                   + 步骤
@@ -82,6 +96,7 @@
                   type="button"
                   v-if="stage.length === 0"
                   @click="removeStage(stageIdx)"
+                  :disabled="!canEditRules"
                   class="text-[11px] px-1.5 py-0.5 rounded bg-ban-red/20 hover:bg-ban-red/40 text-ban-red border border-ban-red/40 transition-colors"
                 >
                   删除阶段
@@ -104,6 +119,7 @@
                 <!-- action 选择 -->
                 <select
                   v-model="step.action"
+                  :disabled="!canEditRules"
                   @change="commit"
                   class="bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
                   :class="step.action === 'ban' ? 'text-ban-red' : 'text-pick-blue'"
@@ -115,6 +131,7 @@
                 <!-- player 选择 -->
                 <select
                   v-model="step.player"
+                  :disabled="!canEditRules"
                   @change="commit"
                   class="bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
                 >
@@ -130,6 +147,7 @@
                     min="1"
                     max="9"
                     v-model.number="step.count"
+                    :disabled="!canEditRules"
                     @change="commit"
                     class="w-12 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
                   />
@@ -138,6 +156,7 @@
                 <button
                   type="button"
                   @click="removeStep(stageIdx, stepIdx)"
+                  :disabled="!canEditRules"
                   class="ml-auto text-[11px] px-1.5 py-0.5 rounded bg-gray-700 hover:bg-ban-red/40 text-gray-300 hover:text-ban-red transition-colors"
                   aria-label="删除步骤"
                 >
@@ -152,6 +171,7 @@
         <button
           type="button"
           @click="addStage"
+                  :disabled="!canEditRules"
           class="w-full text-xs px-2 py-1.5 rounded border border-dashed border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 transition-colors"
         >
           + 新增阶段
@@ -169,9 +189,25 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { PRESET_TEMPLATES, getDefaultTemplate } from '@/config/rules/bpSequence'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
+
+// 多人权限（契约2）：单机恒可改；多人仅 host 且赛前可改。
+const canEditRules = computed(() =>
+  (connStore.roomMode === 'local' || connStore.myRole === 'host') && store.isRuleEditable
+)
+
+// 写回后显式同步（契约3）：仅 host 广播；客户端 disabled 不会触发，天然无回环。
+// local 模式 syncState 内部 return，安全。仅 host 改完一次广播一次（commit/失焦时触发，非每次输入抖动）。
+const syncRuleConfig = () => {
+  store.saveToLocalStorage()
+  if (connStore.roomMode === 'host') {
+    connStore.syncState()
+  }
+}
 
 const PRESET_NONE = '__none__'
 const presets = PRESET_TEMPLATES
@@ -227,7 +263,7 @@ const commit = () => {
   store.ruleConfig.bpSequence = cleaned
   // 同步本地副本（过滤后索引可能变化）
   localSequence.value = JSON.parse(JSON.stringify(cleaned))
-  store.saveToLocalStorage()
+  syncRuleConfig()
 }
 
 // 预设模板应用
@@ -238,7 +274,7 @@ const applyPreset = () => {
   const cloned = JSON.parse(JSON.stringify(tpl.sequence))
   store.ruleConfig.bpSequence = cloned
   localSequence.value = JSON.parse(JSON.stringify(cloned))
-  store.saveToLocalStorage()
+  syncRuleConfig()
   // 重置下拉显示
   selectedPreset.value = PRESET_NONE
 }
@@ -248,7 +284,7 @@ const resetToDefault = () => {
   const def = getDefaultTemplate()
   store.ruleConfig.bpSequence = def
   localSequence.value = JSON.parse(JSON.stringify(def))
-  store.saveToLocalStorage()
+  syncRuleConfig()
   selectedPreset.value = PRESET_NONE
 }
 
@@ -280,6 +316,6 @@ const onMaxUsageInput = (e) => {
   if (isNaN(val)) val = 2
   val = Math.min(5, Math.max(1, val))
   store.ruleConfig.limits.maxPlantUsage = val
-  store.saveToLocalStorage()
+  syncRuleConfig()
 }
 </script>

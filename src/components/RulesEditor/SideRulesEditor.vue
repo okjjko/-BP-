@@ -10,6 +10,16 @@
     </summary>
 
     <div class="px-4 pb-4 pt-1 space-y-6">
+      <!-- 多人对局进行中锁定提示 -->
+      <div
+        v-if="!store.isRuleEditable"
+        class="text-xs text-gray-500 bg-gray-800/40 border border-gray-700/50 rounded-md px-3 py-2 flex items-center gap-2"
+      >
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <span>规则已锁定（对局进行中）</span>
+      </div>
       <!-- 功能1：阵营名称 -->
       <section class="space-y-3">
         <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wide">阵营名称</h4>
@@ -21,7 +31,9 @@
               type="text"
               maxlength="8"
               placeholder="二路"
-              class="w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-md text-sm text-white focus:border-plant-green-neon focus:ring-1 focus:ring-plant-green-neon focus:outline-none transition-all"
+              :disabled="!canEditRules"
+              :class="inputClass"
+              @change="onSync"
             />
           </label>
           <label class="block">
@@ -31,7 +43,9 @@
               type="text"
               maxlength="8"
               placeholder="四路"
-              class="w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-md text-sm text-white focus:border-plant-green-neon focus:ring-1 focus:ring-plant-green-neon focus:outline-none transition-all"
+              :disabled="!canEditRules"
+              :class="inputClass"
+              @change="onSync"
             />
           </label>
         </div>
@@ -47,13 +61,15 @@
           <label
             v-for="opt in initialModeOptions"
             :key="opt.value"
-            class="cursor-pointer"
+            :class="radioLabelClass"
           >
             <input
               v-model="sideSelection.initialMode"
               :value="opt.value"
               type="radio"
               class="sr-only peer"
+              :disabled="!canEditRules"
+              @change="onSync"
             />
             <span class="block text-center text-xs py-2 px-1 rounded-md border transition-colors peer-checked:bg-plant-green/20 peer-checked:border-plant-green peer-checked:text-plant-green-neon border-gray-600 text-gray-400 hover:border-gray-400">
               {{ opt.label }}
@@ -67,13 +83,15 @@
           <label
             v-for="opt in pickerOptions"
             :key="opt.value"
-            class="cursor-pointer"
+            :class="radioLabelClass"
           >
             <input
               v-model="sideSelection.initialPicker"
               :value="opt.value"
               type="radio"
               class="sr-only peer"
+              :disabled="!canEditRules"
+              @change="onSync"
             />
             <span class="inline-block text-xs py-1 px-3 rounded border transition-colors peer-checked:bg-pick-blue/20 peer-checked:border-pick-blue peer-checked:text-pick-blue-neon border-gray-600 text-gray-400 hover:border-gray-400">
               {{ opt.label }}
@@ -93,13 +111,15 @@
           <label
             v-for="opt in loserPickModeOptions"
             :key="opt.value"
-            class="cursor-pointer"
+            :class="radioLabelClass"
           >
             <input
               v-model="sideSelection.loserPickMode"
               :value="opt.value"
               type="radio"
               class="sr-only peer"
+              :disabled="!canEditRules"
+              @change="onSync"
             />
             <span class="block text-center text-xs py-2 px-1 rounded-md border transition-colors peer-checked:bg-plant-green/20 peer-checked:border-plant-green peer-checked:text-plant-green-neon border-gray-600 text-gray-400 hover:border-gray-400">
               {{ opt.label }}
@@ -115,8 +135,15 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
+
+// 多人权限（契约2）：单机恒可改；多人仅 host 且赛前可改。
+const canEditRules = computed(() =>
+  (connStore.roomMode === 'local' || connStore.myRole === 'host') && store.isRuleEditable
+)
 
 // 直接引用 ruleConfig 子对象（响应式双向绑定）
 const sideNames = computed(() => store.ruleConfig.sideNames)
@@ -154,4 +181,23 @@ const loserPickModeHint = computed(() => {
     default: return '每小局结束后由败者选择下一局道路，现状默认行为。'
   }
 })
+// 样式：锁定时降低不透明度并禁用光标
+const inputClass = computed(() => [
+  'w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-md text-sm text-white',
+  'focus:border-plant-green-neon focus:ring-1 focus:ring-plant-green-neon focus:outline-none transition-all',
+  'disabled:opacity-50 disabled:cursor-not-allowed'
+])
+
+const radioLabelClass = computed(() =>
+  canEditRules.value ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+)
+
+// 写回后显式同步（契约3）：仅 host 广播一次；客户端 disabled 不会触发，天然无回环。
+// local 模式下 syncState 内部直接 return，安全。
+const onSync = () => {
+  store.saveToLocalStorage()
+  if (connStore.roomMode === 'host') {
+    connStore.syncState()
+  }
+}
 </script>

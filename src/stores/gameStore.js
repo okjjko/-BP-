@@ -138,6 +138,16 @@ export const useGameStore = defineStore('game', {
     isPumpkinPlant: () => (plantId) => {
       return isPumpkin(plantId, getAllPlantsSync())
     },
+
+    // MP-ANCHOR: 多人自定义规则可编辑性（开发者C）
+    // 单机（local）模式恒可编辑（赛前赛后都能改，保持现状）；
+    // 多人模式仅赛前（gameStatus === 'setup'）可改，对局进行中全员锁定（含 host）。
+    // 与 A-ANCHOR / B-ANCHOR 隔离，勿在此处改动其它 getter。
+    isRuleEditable: (state) => {
+      const connStore = useConnectionStore()
+      if (connStore.roomMode === 'local') return true
+      return state.gameStatus === 'setup'
+    },
   },
 
   actions: {
