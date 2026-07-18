@@ -34,6 +34,7 @@
       <button
         v-for="plant in availablePlants"
         :key="plant.id"
+        :data-plant-id="plant.id"
         role="option"
         :aria-selected="isSelected(plant.id) ? 'true' : 'false'"
         :aria-disabled="(!canSelect(plant.id) || !hasBPPermission) ? 'true' : 'false'"
@@ -42,7 +43,10 @@
         :class="{
           'ring-2 ring-white scale-105 z-10 shadow-lg': isSelected(plant.id),
           'opacity-40 grayscale cursor-not-allowed': !canSelect(plant.id) || !hasBPPermission,
-          'hover:scale-105 hover:z-10 hover:shadow-lg cursor-pointer': canSelect(plant.id) && hasBPPermission && !isSelected(plant.id)
+          'hover:scale-105 hover:z-10 hover:shadow-lg cursor-pointer': canSelect(plant.id) && hasBPPermission && !isSelected(plant.id),
+          'plant-select-pulse': isSelected(plant.id),
+          'plant-ban-flash': lastOperatedId === plant.id && lastOperatedAction === 'ban',
+          'plant-pick-flash': lastOperatedId === plant.id && lastOperatedAction === 'pick'
         }"
       >
         <!-- 植物图片 -->
@@ -95,18 +99,25 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Ban, CheckCircle } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { getPlantByIdSync, getPlantImage } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
 import { useToast } from '@/composables/useToast'
+import { usePlantFlight } from '@/composables/usePlantFlight'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
 const toast = useToast()
+const { flyToResult } = usePlantFlight()
+
+// 上一次被操作的植物 ID + 动作类型，用于在被操作那一帧挂一次性 flash 色边（~300ms 后清除）
+const lastOperatedId = ref(null)
+const lastOperatedAction = ref(null)
+let flashTimer = null
 
 // BP 权限检查：观众只读，多人模式下检查回合制权限
 const hasBPPermission = computed(() => {
@@ -216,6 +227,52 @@ const confirmSelection = () => {
     toast.error('请先选择一个植物')
     return
   }
+  // 仅操作方本地编排飞行：commit 前读坐标（commit 后终点占位符/锚点消失或位移）
+  if (hasBPPermission.value) {
+    flyToResult({
+      plantId: store.currentRound.selectedPlant,
+      action: store.currentRound.action,
+      player: store.currentRound.currentPlayer
+    })
+  }
   store.confirmSelection()
 }
+
+// 监听双方 bans/picks 变化：对比找出新增项，标记为「刚操作」，
+// 在该植物卡片挂一闪色边（0.3s 即逝，不常驻）。
+// 同时覆盖本地操作与远端 applySyncState（两端都看得到 flash 反馈）。
+// 返回四数组浅拷贝元组，配合 deep watch 让 Vue 正确对比前后值。
+const bansPicksTuple = () => {
+  const cr = store.currentRound
+  return [
+    cr?.bans?.player1 ? [...cr.bans.player1] : [],
+    cr?.bans?.player2 ? [...cr.bans.player2] : [],
+    cr?.picks?.player1 ? [...cr.picks.player1] : [],
+    cr?.picks?.player2 ? [...cr.picks.player2] : []
+  ]
+}
+watch(
+  bansPicksTuple,
+  (next, prev) => {
+    const diffs = [
+      { list: next[0], prevLen: prev?.[0]?.length ?? 0, action: 'ban' },
+      { list: next[1], prevLen: prev?.[1]?.length ?? 0, action: 'ban' },
+      { list: next[2], prevLen: prev?.[2]?.length ?? 0, action: 'pick' },
+      { list: next[3], prevLen: prev?.[3]?.length ?? 0, action: 'pick' }
+    ]
+    for (const d of diffs) {
+      if (d.list.length > d.prevLen) {
+        lastOperatedId.value = d.list[d.list.length - 1]
+        lastOperatedAction.value = d.action
+        if (flashTimer) clearTimeout(flashTimer)
+        flashTimer = setTimeout(() => {
+          lastOperatedId.value = null
+          lastOperatedAction.value = null
+        }, 300)
+        return
+      }
+    }
+  },
+  { deep: true }
+)
 </script>

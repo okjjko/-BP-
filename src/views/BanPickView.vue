@@ -113,6 +113,9 @@
         重置游戏
       </BaseButton>
     </div>
+
+    <!-- ban/pick 植物飞行动画层（Teleport 到 body，根为真实 div） -->
+    <PlantFlightOverlay />
   </div>
 </template>
 
@@ -134,6 +137,7 @@ import PlantSelector from '@/components/PlantSelector.vue'
 import PositionSetup from '@/components/PositionSetup.vue'
 import RulesSummary from '@/components/RulesEditor/RulesSummary.vue'
 import PlantManager from '@/components/PlantManager/index.vue'
+import PlantFlightOverlay from '@/components/animation/PlantFlightOverlay.vue'
 
 const store = useGameStore()
 const uiStore = useUIStore()

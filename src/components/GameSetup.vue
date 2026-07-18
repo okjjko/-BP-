@@ -9,7 +9,7 @@
     />
 
     <!-- 游戏设置界面 -->
-    <div v-else class="glass-card rounded-2xl p-8 max-w-lg w-full relative overflow-hidden animate-slide-up">
+    <div v-else class="glass-card rounded-2xl p-6 sm:p-8 max-w-5xl w-full relative overflow-hidden animate-slide-up">
       <!-- 返回按钮 -->
       <button
         @click="goBack"
@@ -31,7 +31,7 @@
         PvZ B/P 对战
       </h1>
 
-      <form @submit.prevent="startGame" class="space-y-8">
+      <form @submit.prevent="startGame" class="max-w-lg mx-auto space-y-8">
         <!-- 选手 1 -->
         <div class="space-y-2">
           <label for="player1-input" class="block text-sm font-bold text-gray-300 uppercase tracking-wide">选手 1 (蓝色方)</label>
@@ -148,12 +148,6 @@
           </select>
         </div>
 
-        <!-- 规则配置区（Phase 0 骨架占位；子组件由并行开发者 A/B 填充） -->
-        <div class="space-y-3">
-          <SideRulesEditor />
-          <BPRulesEditor />
-        </div>
-
         <button
           type="submit"
           :disabled="!canStartGame"
@@ -167,11 +161,22 @@
       </form>
 
       <!-- 植物管理按钮 -->
-      <div class="mt-6 mb-6 flex justify-center">
+      <div class="mt-6 mb-2 flex justify-center">
         <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
           <template #icon><Sprout :size="18" /></template>
           植物管理
         </BaseButton>
+      </div>
+
+      <!-- 比赛规则配置（全宽，宽屏左右并排） -->
+      <div class="mt-6 lg:mt-8">
+        <h2 class="mb-3 text-sm font-bold text-gray-300 uppercase tracking-wide flex items-center gap-1.5">
+          <SlidersHorizontal :size="14" /> 自定义规则（可选）
+        </h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <SideRulesEditor />
+          <BPRulesEditor />
+        </div>
       </div>
 
       <div class="text-center" role="note">
@@ -188,7 +193,7 @@ import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/composables/useToast'
-import { Sprout } from 'lucide-vue-next'
+import { Sprout, SlidersHorizontal } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { getPlantById, PLANTS } from '@/data/plants'
 import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToBase64 } from '@/data/customPlants'

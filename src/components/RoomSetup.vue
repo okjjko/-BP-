@@ -233,8 +233,10 @@
               <Crown :size="14" />
               赛前规则配置（仅主办方可改）
             </div>
-            <SideRulesEditor />
-            <BPRulesEditor />
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <SideRulesEditor />
+              <BPRulesEditor />
+            </div>
           </div>
 
           <!-- 确认开始按钮 -->
@@ -1036,7 +1038,7 @@ onUnmounted(() => {
 <style scoped>
 .room-setup {
   width: 100%;
-  max-width: 500px;
+  max-width: 820px;
   margin: 0 auto;
   padding: 20px;
 }
