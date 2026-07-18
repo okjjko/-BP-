@@ -46,6 +46,14 @@
         <span class="label">同种植物上限</span>
         <span class="value">{{ maxPlantUsage }} 次</span>
       </div>
+
+      <!-- 南瓜特殊规则 -->
+      <div class="summary-item">
+        <span class="label">南瓜特殊规则</span>
+        <span class="value" :class="pumpkinRuleEnabled ? 'text-pick-blue' : 'text-gray-500'">
+          {{ pumpkinRuleEnabled ? '已启用' : '已禁用' }}
+        </span>
+      </div>
     </div>
 
     <!-- BP 模板概要 -->
@@ -86,6 +94,9 @@ const loserPickModeLabel = computed(() => {
 
 // 同种植物使用上限
 const maxPlantUsage = computed(() => store.ruleConfig.limits.maxPlantUsage)
+
+// 南瓜特殊规则开关（默认开启）
+const pumpkinRuleEnabled = computed(() => store.ruleConfig.pumpkinRule?.enabled ?? true)
 
 // BP 模板：阶段数与总步数（bpSequence 为 2D 数组，内层数组长度即阶段步数）
 const bpSequence = computed(() => store.ruleConfig.bpSequence || [])

@@ -42,6 +42,28 @@
         </div>
       </section>
 
+      <!-- 南瓜头锁定保护特殊规则开关 -->
+      <section class="rounded-lg bg-black/20 border border-white/5 p-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div class="min-w-0">
+            <span class="text-xs font-semibold text-gray-300 block">南瓜头锁定保护特殊规则</span>
+            <p class="text-[10px] text-gray-600 mt-0.5">
+              开启：选南瓜不消耗 BP 步骤，并保护下一个普通植物；关闭：南瓜当作普通植物。
+            </p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" :class="{ 'cursor-not-allowed opacity-60': !canEditRules }">
+            <input
+              type="checkbox"
+              :checked="pumpkinRuleEnabled"
+              :disabled="!canEditRules"
+              @change="togglePumpkinRule"
+              class="sr-only peer"
+            />
+            <div class="w-9 h-5 bg-gray-600 peer-checked:bg-pick-blue rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+          </label>
+        </div>
+      </section>
+
       <!-- 功能2：BP 顺序模板 -->
       <section class="rounded-lg bg-black/20 border border-white/5 p-3 space-y-3">
         <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -226,6 +248,13 @@ watch(currentSequence, (val) => {
 
 // 最大使用上限
 const maxPlantUsage = computed(() => store.ruleConfig.limits.maxPlantUsage)
+
+// 南瓜特殊规则开关（默认开启；关闭后南瓜当作普通植物）
+const pumpkinRuleEnabled = computed(() => store.ruleConfig.pumpkinRule?.enabled ?? true)
+const togglePumpkinRule = () => {
+  store.ruleConfig.pumpkinRule = { enabled: !pumpkinRuleEnabled.value }
+  syncRuleConfig()
+}
 
 const totalSteps = computed(() =>
   localSequence.value.reduce((sum, stage) => sum + (stage?.length || 0), 0)

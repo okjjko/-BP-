@@ -304,7 +304,7 @@ This is implemented via `getBPSequence()` which takes actual player IDs as param
 
 **ruleConfig 配置契约（自定义规则集中层，2026-07）：**
 开局可自定义的比赛规则（阵营名 / 选边方式 / BP 顺序模板 / 植物使用上限）集中存于 `gameStore.state.ruleConfig` 单一对象，不再散落为顶级字段。约定：
-1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits}.js`。聚合器定型后不再改动，各功能默认值在各自子文件维护。
+1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits,pumpkinRule}.js`。聚合器定型后不再改动，各功能默认值在各自子文件维护。
 2. **序列化整体处理**：`saveToLocalStorage` / `loadFromLocalStorage` / `getSyncPayload` / `applySyncState` 对 `ruleConfig` 整体存取（`{ ...defaultRules, ...(state.ruleConfig||{}) }` 深合并默认值，向后兼容）。**新增配置项禁止在这四个函数里逐字段列举**——只改对应 `rules/` 子文件即可自动获得持久化 + 多人同步。
 3. **并行协作锚点**：`gameStore.js` getters 区有 `// A-ANCHOR`（maxPlantUsage，功能4）与 `// B-ANCHOR`（sideName，功能1）占位注释；开发者 A/B 在各自锚点下新增 getter，避免冲突。`GameSetup.vue` 的规则配置区由 `SideRulesEditor.vue`（B）与 `BPRulesEditor.vue`（A）两个子组件分担。
 4. **解耦**：`bpSequence` 模板始终用 `road2`/`road4` 占位符；`sideNames` 仅影响显示文案；两者通过 road 数值（2/4）桥接。
@@ -445,7 +445,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ First-round special case: if loser chose road initially, no re-selection needed
 - ✅ Custom plant management (add, edit, delete, export, import)
 - ✅ IndexedDB storage for custom plants with memory cache
-- ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤）
+- ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤；可由 `ruleConfig.pumpkinRule.enabled` 开关在赛前启停，默认开启，关闭时南瓜当作普通植物处理——消耗 BP 步骤、受 maxPlantUsage 上限约束、计入 plantUsage）
 - ✅ **阵营名称自定义**（功能1）：`ruleConfig.sideNames` 可改默认「二路/四路」，`gameStore.sideName(road)` 统一映射显示
 - ✅ **选边方式自定义**（功能3）：初始选边（双方互斥/指定一方/随机）+ 小局后选边权（败者选/胜者选/不换边），由 `ruleConfig.sideSelection` 驱动
 

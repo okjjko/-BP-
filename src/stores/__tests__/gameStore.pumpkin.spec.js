@@ -153,3 +153,69 @@ describe('南瓜头 pick 索引同步逻辑', () => {
     expect(gameStore.pumpkinUsage.player1).toBe(2)
   })
 })
+
+describe('南瓜特殊规则开关关闭（南瓜当普通植物）', () => {
+  let gameStore
+
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    gameStore = useGameStore()
+    useConnectionStore().roomMode = 'local'
+    gameStore.player1.road = 2
+    gameStore.player2.road = 4
+    // 关闭南瓜特殊规则开关
+    gameStore.ruleConfig.pumpkinRule = { enabled: false }
+    gameStore.currentRound = {
+      roundNumber: 1,
+      stage: 2,
+      step: 0,
+      currentPlayer: 'player1',
+      action: 'pick',
+      pickCount: 1,
+      bans: { player1: [], player2: [] },
+      picks: { player1: [], player2: [] },
+      positions: { player1: { road: 2, plants: [] }, player2: { road: 4, plants: [] } },
+      selectedPlant: null,
+      bpSequence: [
+        [{ player: 'road2', action: 'pick', count: 1 }],
+        [{ player: 'road4', action: 'pick', count: 1 }]
+      ],
+      extraPick: null,
+      pumpkinUsedThisRound: { player1: false, player2: false }
+    }
+    gameStore.pumpkinUsage = { player1: 0, player2: 0 }
+    gameStore.globalBans = []
+    gameStore.plantUsage = {}
+  })
+
+  it('isPumpkinPlant 在开关关闭时返回 false，开启时恢复 true', () => {
+    expect(gameStore.isPumpkinPlant('pumpkin')).toBe(false)
+    gameStore.ruleConfig.pumpkinRule.enabled = true
+    expect(gameStore.isPumpkinPlant('pumpkin')).toBe(true)
+  })
+
+  it('confirmSelection 选南瓜走普通流程：留在 picks、推进 step、pumpkinUsage 不增、无保护', () => {
+    gameStore.currentRound.selectedPlant = 'pumpkin'
+    const stepBefore = gameStore.currentRound.step
+    gameStore.confirmSelection()
+
+    expect(gameStore.currentRound.picks.player1).toEqual(['pumpkin'])
+    expect(gameStore.pumpkinUsage.player1).toBe(0)
+    expect(gameStore.currentRound.extraPick).toBe(null)
+    expect(gameStore.currentRound.step).toBe(stepBefore + 1)
+  })
+
+  it('availablePlants 对南瓜走普通上限，不受对手"本轮用过南瓜"互斥影响', () => {
+    gameStore.currentRound.pumpkinUsedThisRound.player2 = true
+    const available = gameStore.availablePlants
+    expect(available.some(p => p.id === 'pumpkin')).toBe(true)
+  })
+
+  it('updatePlantUsage 开关关闭时把南瓜计入 plantUsage（而非跳过）', () => {
+    gameStore.currentRound.picks.player1 = ['pumpkin', 'peashooter']
+    gameStore.updatePlantUsage()
+    expect(gameStore.plantUsage['player1_pumpkin']).toBe(1)
+    expect(gameStore.plantUsage['player1_peashooter']).toBe(1)
+  })
+})

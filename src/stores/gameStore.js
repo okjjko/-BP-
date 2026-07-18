@@ -89,6 +89,8 @@ export const useGameStore = defineStore('game', {
       const { bans, picks, currentPlayer, action, extraPick, pumpkinUsedThisRound } = currentRound
       // 植物使用上限可配（功能4），默认 2
       const maxUsage = state.ruleConfig?.limits?.maxPlantUsage ?? 2
+      // 南瓜特殊规则开关（默认开启）
+      const pumpkinEnabled = state.ruleConfig?.pumpkinRule?.enabled ?? true
 
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
 
@@ -111,8 +113,8 @@ export const useGameStore = defineStore('game', {
         const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
         if (ownPickCount + historicalUsage >= maxUsage) return false
 
-        // 南瓜头特殊规则
-        if (isPumpkin(plantId, getAllPlantsSync())) {
+        // 南瓜头特殊规则（开关关闭时回落到上方通用上限检查，南瓜当普通植物）
+        if (pumpkinEnabled && isPumpkin(plantId, getAllPlantsSync())) {
           // 对手已在本轮使用过南瓜，不可选（空值安全）
           const usedMap = pumpkinUsedThisRound || {}
           if (usedMap[opponent]) return false
@@ -135,7 +137,9 @@ export const useGameStore = defineStore('game', {
     maxPlantUsage: (state) => state.ruleConfig?.limits?.maxPlantUsage ?? 2,
     currentBPTemplate: (state) => state.ruleConfig?.bpSequence,
 
-    isPumpkinPlant: () => (plantId) => {
+    isPumpkinPlant: (state) => (plantId) => {
+      // 南瓜特殊规则开关关闭时，南瓜当作普通植物（不触发保护机制）
+      if (!(state.ruleConfig?.pumpkinRule?.enabled ?? true)) return false
       return isPumpkin(plantId, getAllPlantsSync())
     },
 
@@ -530,14 +534,17 @@ export const useGameStore = defineStore('game', {
 
     updatePlantUsage() {
       const { picks } = this.currentRound
-      // 遍历 picks 时跳过南瓜头（南瓜头的使用次数由 pumpkinUsage 单独追踪）
+      // 南瓜特殊规则开启时，南瓜头使用次数由 pumpkinUsage 单独追踪，此处跳过；
+      // 开关关闭时南瓜当作普通植物，正常计入 plantUsage。
+      const pumpkinEnabled = this.ruleConfig?.pumpkinRule?.enabled ?? true
+      const skipPumpkin = (plantId) => pumpkinEnabled && isPumpkin(plantId, getAllPlantsSync())
       picks.player1.forEach(plantId => {
-        if (isPumpkin(plantId, getAllPlantsSync())) return
+        if (skipPumpkin(plantId)) return
         const key = `player1_${plantId}`
         this.plantUsage[key] = (this.plantUsage[key] || 0) + 1
       })
       picks.player2.forEach(plantId => {
-        if (isPumpkin(plantId, getAllPlantsSync())) return
+        if (skipPumpkin(plantId)) return
         const key = `player2_${plantId}`
         this.plantUsage[key] = (this.plantUsage[key] || 0) + 1
       })
