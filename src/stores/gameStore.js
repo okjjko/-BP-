@@ -46,6 +46,9 @@ export const useGameStore = defineStore('game', {
     globalBans: [],
     plantUsage: {},
     pumpkinUsage: { player1: 0, player2: 0 },
+    // 最近一次「局内手动抽取」的永 ban 植物 id，供 undoLastManualGlobalBan 撤销。
+    // 仅记录手动抽取（drawRandomGlobalBan），不影响开局 randomBanPlants / 预设 globalBan 步骤的结果。
+    lastManualGlobalBan: null,
 
     // 游戏状态
     gameStatus: 'setup',
@@ -498,6 +501,7 @@ export const useGameStore = defineStore('game', {
     /**
      * 从当前未禁用的植物池中随机抽取 count 个，加入 globalBans（全局永久禁用）。
      * 池不足时抽满为止；已 in globalBans 或当小局 bans 的不会重复抽取。
+     * @returns {string[]} 实际抽到的 plantId 数组（供手动抽取复用，状态机调用不接收返回值）
      */
     _drawGlobalBans(count) {
       const allBans = [
@@ -509,6 +513,53 @@ export const useGameStore = defineStore('game', {
       const shuffled = [...pool].sort(() => Math.random() - 0.5)
       const drawn = shuffled.slice(0, Math.min(count, pool.length)).map(p => p.id)
       this.globalBans = [...this.globalBans, ...drawn]
+      return drawn
+    },
+
+    /**
+     * 局内临时抽取「一个」全局永久禁用植物（手动触发，每次 1 个）。
+     * 与赛前预设的 globalBan 步骤互补：无需赛前配置，临时起意时由裁判/host 触发。
+     *
+     * 权威方语义：仅 local/host 执行抽取并 syncState 广播；player/spectator 返回失败（UI 守卫兜底）。
+     * 返回值供 UI 做 toast 反馈。
+     *
+     * @returns {{ ok:boolean, plantId?:string, reason?:string }}
+     *   ok=true 携带 plantId；ok=false 携带 reason：'not-authority' | 'no-round' | 'empty'
+     */
+    drawRandomGlobalBan() {
+      const connStore = useConnectionStore()
+      const isAuthority = connStore.roomMode === 'local' || connStore.roomMode === 'host'
+      if (!isAuthority) return { ok: false, reason: 'not-authority' }
+      if (!this.currentRound) return { ok: false, reason: 'no-round' }
+
+      const drawn = this._drawGlobalBans(1)
+      if (drawn.length === 0) return { ok: false, reason: 'empty' }
+
+      this.lastManualGlobalBan = drawn[0]
+      this.saveToLocalStorage()
+      connStore.syncState()
+      return { ok: true, plantId: drawn[0] }
+    },
+
+    /**
+     * 撤销最近一次「局内手动抽取」的全局永久禁用植物。
+     * 仅回滚 drawRandomGlobalBan 抽到的那个，不影响开局 randomBanPlants / 预设 globalBan 步骤的结果。
+     * @returns {{ ok:boolean, plantId?:string, reason?:string }}
+     *   ok=false 携带 reason：'not-authority' | 'nothing-to-undo'
+     */
+    undoLastManualGlobalBan() {
+      const connStore = useConnectionStore()
+      const isAuthority = connStore.roomMode === 'local' || connStore.roomMode === 'host'
+      if (!isAuthority) return { ok: false, reason: 'not-authority' }
+
+      const last = this.lastManualGlobalBan
+      if (!last) return { ok: false, reason: 'nothing-to-undo' }
+
+      this.globalBans = this.globalBans.filter(id => id !== last)
+      this.lastManualGlobalBan = null
+      this.saveToLocalStorage()
+      connStore.syncState()
+      return { ok: true, plantId: last }
     },
 
     // ========== 站位与结算 ==========
@@ -620,6 +671,7 @@ export const useGameStore = defineStore('game', {
         globalBans: this.globalBans,
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
+        lastManualGlobalBan: this.lastManualGlobalBan,
         currentRound: this.currentRound,
         gameStatus: this.gameStatus,
         firstPlayer: this.firstPlayer,
@@ -640,6 +692,7 @@ export const useGameStore = defineStore('game', {
           this.globalBans = state.globalBans
           this.plantUsage = state.plantUsage
           this.pumpkinUsage = state.pumpkinUsage || { player1: 0, player2: 0 }
+          this.lastManualGlobalBan = state.lastManualGlobalBan || null
           this.currentRound = state.currentRound
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
@@ -781,6 +834,7 @@ export const useGameStore = defineStore('game', {
         globalBans: this.globalBans,
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
+        lastManualGlobalBan: this.lastManualGlobalBan,
         currentRound: this.currentRound,
         customPlants: []
       }
@@ -810,6 +864,7 @@ export const useGameStore = defineStore('game', {
       this.globalBans = [...gameState.globalBans]
       this.plantUsage = { ...gameState.plantUsage }
       this.pumpkinUsage = { ...gameState.pumpkinUsage }
+      this.lastManualGlobalBan = gameState.lastManualGlobalBan || null
       this.gameStatus = gameState.gameStatus
       this.roundWinner = gameState.roundWinner
       this.winThreshold = gameState.winThreshold || 4
@@ -825,6 +880,7 @@ export const useGameStore = defineStore('game', {
         globalBans: this.globalBans,
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
+        lastManualGlobalBan: this.lastManualGlobalBan,
         gameStatus: this.gameStatus,
         roundWinner: this.roundWinner,
         winThreshold: this.winThreshold,

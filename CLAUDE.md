@@ -387,6 +387,27 @@ BP 流程模板（`ruleConfig.bpSequence`）的步骤 `action` 除 `'ban'`/`'pic
   - `BPRulesEditor`：action 下拉新增「全局禁用」选项；选中时 player 锁定为 system、count 标签改显「抽取」；校验放宽 `action∈[ban,pick,globalBan]`，commit 强制 globalBan 步骤 `player='system'`
 - **持久化/同步**：globalBan 是 bpSequence 步骤的 action 取值，嵌在 `ruleConfig.bpSequence` 内整体存取，**无需改** save/load/sync 四函数（符合「ruleConfig 配置契约」）；抽取结果写入顶级 `globalBans`，随 `getSyncPayload`/`applySyncState` 同步。回归测试：`src/stores/__tests__/gameStore.globalBan.spec.js`。
 
+**局内临时抽取永 ban（手动触发，2026-07）:**
+
+与预设版互补的「临时起意」入口——比赛进行中（BP 流程内）由裁判/host 点按钮从未禁用池随机抽 **1 个**植物入 `globalBans`，无需赛前改模板。
+
+| 维度 | 预设 globalBan 步骤 | 局内手动抽取（本节） |
+|---|---|---|
+| 配置时机 | 赛前 BP 模板 | 局内按需 |
+| 触发方式 | 流程自动 | 裁判/host 手动点按钮 |
+| 单次数量 | `count` 可配 | 固定 1 |
+| 抽取逻辑 | `_processAutoSteps` → `_drawGlobalBans` | `drawRandomGlobalBan` → `_drawGlobalBans(1)` |
+
+- **实现**（`src/stores/gameStore.js`）：
+  - `drawRandomGlobalBan()`：权威方（local/host）守卫 → 复用 `_drawGlobalBans(1)`（池空返回 `{ok:false,reason:'empty'}`）→ 记录 `lastManualGlobalBan` → 落盘 + `syncState` → 返回 `{ok,plantId}`
+  - `undoLastManualGlobalBan()`：移除 `lastManualGlobalBan` 对应 id、清标记、落盘 + 同步
+  - `_drawGlobalBans` 微调为返回 drawn 数组，供手动版复用（状态机调用不接收返回值，向后兼容）
+- **权限**：走「局内干预」路径（不走 `isRuleEditable`），仅 `local`/`host`（`connStore.roomMode==='local' || myRole==='host'`）；`player`/`spectator` 返回 `not-authority`。UI 层 `BanPickView.vue` 据此隐藏按钮。
+- **时机**：仅 `gameStatus === 'banning'`（站位/结算/结束阶段隐藏按钮）。
+- **撤销语义**：仅回滚最近一次**手动**抽取（`lastManualGlobalBan` 标记）；不影响开局 `randomBanPlants` 与预设 globalBan 步骤抽到的植物。连抽两次再撤销只回滚最后一次（单值标记，非栈）。标记跨小局保留（`resetGame` 走 `$reset` 自动清空）。
+- **UI**：`src/views/BanPickView.vue` 底部按钮栏「抽取永禁」(danger/`Dices`) + 「撤销抽取」(secondary/`Undo2`)；反馈用 `useToast`（success/warning/info），顶部永久禁用栏基于响应式 `globalBans` 自动刷新（无需 `triggerPlantCacheUpdate`）。飞行动画不做（`flyToResult` 需改造终点 `data-ban-slot`，性价比低）。
+- **持久化/同步**：`lastManualGlobalBan` 是顶级运行时状态字段，按 `globalBans`/`plantUsage` 同模式加入 save/load/sync 四函数（非 ruleConfig 配置项，不享受整体存取契约）。回归测试：`src/stores/__tests__/gameStore.drawGlobalBan.spec.js`。
+
 **WebRTC Network Configuration:**
 
 The project supports both default PeerJS public servers and self-hosted servers for improved connectivity:
@@ -464,6 +485,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ **阵营名称自定义**（功能1）：`ruleConfig.sideNames` 可改默认「二路/四路」，`gameStore.sideName(road)` 统一映射显示
 - ✅ **选边方式自定义**（功能3）：初始选边（双方互斥/指定一方/随机）+ 小局后选边权（败者选/胜者选/不换边），由 `ruleConfig.sideSelection` 驱动
 - ✅ **预设全局永久禁用步骤**（globalBan）：BP 模板步骤 action 可为 `'globalBan'`，流程进行到该步时由系统自动从未禁用池随机抽取 `count` 个植物并入 `globalBans`（跨小局永久生效），无需选手点击；详见下方「全局永久禁用（globalBan）预设步骤」
+- ✅ **局内临时抽取永禁**（手动触发，2026-07）：BP 流程进行中，裁判/host 可点「抽取永禁」按钮从未禁用池随机抽 1 个植物入 `globalBans`，并可「撤销抽取」回滚最近一次手动抽取；服务临时起意比赛，与预设版互补。详见下方「局内临时抽取永 ban（手动触发）」
 
 **Not Yet Implemented:**
 - ⚠️ 巅峰对决 mode (3:3 tiebreaker)

@@ -85,6 +85,26 @@
 
     <!-- 底部控制栏 -->
     <div class="mt-6 flex flex-wrap justify-center gap-4 animate-slide-up" style="animation-delay: 0.3s;">
+      <!-- 局内临时抽取永禁（仅裁判/host，仅 BP 流程进行中） -->
+      <BaseButton
+        v-if="gameStatus === 'banning' && canDrawGlobalBan"
+        variant="danger"
+        size="lg"
+        @click="drawRandomGlobalBan"
+      >
+        <template #icon><Dices :size="20" /></template>
+        抽取永禁
+      </BaseButton>
+      <BaseButton
+        v-if="gameStatus === 'banning' && canDrawGlobalBan && canUndoGlobalBan"
+        variant="secondary"
+        size="lg"
+        @click="undoLastGlobalBan"
+      >
+        <template #icon><Undo2 :size="20" /></template>
+        撤销抽取
+      </BaseButton>
+
       <BaseButton
         v-if="gameStatus === 'positioning'"
         variant="primary"
@@ -122,10 +142,12 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Swords, Sprout, RotateCcw } from 'lucide-vue-next'
+import { Swords, Sprout, RotateCcw, Dices, Undo2 } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import { getPlantImage, getPlantName, getPlantByIdSync } from '@/data/customPlants'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import PlayerInfo from '@/components/PlayerInfo.vue'
@@ -140,10 +162,36 @@ import PlantManager from '@/components/PlantManager/index.vue'
 import PlantFlightOverlay from '@/components/animation/PlantFlightOverlay.vue'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
 const uiStore = useUIStore()
 const router = useRouter()
 
 const gameStatus = computed(() => store.gameStatus)
+
+// 局内抽取永禁：仅裁判/host 可操作（单机 local 谁都能点）
+const canDrawGlobalBan = computed(() =>
+  connStore.roomMode === 'local' || connStore.myRole === 'host'
+)
+const canUndoGlobalBan = computed(() => !!store.lastManualGlobalBan)
+
+const drawRandomGlobalBan = () => {
+  const r = store.drawRandomGlobalBan()
+  if (!r.ok) {
+    if (r.reason === 'empty') {
+      useToast().warning('没有可抽取的植物了（全部已永久禁用）')
+    }
+    // not-authority / no-round 为 UI 守卫兜底，不 toast
+    return
+  }
+  useToast().success(`已随机永久禁用：${getPlantName(r.plantId)}`)
+}
+
+const undoLastGlobalBan = () => {
+  const r = store.undoLastManualGlobalBan()
+  if (r.ok) {
+    useToast().info(`已撤销禁用：${getPlantName(r.plantId)}`)
+  }
+}
 
 const globalBans = computed(() => {
   const _version = store._plantCacheVersion
