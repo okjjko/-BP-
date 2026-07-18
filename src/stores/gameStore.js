@@ -94,6 +94,11 @@ export const useGameStore = defineStore('game', {
 
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
 
+      // 自动步骤：系统抽取全局禁用，选手无需选择，返回空避免误触
+      if (action === 'globalBan') {
+        return []
+      }
+
       if (action === 'ban') {
         return getAllPlantsSync().filter(plant => !allBans.includes(plant.id))
       }
@@ -265,6 +270,8 @@ export const useGameStore = defineStore('game', {
 
       this.updateCurrentStep()
       this.gameStatus = 'banning'
+      // 首步可能是 globalBan（自动步骤），由权威方抽取并推进
+      this._processAutoSteps()
     },
 
     // ========== BP 流程控制 ==========
@@ -425,6 +432,13 @@ export const useGameStore = defineStore('game', {
     },
 
     moveToNextStep() {
+      this._advanceOneStep()
+      // 推进后若落在自动步骤（globalBan），由权威方抽取并继续推进
+      this._processAutoSteps()
+    },
+
+    // 推进到下一个 BP 步骤（step++、更新 stage、updateCurrentStep；到末尾则进入 positioning）
+    _advanceOneStep() {
       const { bpSequence } = this.currentRound
       let totalSteps = 0
       for (const bpStage of bpSequence) {
@@ -448,6 +462,53 @@ export const useGameStore = defineStore('game', {
       } else {
         this.gameStatus = 'positioning'
       }
+    },
+
+    /**
+     * 处理自动步骤（globalBan）：当前步为「全局永久禁用」时，由权威方（local/host）
+     * 从未禁用池随机抽取 count 个植物并入 globalBans，再推进；循环直至落在手动步骤
+     * 或流程结束。非权威方（player/spectator）no-op——状态由 host 的 syncState 被动同步。
+     *
+     * 多人一致性：globalBan 步骤不属于任何选手（player='system'），无选手点击确认，
+     * 故必须由 host 单方抽取并广播，避免各端随机数不一致。沿用 randomBanPlants 的权威方模式。
+     */
+    _processAutoSteps() {
+      const connStore = useConnectionStore()
+      const isAuthority = connStore.roomMode === 'local' || connStore.roomMode === 'host'
+      if (!isAuthority) return
+
+      let processed = false
+      let guard = 0
+      while (this.gameStatus !== 'positioning'
+        && this.currentRound.action === 'globalBan'
+        && guard++ < 1000) {
+        const count = this.currentRound.pickCount || 1
+        this._drawGlobalBans(count)
+        this._advanceOneStep()
+        processed = true
+      }
+
+      // 仅在确实处理过自动步骤时才落盘 + 同步（避免普通推进多一次 I/O）
+      if (processed) {
+        this.saveToLocalStorage()
+        connStore.syncState()
+      }
+    },
+
+    /**
+     * 从当前未禁用的植物池中随机抽取 count 个，加入 globalBans（全局永久禁用）。
+     * 池不足时抽满为止；已 in globalBans 或当小局 bans 的不会重复抽取。
+     */
+    _drawGlobalBans(count) {
+      const allBans = [
+        ...this.globalBans,
+        ...this.currentRound.bans.player1,
+        ...this.currentRound.bans.player2
+      ]
+      const pool = getAllPlantsSync().filter(p => !allBans.includes(p.id))
+      const shuffled = [...pool].sort(() => Math.random() - 0.5)
+      const drawn = shuffled.slice(0, Math.min(count, pool.length)).map(p => p.id)
+      this.globalBans = [...this.globalBans, ...drawn]
     },
 
     // ========== 站位与结算 ==========

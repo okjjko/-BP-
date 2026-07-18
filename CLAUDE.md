@@ -372,6 +372,21 @@ Custom colors defined in `tailwind.config.js`:
 **自定义南瓜头植物**:
 用户可以通过植物管理界面添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
 
+**全局永久禁用（globalBan）预设步骤（2026-07）:**
+
+BP 流程模板（`ruleConfig.bpSequence`）的步骤 `action` 除 `'ban'`/`'pick'` 外，新增 `'globalBan'`：在**指定时机**自动抽取植物进入全局永久禁用（`globalBans`），实现"预设步骤抽取永 ban"。与开局 `randomBanPlants()`（一次性随机 5 个）互补——globalBan 可在 BP 流程任意位置插入、可多步、数量可配。
+
+- **数据结构**：`{ player: 'system', action: 'globalBan', count: N }`
+  - `player: 'system'`：占位，不归属任何阵营；`getBPSequence` 的 `convertTemplate` 仅替换 `road2`/`road4`，其余原样透传（`src/utils/bpRules.js`）
+  - `count`：该步抽取数量（池不足时抽满为止，不重复）
+- **自动执行（状态机）**：`gameStore._processAutoSteps()` 在 `startRound` 末尾与 `moveToNextStep` 推进后循环检测——若当前步为 globalBan，调用 `_drawGlobalBans(count)` 从未禁用池（`getAllPlantsSync()` 排除 `globalBans` + 当小局 `bans`）随机抽取并入 `globalBans`，再 `_advanceOneStep` 推进；连续多个 globalBan 逐步执行，停在下一个手动步骤或进入 positioning。`moveToNextStep` 已重构为 `_advanceOneStep` + `_processAutoSteps`。
+- **多人一致性**：globalBan 步骤无选手归属、无点击确认，必须由**权威方（local/host）**单方抽取并 `syncState` 广播，避免各端随机数不一致；`player`/`spectator` 端 `_processAutoSteps` no-op，状态由 host 被动同步（沿用 `randomBanPlants` 的权威方模式）。`_processAutoSteps` 仅在确实处理过自动步骤时才落盘+同步，普通推进零额外 I/O。
+- **UI**：
+  - `PlantSelector`：globalBan 步骤 `availablePlants` 返回 `[]`，网格为空、确认按钮禁用，避免选手误触
+  - `StageIndicator`：`action='globalBan'` 显示「系统 / 全局禁用」，与 ban 共用 ban-red 色系
+  - `BPRulesEditor`：action 下拉新增「全局禁用」选项；选中时 player 锁定为 system、count 标签改显「抽取」；校验放宽 `action∈[ban,pick,globalBan]`，commit 强制 globalBan 步骤 `player='system'`
+- **持久化/同步**：globalBan 是 bpSequence 步骤的 action 取值，嵌在 `ruleConfig.bpSequence` 内整体存取，**无需改** save/load/sync 四函数（符合「ruleConfig 配置契约」）；抽取结果写入顶级 `globalBans`，随 `getSyncPayload`/`applySyncState` 同步。回归测试：`src/stores/__tests__/gameStore.globalBan.spec.js`。
+
 **WebRTC Network Configuration:**
 
 The project supports both default PeerJS public servers and self-hosted servers for improved connectivity:
@@ -448,6 +463,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤；可由 `ruleConfig.pumpkinRule.enabled` 开关在赛前启停，默认开启，关闭时南瓜当作普通植物处理——消耗 BP 步骤、受 maxPlantUsage 上限约束、计入 plantUsage）
 - ✅ **阵营名称自定义**（功能1）：`ruleConfig.sideNames` 可改默认「二路/四路」，`gameStore.sideName(road)` 统一映射显示
 - ✅ **选边方式自定义**（功能3）：初始选边（双方互斥/指定一方/随机）+ 小局后选边权（败者选/胜者选/不换边），由 `ruleConfig.sideSelection` 驱动
+- ✅ **预设全局永久禁用步骤**（globalBan）：BP 模板步骤 action 可为 `'globalBan'`，流程进行到该步时由系统自动从未禁用池随机抽取 `count` 个植物并入 `globalBans`（跨小局永久生效），无需选手点击；详见下方「全局永久禁用（globalBan）预设步骤」
 
 **Not Yet Implemented:**
 - ⚠️ 巅峰对决 mode (3:3 tiebreaker)

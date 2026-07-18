@@ -142,28 +142,30 @@
                 <select
                   v-model="step.action"
                   :disabled="!canEditRules"
-                  @change="commit"
+                  @change="onActionChange(step)"
                   class="bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
-                  :class="step.action === 'ban' ? 'text-ban-red' : 'text-pick-blue'"
+                  :class="step.action === 'pick' ? 'text-pick-blue' : 'text-ban-red'"
                 >
                   <option value="ban">禁用</option>
                   <option value="pick">选择</option>
+                  <option value="globalBan">全局禁用</option>
                 </select>
 
-                <!-- player 选择 -->
+                <!-- player 选择（globalBan 时锁定为 system，不归属任何阵营） -->
                 <select
                   v-model="step.player"
-                  :disabled="!canEditRules"
+                  :disabled="!canEditRules || step.action === 'globalBan'"
                   @change="commit"
-                  class="bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
+                  class="bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue disabled:opacity-50"
                 >
                   <option value="road2">二路</option>
                   <option value="road4">四路</option>
+                  <option v-if="step.action === 'globalBan'" value="system">系统</option>
                 </select>
 
-                <!-- count（仅 pick 时有意义，显示但 ban 也可填） -->
+                <!-- count（pick=选择数量 / globalBan=抽取数量 / ban 现状不用但可填） -->
                 <label class="flex items-center gap-1 text-gray-400">
-                  数量
+                  {{ step.action === 'globalBan' ? '抽取' : '数量' }}
                   <input
                     type="number"
                     min="1"
@@ -272,8 +274,13 @@ const validationError = computed(() => {
     }
     for (const step of stage) {
       if (!step) return '存在空步骤'
-      if (!['ban', 'pick'].includes(step.action)) return '步骤的动作无效（须为 禁用/选择）'
-      if (!['road2', 'road4'].includes(step.player)) return '步骤的阵营无效（须为 二路/四路）'
+      if (!['ban', 'pick', 'globalBan'].includes(step.action)) return '步骤的动作无效（须为 禁用/选择/全局禁用）'
+      // globalBan 步骤无阵营归属（player='system'）；其余须为二路/四路
+      if (step.action === 'globalBan') {
+        if (step.player !== 'system') return '全局禁用步骤的阵营须为系统'
+      } else if (!['road2', 'road4'].includes(step.player)) {
+        return '步骤的阵营无效（须为 二路/四路）'
+      }
     }
   }
   return ''
@@ -281,11 +288,11 @@ const validationError = computed(() => {
 
 // 将本地副本写回 store
 const commit = () => {
-  // 过滤掉空阶段
+  // 过滤掉空阶段；globalBan 步骤强制 player='system'（不归属任何阵营）
   const cleaned = localSequence.value
     .filter(stage => Array.isArray(stage) && stage.length > 0)
     .map(stage => stage.map(step => ({
-      player: step.player,
+      player: step.action === 'globalBan' ? 'system' : step.player,
       action: step.action,
       count: Number(step.count) || 1
     })))
@@ -293,6 +300,16 @@ const commit = () => {
   // 同步本地副本（过滤后索引可能变化）
   localSequence.value = JSON.parse(JSON.stringify(cleaned))
   syncRuleConfig()
+}
+
+// action 切换联动：切到 globalBan 时把 player 锁定为 system；切回 ban/pick 时若仍是 system 则回落二路
+const onActionChange = (step) => {
+  if (step.action === 'globalBan') {
+    step.player = 'system'
+  } else if (step.player === 'system') {
+    step.player = 'road2'
+  }
+  commit()
 }
 
 // 预设模板应用
