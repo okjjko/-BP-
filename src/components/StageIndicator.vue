@@ -192,11 +192,10 @@ const progressBarClass = computed(() => {
   return 'bg-gray-500'
 })
 
-// 检查是否有南瓜保护激活（新增）
+// 检查是否有南瓜保护激活（extraPick.remaining > 0 表示有待消耗的南瓜保护名额）
 const hasPumpkinProtection = computed(() => {
   const extraPick = store.currentRound?.extraPick
-  const lastPumpkinIndex = store.currentRound?.lastPumpkinIndex
-  return extraPick && extraPick.remaining > 0 && lastPumpkinIndex !== undefined
+  return !!(extraPick && extraPick.remaining > 0)
 })
 </script>
 

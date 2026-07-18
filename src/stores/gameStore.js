@@ -368,29 +368,37 @@ export const useGameStore = defineStore('game', {
           this.currentRound.lastPumpkinIndices &&
           this.currentRound.lastPumpkinIndices.length > 0) {
 
-        // 取出第一个待匹配的南瓜索引
+        // ① 取出本次要消耗的南瓜索引（splice 前的索引空间）
         const pumpkinIdx = this.currentRound.lastPumpkinIndices.shift()
 
-        // 从 picks 中移除南瓜头
-        this.currentRound.picks[player].splice(pumpkinIdx, 1)
-
-        // 计算被保护植物的实际索引
-        let actualIndex = newPlantIndex - 1 // 减1因为南瓜刚被移除
-        if (pumpkinIdx < newPlantIndex) {
-          actualIndex = newPlantIndex - 1
+        // ② splice 前：pumpkinProtection 中 index > pumpkinIdx 的 key 前移 1
+        //   （splice 会删除索引 pumpkinIdx，其后元素全部前移；仅影响当前 player）
+        const oldProtection = this.currentRound.pumpkinProtection || {}
+        const remappedProtection = {}
+        for (const [key, value] of Object.entries(oldProtection)) {
+          const m = key.match(/^(player[12])_(\d+)$/)
+          if (!m) { remappedProtection[key] = value; continue }
+          const p = m[1], idx = Number(m[2])
+          const newIdx = (p === player && idx > pumpkinIdx) ? idx - 1 : idx
+          remappedProtection[`${p}_${newIdx}`] = value
         }
+        this.currentRound.pumpkinProtection = remappedProtection
 
-        if (!this.currentRound.pumpkinProtection) {
-          this.currentRound.pumpkinProtection = {}
-        }
-
-        const protectionKey = `${player}_${actualIndex}`
-        this.currentRound.pumpkinProtection[protectionKey] = {
+        // ③ 为被保护植物建立保护记录（splice 后该植物索引 = newPlantIndex - 1，恒成立）
+        const actualIndex = newPlantIndex - 1
+        this.currentRound.pumpkinProtection[`${player}_${actualIndex}`] = {
           protectedBy: 'pumpkin',
           pumpkinIndex: pumpkinIdx
         }
 
-        // 减少剩余额外选择次数
+        // ④ splice 移除南瓜
+        this.currentRound.picks[player].splice(pumpkinIdx, 1)
+
+        // ⑤ lastPumpkinIndices 中所有 > pumpkinIdx 的元素 -1（与 picks 同步前移）
+        this.currentRound.lastPumpkinIndices =
+          this.currentRound.lastPumpkinIndices.map(i => i > pumpkinIdx ? i - 1 : i)
+
+        // ⑥ 消耗名额，归零则推进步骤
         this.currentRound.extraPick.remaining--
 
         if (this.currentRound.extraPick.remaining <= 0) {
@@ -435,11 +443,6 @@ export const useGameStore = defineStore('game', {
         this.updateCurrentStep()
       } else {
         this.gameStatus = 'positioning'
-      }
-
-      if (this.currentRound.lastPumpkinIndex !== undefined) {
-        delete this.currentRound.lastPumpkinIndex
-        this.saveToLocalStorage()
       }
     },
 
@@ -634,19 +637,67 @@ export const useGameStore = defineStore('game', {
       })
     },
 
+    // 清理 buggy 旧存档：picks 中残留的南瓜头。
+    // 正常 pending 状态下南瓜头会临时放在 picks 末尾连续段（待匹配被保护植物）；
+    // 旧版本（连续选南瓜索引失效 bug）会在普通植物之间留下穿插的南瓜残留。
+    // 这里保留末尾连续南瓜（重建 pending），清理穿插残留，并重映射 pumpkinProtection 的 key。
     migrateLegacyPumpkinProtection() {
-      ['player1', 'player2'].forEach(player => {
+      if (!this.currentRound) return
+
+      ;['player1', 'player2'].forEach(player => {
         const picks = this.currentRound?.picks?.[player] || []
-        const pumpkinIndices = []
-        picks.forEach((plantId, index) => {
-          if (this.isPumpkinPlant(plantId)) {
-            pumpkinIndices.push(index)
-          }
+        const isPumpkinAt = picks.map(id => this.isPumpkinPlant(id))
+        const pumpkinCount = isPumpkinAt.filter(Boolean).length
+        if (pumpkinCount === 0) return
+
+        // 末尾连续南瓜数 = 正常 pending；其余穿插南瓜 = buggy 残留
+        let trailingCount = 0
+        for (let i = isPumpkinAt.length - 1; i >= 0 && isPumpkinAt[i]; i--) trailingCount++
+        const strayCount = pumpkinCount - trailingCount
+        if (strayCount > 0) {
+          console.warn(`[迁移] 检测到 ${player} 的 picks 中有 ${strayCount} 个穿插南瓜头（buggy 残留），正在清理`)
+        }
+
+        // 重建 picks（删除穿插南瓜）并建立 oldIdx → newIdx 映射
+        const indexMap = {}
+        const cleanPicks = []
+        picks.forEach((plantId, oldIdx) => {
+          const isStray = isPumpkinAt[oldIdx] && oldIdx < picks.length - trailingCount
+          if (isStray) return
+          indexMap[oldIdx] = cleanPicks.length
+          cleanPicks.push(plantId)
         })
-        if (pumpkinIndices.length > 0) {
-          console.warn(`[迁移] 检测到 ${player} 的 picks 中有 ${pumpkinIndices.length} 个南瓜头`)
+        this.currentRound.picks[player] = cleanPicks
+
+        // 重映射 pumpkinProtection 的 key（指向已删除穿插南瓜的 key 丢弃）
+        const oldProtection = this.currentRound.pumpkinProtection || {}
+        const newProtection = {}
+        for (const [key, value] of Object.entries(oldProtection)) {
+          const m = key.match(/^(player[12])_(\d+)$/)
+          if (!m || m[1] !== player) { newProtection[key] = value; continue }
+          const oldIdx = Number(m[2])
+          if (oldIdx in indexMap) {
+            newProtection[`${player}_${indexMap[oldIdx]}`] = value
+          }
+        }
+        this.currentRound.pumpkinProtection = newProtection
+
+        // 基于末尾连续南瓜重建 pending 状态
+        if (trailingCount > 0) {
+          const start = cleanPicks.length - trailingCount
+          this.currentRound.lastPumpkinIndices =
+            Array.from({ length: trailingCount }, (_, i) => start + i)
+          this.currentRound.extraPick = { player, remaining: trailingCount }
         }
       })
+
+      // 清理后已无南瓜却仍残留 pending（无法可靠恢复），重置
+      const hasPumpkin = ['player1', 'player2'].some(p =>
+        (this.currentRound?.picks?.[p] || []).some(id => this.isPumpkinPlant(id)))
+      if (!hasPumpkin && this.currentRound?.extraPick) {
+        this.currentRound.extraPick = null
+        delete this.currentRound.lastPumpkinIndices
+      }
     },
 
     // ========== 导出 ==========

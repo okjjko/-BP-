@@ -35,6 +35,7 @@ npm run test:unit:run      # 单次运行（CI）
 
 - `src/utils/__tests__/roomManager.spec.js` - WebSocket roomManager：createRoom/joinRoom 成员同步、stateUpdate 转发（不回声发送者）、identityAssigned 定向、版本号/序列化鲁棒性、断线重连
 - `src/stores/__tests__/connectionStore.spec.js` - isMyTurn 权限（host/player/spectator）、版本号去重、远端状态 apply
+- `src/stores/__tests__/gameStore.pumpkin.spec.js` - 南瓜头 pick 索引同步回归（连续选 2/3 南瓜、保护关系绑定、pending 清空、protection key 与 picks 索引对齐）；守住"连续选多个南瓜头时 splice 索引失效导致植物误删/南瓜残留"bug
 - `src/utils/devTransport.js` - 内存 FakeHub（单元测试与 dev 面板共用）；dev 多客户端模拟面板在 `src/components/dev/MultiClientSimulator.vue`（路由 `/dev/sim`，`import.meta.env.DEV` 守卫，不进生产构建）
 - 真实 server 协议端到端：本地 `node server/index.js` + ws 客户端联调（契约见 `docs/network-protocol.md`）；Playwright E2E 见下方 `agents/tests/multiplayer-ws.spec.js`（本地 ws server，不依赖外网）
 

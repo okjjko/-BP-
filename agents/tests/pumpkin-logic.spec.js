@@ -124,6 +124,32 @@ test('TC1: 连续选2次南瓜后选2个被保护植物', async ({ page }) => {
     return window.$debugStore?.gameStatus ?? null;
   });
   expect(gameStatus).toBe('banning');
+
+  // 核心回归断言：连续选 2 南瓜 + 2 植物后，南瓜应全部正确绑定，无残留
+  const pumpkinState = await page.evaluate(() => {
+    const store = window.$debugStore;
+    if (!store) return null;
+    const picks = store.currentRound?.picks?.player1 || [];
+    const protection = store.currentRound?.pumpkinProtection || {};
+    const p1Protection = Object.entries(protection)
+      .filter(([k]) => k.startsWith('player1_'))
+      .map(([k, v]) => ({ key: k, ...v }));
+    return {
+      picks,
+      hasPumpkinResidue: picks.some(id => store.isPumpkinPlant(id)),
+      protectionCount: p1Protection.length,
+      allProtectedByPumpkin: p1Protection.every(p => p.protectedBy === 'pumpkin'),
+      extraPickCleared: store.currentRound?.extraPick === null,
+    };
+  });
+  expect(pumpkinState).not.toBeNull();
+  // picks 中不应残留南瓜卡片（bug 表现：第一个南瓜残留在 picked 区域）
+  expect(pumpkinState.hasPumpkinResidue).toBe(false);
+  // 两个普通植物各被一个南瓜保护（bug 表现：protection 关系错乱、植物被误删）
+  expect(pumpkinState.protectionCount).toBe(2);
+  expect(pumpkinState.allProtectedByPumpkin).toBe(true);
+  // pending 名额已全部消耗并清空
+  expect(pumpkinState.extraPickCleared).toBe(true);
 });
 
 // ============================================================

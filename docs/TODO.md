@@ -1,18 +1,18 @@
 # 待办事项（TODO）
 
-> 最近更新：2026-07-18
+> 最近更新：2026-07-19
 > 集中记录尚未实现的功能、优化与重构。完成项请移至文末「已完成」或直接删除。
 > 架构与契约细节以 `CLAUDE.md` 为准（如 `ruleConfig` 配置契约、动态 player-road 映射、多人 ws 协议）。
 
 ---
 
-## 一、UI / 体验
+## 一、动效（长期推进）
 
-### 1.1 ban/pick 植物动画优化
-- **现状**：选择植物后状态切换为即时显示，缺乏过渡反馈。
-- **目标**：为 ban/pick 动作加入进入、高亮、置灰、飞入等过渡动画，提升操作反馈与观赏性。
-- **涉及**：`src/components/BanArea.vue`、`src/components/PickArea.vue`、`src/components/PlantSelector.vue` 及相关 `<Transition>` / CSS。
-- **注意**：动画不得阻塞操作流转（BP 步推进需在动画结束前即可响应），多人模式下不影响状态同步。
+> 动效优化散落于项目各处，需细水长流地逐步推进，**本节长期常驻 TODO**。
+> 发掘到新的动效需求时，按「页面 / 组件」或「交互场景」追加为子项（编号沿用 1.x）。
+> 完成项移至文末「已完成」（如 1.1 ban/pick 植物动画）。
+
+（待发掘——发现新动效点后在此填充）
 
 ---
 
@@ -76,4 +76,9 @@
 
 ## 已完成
 
-（暂无）
+### 1.1 ban/pick 植物动画优化 ✅（2026-07-19）
+- 实现「选中弹跳 → 跨组件飞行 → 落定（BanArea 盖章 / PickArea 弹跳）→ 选择器禁用渐变 + 一闪色边」的完整动效弧线。
+- 飞行用纯 DOM overlay + `getBoundingClientRect`（零依赖），强 ease-out 缓动（先快后慢、平稳停在目标）。
+- 新增：`src/composables/usePlantFlight.js`、`src/components/animation/PlantFlightOverlay.vue`、`uiStore.flightState`、`animations.css` 的 `selectPulse`/`banFlash`/`pickFlash`/`banStamp`。
+- 遵循 design-system「去发光去脉冲」；`prefers-reduced-motion` 自动降级；多人模式仅操作方本地飞行。
+- 两个精致度微调点暂留（视需要再优化）：① 飞行克隆体尺寸未缩放到终点尺寸；② 真实项 enter 与克隆体淡出的衔接重影。
