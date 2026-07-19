@@ -95,14 +95,15 @@
         <template #icon><Dices :size="20" /></template>
         抽取永禁
       </BaseButton>
+      <!-- 通用撤销：裁判随时可撤；选手可撤自己刚做的操作；BP 流程进行中且有可撤销步骤时显示 -->
       <BaseButton
-        v-if="gameStatus === 'banning' && canDrawGlobalBan && canUndoGlobalBan"
+        v-if="gameStatus === 'banning' && canUndo"
         variant="secondary"
         size="lg"
-        @click="undoLastGlobalBan"
+        @click="undoLastAction"
       >
         <template #icon><Undo2 :size="20" /></template>
-        撤销抽取
+        撤销<span v-if="undoCount > 1" class="ml-1 text-xs opacity-70">({{ undoCount }})</span>
       </BaseButton>
 
       <BaseButton
@@ -172,7 +173,15 @@ const gameStatus = computed(() => store.gameStatus)
 const canDrawGlobalBan = computed(() =>
   connStore.roomMode === 'local' || connStore.myRole === 'host'
 )
-const canUndoGlobalBan = computed(() => !!store.lastManualGlobalBan)
+// 通用撤销权限：观众不可；裁判(local/host)永可；选手仅当 lastActor===自己（撤销自己刚做的操作）
+const canUndo = computed(() => {
+  if (store.gameStatus !== 'banning') return false
+  if (store.undoStack.length === 0) return false
+  if (connStore.isViewOnly) return false
+  if (connStore.roomMode === 'local' || connStore.myRole === 'host') return true
+  return store.lastActor === connStore.myAssignedPlayer
+})
+const undoCount = computed(() => store.undoStack.length)
 
 const drawRandomGlobalBan = () => {
   const r = store.drawRandomGlobalBan()
@@ -186,11 +195,20 @@ const drawRandomGlobalBan = () => {
   useToast().success(`已随机永久禁用：${getPlantName(r.plantId)}`)
 }
 
-const undoLastGlobalBan = () => {
-  const r = store.undoLastManualGlobalBan()
-  if (r.ok) {
-    useToast().info(`已撤销禁用：${getPlantName(r.plantId)}`)
+const undoLastAction = () => {
+  const r = store.undoLastAction()
+  if (!r.ok) {
+    if (r.reason === 'empty') useToast().info('没有可撤销的操作')
+    else if (r.reason === 'not-allowed') useToast().warning('当前无撤销权限')
+    // wrong-phase 由 UI 隐藏兜底，不 toast
+    return
   }
+  const u = r.undone
+  const name = u.plantId ? getPlantName(u.plantId) : ''
+  if (u.action === 'globalBan') useToast().info(`已撤销永久禁用：${name}`)
+  else if (u.action === 'ban') useToast().info(`已撤销禁用：${name}`)
+  else if (u.action === 'pick') useToast().info(`已撤销选择：${name}`)
+  else useToast().info('已撤销上一步操作')
 }
 
 const globalBans = computed(() => {

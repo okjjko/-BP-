@@ -46,9 +46,16 @@ export const useGameStore = defineStore('game', {
     globalBans: [],
     plantUsage: {},
     pumpkinUsage: { player1: 0, player2: 0 },
-    // 最近一次「局内手动抽取」的永 ban 植物 id，供 undoLastManualGlobalBan 撤销。
-    // 仅记录手动抽取（drawRandomGlobalBan），不影响开局 randomBanPlants / 预设 globalBan 步骤的结果。
+    // 最近一次「局内手动抽取」的永 ban 植物 id（历史字段，原供 undoLastManualGlobalBan 撤销）。
+    // 注：通用撤销（undoLastAction）上线后该字段不再被写入，保留仅为旧存档/混版本向后兼容。
     lastManualGlobalBan: null,
+
+    // 通用撤销栈：每个快照对应一次「可撤销操作」（confirmSelection / drawRandomGlobalBan）前的完整状态。
+    // 生命周期：startRound 清空；上限 30。自动步骤（_processAutoSteps）与 randomBanPlants 不单独压栈。
+    undoStack: [],
+    // 最近一次「可撤销操作」的执行者：'player1' | 'player2' | 'system' | null。
+    // 用于精确判定选手撤销权（选手仅能撤销自己刚做的操作）；见 undoLastAction。
+    lastActor: null,
 
     // 游戏状态
     gameStatus: 'setup',
@@ -247,6 +254,9 @@ export const useGameStore = defineStore('game', {
     },
 
     startRound(roundNumber) {
+      // 进入新小局，清空撤销栈与 lastActor（撤销仅限当前小局）
+      this.undoStack = []
+      this.lastActor = null
       const road2 = this.player1.road === 2 ? 'player1' : this.player2.road === 2 ? 'player2' : null
       const road4 = this.player1.road === 4 ? 'player1' : this.player2.road === 4 ? 'player2' : null
       const bpSequence = getBPSequence(this.ruleConfig.bpSequence, road2, road4)
@@ -323,6 +333,19 @@ export const useGameStore = defineStore('game', {
       const player = this.currentRound.currentPlayer
       const action = this.currentRound.action
 
+      // pick 前置校验提前：避免压栈后校验失败而在栈中留下无效快照
+      if (action === 'pick') {
+        const canPickResult = canPick(plantId, player, this.$state)
+        if (!canPickResult.valid) {
+          useToast().warning(canPickResult.reason)
+          return
+        }
+      }
+
+      // 所有可能失败的校验已通过：压入操作前快照并记录操作者（供通用撤销，选手可撤自己刚做的操作）
+      this._pushUndoSnapshot()
+      this.lastActor = player
+
       if (action === 'ban') {
         this.currentRound.bans[player].push(plantId)
         this.currentRound.selectedPlant = null
@@ -333,12 +356,6 @@ export const useGameStore = defineStore('game', {
       }
 
       if (action === 'pick') {
-        const canPickResult = canPick(plantId, player, this.$state)
-        if (!canPickResult.valid) {
-          useToast().warning(canPickResult.reason)
-          return
-        }
-
         if (this.isPumpkinPlant(plantId)) {
           this._handlePumpkinPick(player, plantId)
           return
@@ -532,34 +549,129 @@ export const useGameStore = defineStore('game', {
       if (!isAuthority) return { ok: false, reason: 'not-authority' }
       if (!this.currentRound) return { ok: false, reason: 'no-round' }
 
-      const drawn = this._drawGlobalBans(1)
-      if (drawn.length === 0) return { ok: false, reason: 'empty' }
+      // 压入操作前快照（host 抽取，选手无权撤，故 lastActor='system'）。
+      // 若抽取失败（池空），回滚刚压入的快照与 lastActor，避免留下无效撤销点。
+      const prevLastActor = this.lastActor
+      this._pushUndoSnapshot()
+      this.lastActor = 'system'
 
-      this.lastManualGlobalBan = drawn[0]
+      const drawn = this._drawGlobalBans(1)
+      if (drawn.length === 0) {
+        this.undoStack.pop()
+        this.lastActor = prevLastActor
+        return { ok: false, reason: 'empty' }
+      }
+
       this.saveToLocalStorage()
       connStore.syncState()
       return { ok: true, plantId: drawn[0] }
     },
 
     /**
-     * 撤销最近一次「局内手动抽取」的全局永久禁用植物。
-     * 仅回滚 drawRandomGlobalBan 抽到的那个，不影响开局 randomBanPlants / 预设 globalBan 步骤的结果。
-     * @returns {{ ok:boolean, plantId?:string, reason?:string }}
-     *   ok=false 携带 reason：'not-authority' | 'nothing-to-undo'
+     * 通用撤销：弹出最近一个操作前快照，整体恢复状态。
+     *
+     * 权限：观众拒绝；裁判（local/host）永真；选手仅当 lastActor===myAssignedPlayer
+     * （即撤销的是自己刚做的操作）。撤销后回合回退给被撤销步的原操作者，由其重做。
+     *
+     * 不触发 _processAutoSteps（仅调用 updateCurrentStep 重算指针），避免撤销回 globalBan
+     * 自动步骤时被自动重抽破坏快照恢复。范围：仅当前小局（startRound 已清栈）。
+     *
+     * @returns {{ ok:boolean, undone?:object, reason?:string }}
+     *   ok=true 携带 undone（供 UI toast）；ok=false 携带 reason：
+     *   'not-allowed' | 'wrong-phase' | 'empty'
      */
-    undoLastManualGlobalBan() {
+    undoLastAction() {
       const connStore = useConnectionStore()
-      const isAuthority = connStore.roomMode === 'local' || connStore.roomMode === 'host'
-      if (!isAuthority) return { ok: false, reason: 'not-authority' }
+      if (connStore.isViewOnly) return { ok: false, reason: 'not-allowed' }
+      const isAuthority = connStore.roomMode === 'local' || connStore.myRole === 'host'
+      if (!isAuthority && this.lastActor !== connStore.myAssignedPlayer) {
+        return { ok: false, reason: 'not-allowed' }
+      }
+      if (this.gameStatus !== 'banning') return { ok: false, reason: 'wrong-phase' }
+      if (this.undoStack.length === 0) return { ok: false, reason: 'empty' }
 
-      const last = this.lastManualGlobalBan
-      if (!last) return { ok: false, reason: 'nothing-to-undo' }
+      // 记录撤销前状态，供 _describeUndone 解析「撤了什么」
+      const before = {
+        action: this.currentRound.action,
+        currentPlayer: this.currentRound.currentPlayer,
+        picks: {
+          player1: [...this.currentRound.picks.player1],
+          player2: [...this.currentRound.picks.player2]
+        },
+        bans: {
+          player1: [...this.currentRound.bans.player1],
+          player2: [...this.currentRound.bans.player2]
+        },
+        globalBans: [...this.globalBans],
+      }
 
-      this.globalBans = this.globalBans.filter(id => id !== last)
-      this.lastManualGlobalBan = null
+      const snapshot = this.undoStack.pop()
+      this.currentRound = JSON.parse(JSON.stringify(snapshot.currentRound))
+      this.globalBans = [...snapshot.globalBans]
+      this.plantUsage = { ...snapshot.plantUsage }
+      this.pumpkinUsage = { ...snapshot.pumpkinUsage }
+      this.gameStatus = snapshot.gameStatus
+      // 回到干净待选状态；lastActor 清空（撤销后无「刚操作的选手」，选手需重做后才能再撤）
+      this.currentRound.selectedPlant = null
+      this.lastActor = null
+      // 仅据 step 重算 currentPlayer/action，不推进、不触发自动步骤
+      this.updateCurrentStep()
+
+      const undone = this._describeUndone(before)
       this.saveToLocalStorage()
       connStore.syncState()
-      return { ok: true, plantId: last }
+      return { ok: true, undone }
+    },
+
+    /**
+     * 构造操作前快照（仅含会被可撤销操作修改的字段；深拷贝避开响应式代理与后续 mutation）。
+     */
+    _buildUndoSnapshot() {
+      return {
+        currentRound: JSON.parse(JSON.stringify(this.currentRound)),
+        globalBans: [...this.globalBans],
+        plantUsage: { ...this.plantUsage },
+        pumpkinUsage: { ...this.pumpkinUsage },
+        gameStatus: this.gameStatus,
+      }
+    },
+
+    /**
+     * 压入操作前快照到 undoStack；上限 30，超出则丢弃最旧。
+     */
+    _pushUndoSnapshot() {
+      if (!this.currentRound) return
+      this.undoStack.push(this._buildUndoSnapshot())
+      if (this.undoStack.length > 30) this.undoStack.shift()
+    },
+
+    /**
+     * 对比撤销前后状态，描述「撤了什么」供 UI toast。
+     * @returns {{ action:string, player?:string, plantId?:string, manualBan?:boolean }}
+     */
+    _describeUndone(before) {
+      const cr = this.currentRound
+      // 1. globalBans 变短 → 撤的是手动抽取永禁（自动步骤不单独压栈，故此处只能是手动）
+      if (before.globalBans.length > this.globalBans.length) {
+        const removed = before.globalBans.find(id => !this.globalBans.includes(id))
+        return { action: 'globalBan', plantId: removed, manualBan: true }
+      }
+      // 2. picks 变短 → 撤的是 pick（含南瓜：快照整体恢复后 picks 长度回退）
+      for (const p of ['player1', 'player2']) {
+        if (before.picks[p].length > cr.picks[p].length) {
+          const removed = before.picks[p][before.picks[p].length - 1]
+          return { action: 'pick', player: p, plantId: removed }
+        }
+      }
+      // 3. bans 变短 → 撤的是 ban
+      for (const p of ['player1', 'player2']) {
+        if (before.bans[p].length > cr.bans[p].length) {
+          const removed = before.bans[p][before.bans[p].length - 1]
+          return { action: 'ban', player: p, plantId: removed }
+        }
+      }
+      // 4. fallback
+      return { action: cr.action, player: cr.currentPlayer }
     },
 
     // ========== 站位与结算 ==========
@@ -672,6 +784,8 @@ export const useGameStore = defineStore('game', {
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
         lastManualGlobalBan: this.lastManualGlobalBan,
+        undoStack: this.undoStack,
+        lastActor: this.lastActor,
         currentRound: this.currentRound,
         gameStatus: this.gameStatus,
         firstPlayer: this.firstPlayer,
@@ -693,6 +807,8 @@ export const useGameStore = defineStore('game', {
           this.plantUsage = state.plantUsage
           this.pumpkinUsage = state.pumpkinUsage || { player1: 0, player2: 0 }
           this.lastManualGlobalBan = state.lastManualGlobalBan || null
+          this.undoStack = Array.isArray(state.undoStack) ? state.undoStack : []
+          this.lastActor = state.lastActor ?? null
           this.currentRound = state.currentRound
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
@@ -865,6 +981,8 @@ export const useGameStore = defineStore('game', {
       this.plantUsage = { ...gameState.plantUsage }
       this.pumpkinUsage = { ...gameState.pumpkinUsage }
       this.lastManualGlobalBan = gameState.lastManualGlobalBan || null
+      this.undoStack = Array.isArray(gameState.undoStack) ? gameState.undoStack : []
+      this.lastActor = gameState.lastActor ?? null
       this.gameStatus = gameState.gameStatus
       this.roundWinner = gameState.roundWinner
       this.winThreshold = gameState.winThreshold || 4
@@ -881,6 +999,8 @@ export const useGameStore = defineStore('game', {
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
         lastManualGlobalBan: this.lastManualGlobalBan,
+        undoStack: this.undoStack,
+        lastActor: this.lastActor,
         gameStatus: this.gameStatus,
         roundWinner: this.roundWinner,
         winThreshold: this.winThreshold,

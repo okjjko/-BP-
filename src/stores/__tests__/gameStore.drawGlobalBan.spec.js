@@ -1,12 +1,11 @@
 /**
  * 局内临时抽取「一个」全局永久禁用植物（手动触发）的单元测试
  *
- * 覆盖 drawRandomGlobalBan / undoLastManualGlobalBan 的权限守卫、抽取、撤销语义。
+ * 覆盖 drawRandomGlobalBan 的权限守卫与抽取语义（撤销语义见 gameStore.undo.spec.js）。
  *
  * 规则回顾：
  * - 裁判/host（含单机 local）从未禁用池随机抽 1 个并入 globalBans（跨小局永久生效）
- * - 记录 lastManualGlobalBan，供 undoLastManualGlobalBan 仅回滚最近一次手动抽取
- *   （不影响开局 randomBanPlants / 预设 globalBan 步骤的结果）
+ * - 抽取结果由通用 undoLastAction 统一撤销（见 gameStore.undo.spec.js），不再单独记录
  * - 非权威方（player/spectator）返回 not-authority，不抽取
  */
 
@@ -63,21 +62,24 @@ describe('局内抽取永 ban —— drawRandomGlobalBan', () => {
     }
   })
 
-  it('抽取 1 个：globalBans+1、返回 ok+plantId、记录 lastManualGlobalBan', () => {
+  it('抽取 1 个：globalBans+1、返回 ok+plantId、压栈并记 lastActor=system', () => {
     const r = gameStore.drawRandomGlobalBan()
     expect(r.ok).toBe(true)
     expect(r.plantId).toBeTruthy()
     expect(gameStore.globalBans).toContain(r.plantId)
     expect(gameStore.globalBans.length).toBe(1)
-    expect(gameStore.lastManualGlobalBan).toBe(r.plantId)
+    expect(gameStore.undoStack.length).toBe(1)
+    expect(gameStore.lastActor).toBe('system')
+    expect(gameStore.lastManualGlobalBan).toBe(null) // 通用 undo 取代后不再写入
   })
 
-  it('池为空（全部已永久禁用）：返回 empty，globalBans 不变', () => {
+  it('池为空（全部已永久禁用）：返回 empty，globalBans 不变、不压栈', () => {
     gameStore.globalBans = PLANTS.map(p => p.id)
     const r = gameStore.drawRandomGlobalBan()
     expect(r.ok).toBe(false)
     expect(r.reason).toBe('empty')
     expect(gameStore.globalBans.length).toBe(PLANTS.length)
+    expect(gameStore.undoStack.length).toBe(0)
     expect(gameStore.lastManualGlobalBan).toBe(null)
   })
 
@@ -119,73 +121,4 @@ describe('局内抽取永 ban —— drawRandomGlobalBan', () => {
   })
 })
 
-describe('撤销局内抽取 —— undoLastManualGlobalBan', () => {
-  let gameStore
-
-  beforeEach(() => {
-    localStorage.clear()
-    setActivePinia(createPinia())
-    gameStore = useGameStore()
-    useConnectionStore().roomMode = 'local'
-    gameStore.globalBans = []
-    gameStore.lastManualGlobalBan = null
-    gameStore.currentRound = {
-      bans: { player1: [], player2: [] },
-      picks: { player1: [], player2: [] }
-    }
-  })
-
-  it('撤销最近一次手动抽取：移除 id、清空标记', () => {
-    const r = gameStore.drawRandomGlobalBan()
-    const drawn = r.plantId
-
-    const undo = gameStore.undoLastManualGlobalBan()
-    expect(undo.ok).toBe(true)
-    expect(undo.plantId).toBe(drawn)
-    expect(gameStore.globalBans).not.toContain(drawn)
-    expect(gameStore.lastManualGlobalBan).toBe(null)
-  })
-
-  it('无可撤销：返回 nothing-to-undo', () => {
-    const r = gameStore.undoLastManualGlobalBan()
-    expect(r.ok).toBe(false)
-    expect(r.reason).toBe('nothing-to-undo')
-  })
-
-  it('撤销不影响其他来源的 globalBans（开局/预设抽的仍在）', () => {
-    // 模拟其他来源（开局 randomBanPlants / 预设 globalBan 步骤）已抽的
-    gameStore.globalBans = ['peashooter', 'sunflower']
-    const r = gameStore.drawRandomGlobalBan() // 手动抽 1 个
-    const manual = r.plantId
-    expect(gameStore.globalBans.length).toBe(3)
-
-    const undo = gameStore.undoLastManualGlobalBan()
-    expect(undo.ok).toBe(true)
-    expect(gameStore.globalBans.length).toBe(2)
-    expect(gameStore.globalBans).not.toContain(manual)
-    expect(gameStore.globalBans).toContain('peashooter')
-    expect(gameStore.globalBans).toContain('sunflower')
-  })
-
-  it('player（非权威方）撤销：返回 not-authority', () => {
-    useConnectionStore().roomMode = 'player'
-    const r = gameStore.undoLastManualGlobalBan()
-    expect(r.ok).toBe(false)
-    expect(r.reason).toBe('not-authority')
-  })
-
-  it('连抽两次再撤销，仅回滚最近一次', () => {
-    const r1 = gameStore.drawRandomGlobalBan()
-    const r2 = gameStore.drawRandomGlobalBan()
-    expect(gameStore.globalBans.length).toBe(2)
-    expect(gameStore.lastManualGlobalBan).toBe(r2.plantId)
-
-    const undo = gameStore.undoLastManualGlobalBan()
-    expect(undo.plantId).toBe(r2.plantId)
-    expect(gameStore.globalBans.length).toBe(1)
-    expect(gameStore.globalBans).toContain(r1.plantId)
-    expect(gameStore.globalBans).not.toContain(r2.plantId)
-    // 撤销后标记清空，第一次抽取不可再撤销（仅记最近一次）
-    expect(gameStore.lastManualGlobalBan).toBe(null)
-  })
-})
+// 撤销手动抽取永禁的测试已迁移至 gameStore.undo.spec.js（通用 undoLastAction 覆盖）。

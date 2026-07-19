@@ -399,14 +399,31 @@ BP 流程模板（`ruleConfig.bpSequence`）的步骤 `action` 除 `'ban'`/`'pic
 | 抽取逻辑 | `_processAutoSteps` → `_drawGlobalBans` | `drawRandomGlobalBan` → `_drawGlobalBans(1)` |
 
 - **实现**（`src/stores/gameStore.js`）：
-  - `drawRandomGlobalBan()`：权威方（local/host）守卫 → 复用 `_drawGlobalBans(1)`（池空返回 `{ok:false,reason:'empty'}`）→ 记录 `lastManualGlobalBan` → 落盘 + `syncState` → 返回 `{ok,plantId}`
-  - `undoLastManualGlobalBan()`：移除 `lastManualGlobalBan` 对应 id、清标记、落盘 + 同步
-  - `_drawGlobalBans` 微调为返回 drawn 数组，供手动版复用（状态机调用不接收返回值，向后兼容）
-- **权限**：走「局内干预」路径（不走 `isRuleEditable`），仅 `local`/`host`（`connStore.roomMode==='local' || myRole==='host'`）；`player`/`spectator` 返回 `not-authority`。UI 层 `BanPickView.vue` 据此隐藏按钮。
+  - `drawRandomGlobalBan()`：权威方（local/host）守卫 → 复用 `_drawGlobalBans(1)`（池空返回 `{ok:false,reason:'empty'}` 并回滚刚压入的快照）→ 落盘 + `syncState` → 返回 `{ok,plantId}`
+  - `_drawGlobalBans` 返回 drawn 数组，供手动版复用（状态机调用不接收返回值，向后兼容）
+- **权限**：走「局内干预」路径（不走 `isRuleEditable`），仅 `local`/`host`（`connStore.roomMode==='local' || myRole==='host'`）；`player`/`spectator` 返回 `not-authority`。UI 层 `BanPickView.vue` 据此隐藏「抽取永禁」按钮。
 - **时机**：仅 `gameStatus === 'banning'`（站位/结算/结束阶段隐藏按钮）。
-- **撤销语义**：仅回滚最近一次**手动**抽取（`lastManualGlobalBan` 标记）；不影响开局 `randomBanPlants` 与预设 globalBan 步骤抽到的植物。连抽两次再撤销只回滚最后一次（单值标记，非栈）。标记跨小局保留（`resetGame` 走 `$reset` 自动清空）。
-- **UI**：`src/views/BanPickView.vue` 底部按钮栏「抽取永禁」(danger/`Dices`) + 「撤销抽取」(secondary/`Undo2`)；反馈用 `useToast`（success/warning/info），顶部永久禁用栏基于响应式 `globalBans` 自动刷新（无需 `triggerPlantCacheUpdate`）。飞行动画不做（`flyToResult` 需改造终点 `data-ban-slot`，性价比低）。
-- **持久化/同步**：`lastManualGlobalBan` 是顶级运行时状态字段，按 `globalBans`/`plantUsage` 同模式加入 save/load/sync 四函数（非 ruleConfig 配置项，不享受整体存取契约）。回归测试：`src/stores/__tests__/gameStore.drawGlobalBan.spec.js`。
+- **撤销**：手动抽取的撤销**统一由通用撤销 `undoLastAction` 承担**（见下方「通用撤销」段）——抽取前压栈、`lastActor='system'`，撤销时整体恢复 `globalBans`。原 `undoLastManualGlobalBan` action 已删除；`lastManualGlobalBan` 字段保留仅为旧存档/混版本向后兼容（新版本恒为 null，不再写入）。
+- **UI**：`src/views/BanPickView.vue` 底部按钮栏「抽取永禁」(danger/`Dices`) + 「撤销」(secondary/`Undo2`，通用撤销)；反馈用 `useToast`（success/warning/info），顶部永久禁用栏基于响应式 `globalBans` 自动刷新（无需 `triggerPlantCacheUpdate`）。
+- **持久化/同步**：抽取结果写顶级 `globalBans`，随 `getSyncPayload`/`applySyncState` 同步。回归测试：`src/stores/__tests__/gameStore.drawGlobalBan.spec.js`（抽取语义）+ `gameStore.undo.spec.js`（撤销语义）。
+
+**通用撤销（Undo Stack，2026-07）:**
+
+BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁）统一可撤销，解决「点错只能整局重来」的痛点。采用**操作前快照压栈 + 撤销时整体 pop 恢复**（不用逐操作写反向逻辑——南瓜保护索引重映射过复杂）。
+
+- **数据结构**（`src/stores/gameStore.js` state）：
+  - `undoStack: []`：操作前快照栈，上限 30。每快照含 `currentRound`（全量深拷贝：含南瓜保护/索引/extraPick/step/stage）、`globalBans`、`plantUsage`、`pumpkinUsage`、`gameStatus`。
+  - `lastActor: null`：最近一次可撤销操作的执行者（`'player1' | 'player2' | 'system' | null`），用于精确判定选手撤销权。
+- **实现**（`src/stores/gameStore.js`）：
+  - `_pushUndoSnapshot()` / `_buildUndoSnapshot()`：压栈 + 构造深拷贝快照（上限 30，超出 shift 最旧）。
+  - `undoLastAction()`：权限 + 阶段 + 空栈校验 → pop 快照整体恢复 → 强制 `selectedPlant=null`、`lastActor=null` → 调 `updateCurrentStep()`（仅重算指针）→ 落盘 + `syncState`。返回 `{ok, undone, reason}`，`undone` 供 UI toast（`_describeUndone` 据前后 diff 推断撤了 ban/pick/globalBan）。
+  - **压栈时机**：`confirmSelection` 头部（canPick 校验已提前到压栈前，避免失败留无效快照）与 `drawRandomGlobalBan`（抽取失败时回滚快照）；自动步骤 `_processAutoSteps` 与开局 `randomBanPlants` 不单独压栈。
+- **权限（`lastActor` 模型，关键）**：不用 `isMyTurn` 判定选手撤销权——选手做完操作后 `currentPlayer` 已推进到对手，`isMyTurn` 恒 false，导致选手永远无法撤销自己刚点错的操作。改用 `lastActor`：观众拒；裁判（local/host）永真；**选手仅当 `lastActor === myAssignedPlayer`**（撤销自己刚做的操作，回合回退给自己重做）。连续撤多步由裁判发起。
+- **范围**：仅当前小局——`startRound` 清空 `undoStack` 与 `lastActor`；`gameStatus !== 'banning'`（站位/结算）时 `undoLastAction` 返回 `wrong-phase`。
+- **不触发自动步骤**：撤销只调 `updateCurrentStep()`（重算 currentPlayer/action），不调 `_advanceOneStep`/`_processAutoSteps`——即使撤销后 `action==='globalBan'` 也不会被自动重抽，快照内 `globalBans` 整体恢复即正确。
+- **多人一致性**：撤销走标准 `syncState` 广播（`getSyncPayload` 含 `undoStack`/`lastActor`），其他人 `applySyncState` 整体覆盖。撤销**不需重新随机**（只恢复快照），故绕开多人随机数一致性问题——选手撤销也安全，无需权威方单点执行。
+- **UI**：`src/views/BanPickView.vue` 底部「撤销」按钮（`v-if="gameStatus==='banning' && canUndo"`，角标显示还可撤销步数 N）；`canUndo` computed 据 `lastActor`/权限判定，权限不满足时隐藏。
+- **持久化/同步**：`undoStack`/`lastActor` 是顶级运行时状态字段，按 `globalBans`/`plantUsage` 同模式加入 save/load/sync 四函数（非 ruleConfig 配置项，不享受整体存取契约）；旧存档/旧 payload 无这两个字段时降级为 `[]`/`null`。回归测试：`src/stores/__tests__/gameStore.undo.spec.js`。
 
 **WebRTC Network Configuration:**
 
@@ -485,7 +502,8 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ **阵营名称自定义**（功能1）：`ruleConfig.sideNames` 可改默认「二路/四路」，`gameStore.sideName(road)` 统一映射显示
 - ✅ **选边方式自定义**（功能3）：初始选边（双方互斥/指定一方/随机）+ 小局后选边权（败者选/胜者选/不换边），由 `ruleConfig.sideSelection` 驱动
 - ✅ **预设全局永久禁用步骤**（globalBan）：BP 模板步骤 action 可为 `'globalBan'`，流程进行到该步时由系统自动从未禁用池随机抽取 `count` 个植物并入 `globalBans`（跨小局永久生效），无需选手点击；详见下方「全局永久禁用（globalBan）预设步骤」
-- ✅ **局内临时抽取永禁**（手动触发，2026-07）：BP 流程进行中，裁判/host 可点「抽取永禁」按钮从未禁用池随机抽 1 个植物入 `globalBans`，并可「撤销抽取」回滚最近一次手动抽取；服务临时起意比赛，与预设版互补。详见下方「局内临时抽取永 ban（手动触发）」
+- ✅ **局内临时抽取永禁**（手动触发，2026-07）：BP 流程进行中，裁判/host 可点「抽取永禁」按钮从未禁用池随机抽 1 个植物入 `globalBans`；撤销由通用 `undoLastAction` 统一承担（不再有专门的「撤销抽取」）。与预设版互补，详见下方「局内临时抽取永 ban（手动触发）」
+- ✅ **通用撤销 / Undo Stack**（2026-07）：BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁）统一可撤销。采用操作前快照压栈 + 撤销时整体 pop 恢复；权限用 `lastActor` 模型（裁判随时可撤、选手可撤自己刚做的操作）；仅当前小局可撤（startRound 清栈）；撤销不触发自动步骤、不重新随机（多人安全）。详见下方「通用撤销（Undo Stack）」
 
 **Not Yet Implemented:**
 - ⚠️ 巅峰对决 mode (3:3 tiebreaker)
