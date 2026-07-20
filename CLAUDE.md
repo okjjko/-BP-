@@ -306,7 +306,7 @@ This is implemented via `getBPSequence()` which takes actual player IDs as param
 开局可自定义的比赛规则（阵营名 / 选边方式 / BP 顺序模板 / 植物使用上限）集中存于 `gameStore.state.ruleConfig` 单一对象，不再散落为顶级字段。约定：
 1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits,pumpkinRule}.js`。聚合器定型后不再改动，各功能默认值在各自子文件维护。
 2. **序列化整体处理**：`saveToLocalStorage` / `loadFromLocalStorage` / `getSyncPayload` / `applySyncState` 对 `ruleConfig` 整体存取（`{ ...defaultRules, ...(state.ruleConfig||{}) }` 深合并默认值，向后兼容）。**新增配置项禁止在这四个函数里逐字段列举**——只改对应 `rules/` 子文件即可自动获得持久化 + 多人同步。
-3. **并行协作锚点**：`gameStore.js` getters 区有 `// A-ANCHOR`（maxPlantUsage，功能4）与 `// B-ANCHOR`（sideName，功能1）占位注释；开发者 A/B 在各自锚点下新增 getter，避免冲突。`GameSetup.vue` 的规则配置区由 `SideRulesEditor.vue`（B）与 `BPRulesEditor.vue`（A）两个子组件分担。
+3. **并行协作锚点**：`gameStore.js` getters 区有 `// A-ANCHOR`（maxPlantUsage，功能4）与 `// B-ANCHOR`（sideName，功能1）占位注释；开发者 A/B 在各自锚点下新增 getter，避免冲突。规则编辑器分两个组件：`SideRulesEditor.vue`（B，阵营名称/选边方式，渲染于 GameSetup 与 RoomSetup 主页）与 `BPRulesEditor.vue`（A，BP 流程/上限，2026-07 迁入「配置管理」弹窗 `PlantManager/index.vue` 的「BP 流程」tab，主页不再直接渲染）。
 4. **解耦**：`bpSequence` 模板始终用 `road2`/`road4` 占位符；`sideNames` 仅影响显示文案；两者通过 road 数值（2/4）桥接。
 
 完整分工方案与数据结构见 `docs/CUSTOM-RULES-PARALLEL-PLAN.md`。
@@ -337,7 +337,7 @@ The application supports importing custom plants through the PlantManager UI:
 - **Storage**: Images stored as Blob objects in IndexedDB
 - **Export/Import**: Custom plants can be exported to JSON (images as Base64) and imported across devices
 
-Access custom plant management through the "植物管理" (Plant Management) interface.
+Access custom plant management through the "配置管理" (Config Manager) dialog's "植物" tab.
 
 **Built-in Plant Data:**
 Edit `src/data/plants.js` to replace placeholder images/data:
@@ -370,7 +370,7 @@ Custom colors defined in `tailwind.config.js`:
   - `src/stores/gameStore.js:543` (migrateLegacyPumpkinProtection 迁移逻辑)
 
 **自定义南瓜头植物**:
-用户可以通过植物管理界面添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
+用户可以通过「配置管理」弹窗的"植物"tab 添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
 
 **全局永久禁用（globalBan）预设步骤（2026-07）:**
 

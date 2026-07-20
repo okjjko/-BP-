@@ -72,7 +72,7 @@
       <div class="mt-6 flex justify-center">
         <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
           <template #icon><Sprout :size="18" /></template>
-          植物管理
+          配置管理
         </BaseButton>
       </div>
     </div>
@@ -233,9 +233,8 @@
               <Crown :size="14" />
               赛前规则配置（仅主办方可改）
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="space-y-4">
               <SideRulesEditor />
-              <BPRulesEditor />
             </div>
           </div>
 
@@ -411,7 +410,6 @@ import {
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'
-import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const emit = defineEmits(['startGame', 'cancel'])
 const store = useGameStore()

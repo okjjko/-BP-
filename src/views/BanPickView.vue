@@ -122,7 +122,7 @@
         @click="uiStore.setShowPlantManager(true)"
       >
         <template #icon><Sprout :size="20" /></template>
-        植物管理
+        配置管理
       </BaseButton>
 
       <BaseButton

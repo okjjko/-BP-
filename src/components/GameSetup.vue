@@ -167,21 +167,18 @@
       <div class="mt-6 mb-2 flex justify-center">
         <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
           <template #icon><Sprout :size="18" /></template>
-          植物管理
+          配置管理
         </BaseButton>
       </div>
 
     </div>
 
-    <!-- 右：比赛规则配置（与左侧卡片并排） -->
+    <!-- 右：阵营与选边规则（BP 流程配置已移入「配置管理」弹窗） -->
     <div class="w-full lg:flex-1 lg:max-w-3xl animate-slide-up">
       <h2 class="mb-3 text-sm font-bold text-gray-300 uppercase tracking-wide flex items-center gap-1.5">
-        <SlidersHorizontal :size="14" /> 自定义规则（可选）
+        <SlidersHorizontal :size="14" /> 阵营与选边规则
       </h2>
-      <div class="grid grid-cols-1 gap-4">
-        <SideRulesEditor />
-        <BPRulesEditor />
-      </div>
+      <SideRulesEditor />
     </div>
     </div><!-- /.flex 左右并排容器 -->
     </template>
@@ -201,7 +198,6 @@ import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToB
 import RoomSetup from '@/components/RoomSetup.vue'
 import roomManager from '@/utils/roomManager'
 import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'
-import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
