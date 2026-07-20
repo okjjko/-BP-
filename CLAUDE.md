@@ -222,7 +222,7 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
   - WebSocket hub（`/ws`）：房间管理、消息路由、身份分配、心跳（服务器 30s ping / 45s 超时断开）、断线清理
   - lobby HTTP 路由（`/lobby/*`、`/rooms`、`/health`）：公共房间目录（复用 `lobby-server.js` 的 handler）
   - Webhook 自动部署（`POST /webhook/deploy`）：校验 GitHub `X-Hub-Signature-256` HMAC / GitLab `X-Gitlab-Token` 签名后异步 spawn `scripts/auto-deploy.sh`（`git fetch`→比较→`--ff-only` 合并→按需 `npm install`→`npm run build`→PM2 重启→reload aa_nginx）。密钥取 `WEBHOOK_SECRET` 环境变量（**勿加 `VITE_` 前缀**，否则会被打进前端 bundle 泄露）。路由优先级高于 lobby/静态
-  - 静态文件（`../dist/`）+ SPA fallback（history 刷新）
+  - 静态文件（`../dist/`）+ SPA fallback（history 刷新）。**⚠️ 静态文件路径必须先 `decodeURIComponent`**：`URL.pathname` 保留 percent 编码态，中文文件名（如 `/plants/胆.png` 被浏览器编码成 `%E8%83%86.png`）若不解码，`fs.stat` 会按字面量 `%E8%83%86.png` 找文件 → 中文静态资源全 404。2026-07-16 前 aa_nginx 直托 dist 时 nginx 自动解码未暴露此问题，改 Node 托管后须在 `createServer` 入口显式解码（见 `server/index.js` URL 解析后的 decode 块）
   - 端口 `process.env.PORT || 8080`；启动 `cd server && npm install && npm start`
 
 - `server/lobby-server.js` - lobby handler 模块（export `handleLobbyRequest/isLobbyPath/startLobbyCleanupTimer`，由 index.js 挂载；不再自启动）。行为/CORS/限流/TTL(60s)/最大存活(6h) 与重构前一致。

@@ -682,6 +682,18 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ ok: false, error: 'BAD_URL' }))
   }
 
+  // 解码百分号编码（中文文件名等）：URL.pathname 保持编码态（/plants/%E8%83%86.png），
+  // 浏览器把「胆.png」编码成 %E8%83%86.png 发出；必须在拼接文件系统路径前 decodeURIComponent，
+  // 否则 fs.stat 按字面量「%E8%83%86.png」找文件 → 所有中文文件名静态资源 404。
+  // （2026-07-16 前 aa_nginx 直托 dist 时 nginx 自动解码，故未暴露；改 Node 托管后需自行解码。）
+  // 各路由判断（webhook/lobby/'/'）均为纯 ASCII 路径，对其解码为 no-op，故此处统一解码安全。
+  try {
+    pathname = decodeURIComponent(pathname)
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
+    return res.end('Bad URL encoding')
+  }
+
   // 1. Webhook 部署路由（优先级最高）
   if (pathname === WEBHOOK_PATH) {
     return handleWebhook(req, res)
