@@ -1009,7 +1009,9 @@ export const useGameStore = defineStore('game', {
     },
 
     triggerPlantCacheUpdate() {
-      this._plantCacheVersion = Date.now()
+      // 递增计数器（而非 Date.now()）：保证每次 bump 严格不同，
+      // 避免同毫秒内连续触发（如自动化/测试/批量操作）碰撞导致依赖该版本号的 computed 不重算
+      this._plantCacheVersion++
     }
   }
 })

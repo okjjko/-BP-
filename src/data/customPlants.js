@@ -217,9 +217,11 @@ export const getAllPlantsSync = () => {
  * 供组件同步调用
  */
 export const getPlantByIdSync = (id) => {
-  // 先从内置植物中查找（排除已隐藏的）
-  const hiddenPlants = getHiddenPlants()
-  const builtin = PLANTS.find(p => p.id === id && !hiddenPlants.includes(id))
+  // 按 id 查找植物（内置 + 自定义）。
+  // 【不】排除已隐藏的内置植物：隐藏只作用于"选择池"（getAllPlantsSync 与 availablePlants 已过滤），
+  // 而"已发生事件的展示"（已 ban/pick/使用的植物、回收站预览等）仍需按 id 正确取回图片/名称/描述。
+  // 若在此处再次过滤，会导致裁判在赛中隐藏某个已 ban/pick 的植物后，Ban/Pick 区与回收站图片全部退化成占位图。
+  const builtin = PLANTS.find(p => p.id === id)
   if (builtin) return builtin
 
   // 从缓存中查找

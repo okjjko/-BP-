@@ -53,6 +53,8 @@ const playerName = computed(() => {
 
 // 获取该选手已使用过的植物及使用次数
 const usedPlants = computed(() => {
+  // 依赖缓存版本号：隐藏/恢复植物后实时刷新（与 PlantManager 回收站共用同一响应式源）
+  const _v = store._plantCacheVersion
   const plantUsage = store.plantUsage || {}
   const pumpkinUsage = store.pumpkinUsage || {}
   const used = []

@@ -202,11 +202,13 @@
           <div v-if="currentTab === 'plants'" class="p-4 border-t border-gray-700/50 flex justify-between items-center">
             <div class="flex items-center gap-4 text-sm text-gray-400">
               <span>内置: {{ builtinCount }} | 自定义: {{ customCount }}</span>
-              <span v-if="hiddenCount > 0" class="text-orange-400 flex items-center gap-2">
-                | 已隐藏: {{ hiddenCount }}
+              <span class="flex items-center gap-2" :class="hiddenCount > 0 ? 'text-orange-400' : 'text-gray-400'">
+                <span v-if="hiddenCount > 0">| 已隐藏: {{ hiddenCount }}</span>
                 <button
                   @click="showRecycleBin = true"
-                  class="ml-1 px-2 py-1 bg-orange-600/20 hover:bg-orange-600/40 rounded transition-colors flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                  class="ml-1 px-2 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                  :class="hiddenCount > 0 ? 'bg-orange-600/20 hover:bg-orange-600/40' : 'bg-gray-700/50 hover:bg-gray-600/50'"
+                  :aria-label="hiddenCount > 0 ? `回收站（${hiddenCount} 个已隐藏植物）` : '回收站（空）'"
                 >
                   <RotateCcw :size="14" /> 回收站
                 </button>
@@ -237,7 +239,12 @@
         :key="plant.id"
         class="relative group bg-gray-800/60 rounded-xl overflow-hidden border border-orange-600/50 hover:border-orange-400 transition-colors"
       >
-        <img :src="getPlantImage(plant.id)" class="w-full aspect-square object-cover opacity-60" />
+        <img
+          :src="plant.image"
+          :alt="plant.name"
+          class="w-full aspect-square object-cover opacity-60"
+          @error="(e) => e.target.src = 'https://placehold.co/100x100/9370DB/white?text=图片丢失'"
+        />
         <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent flex flex-col justify-end p-3">
           <h4 class="font-bold text-white">{{ plant.name }}</h4>
           <p class="text-xs text-gray-400 truncate">{{ plant.description }}</p>
@@ -261,7 +268,7 @@
 
 <script setup>
 import { ref, computed, watch, onBeforeUnmount, nextTick } from 'vue'
-import { getAllPlantsSync, getHiddenBuiltinPlants, hideBuiltinPlant, unhideBuiltinPlant, checkPlantInGame, getPlantImage } from '@/data/customPlants'
+import { getAllPlantsSync, getHiddenBuiltinPlants, hideBuiltinPlant, unhideBuiltinPlant, checkPlantInGame } from '@/data/customPlants'
 import { useGameStore } from '@/stores/gameStore'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
@@ -302,6 +309,8 @@ const plantTypes = [
 
 // 过滤植物列表
 const filteredPlants = computed(() => {
+  // 依赖缓存版本号：隐藏/恢复/增删自定义植物后由 refreshList→triggerPlantCacheUpdate 驱动重算
+  const _v = store._plantCacheVersion
   let plants = getAllPlantsSync()
 
   if (selectedType.value !== 'all') {
@@ -332,16 +341,15 @@ const filteredPlants = computed(() => {
 })
 
 // 统计
-const builtinCount = computed(() => getAllPlantsSync().filter(p => p.builtin !== false).length)
-const customCount = computed(() => getAllPlantsSync().filter(p => p.builtin === false).length)
-const hiddenCount = computed(() => getHiddenBuiltinPlants().length)
-const hiddenPlants = computed(() => getHiddenBuiltinPlants())
+// 各统计均依赖缓存版本号，确保隐藏/恢复/增删后实时刷新（修复"隐藏后回收站入口不响应式出现"）
+const builtinCount = computed(() => { const _v = store._plantCacheVersion; return getAllPlantsSync().filter(p => p.builtin !== false).length })
+const customCount = computed(() => { const _v = store._plantCacheVersion; return getAllPlantsSync().filter(p => p.builtin === false).length })
+const hiddenCount = computed(() => { const _v = store._plantCacheVersion; return getHiddenBuiltinPlants().length })
+const hiddenPlants = computed(() => { const _v = store._plantCacheVersion; return getHiddenBuiltinPlants() })
 
-// 强制刷新列表
+// 触发植物缓存版本号 bump，让依赖 _plantCacheVersion 的 computed（filteredPlants/各 count/hiddenPlants）响应式重算
 const refreshList = () => {
-  const currentType = selectedType.value
-  selectedType.value = ''
-  setTimeout(() => { selectedType.value = currentType }, 0)
+  store.triggerPlantCacheUpdate()
 }
 
 // 操作方法
@@ -581,7 +589,9 @@ const handleExport = () => {
 }
 
 const handleImport = () => {
-  // 导入逻辑在 ImportExport 组件中实现
+  // ImportExport 内部已 await 完成 IndexedDB 写入与 updateCache 后才 emit('import')，
+  // 此处 bump 缓存版本号，让 filteredPlants / customCount 等响应式刷新（否则导入的植物需重开弹窗才显示）
+  refreshList()
 }
 
 // ===== 主模态焦点陷阱（Tab 循环 + Esc 关闭 + 打开聚焦 + 关闭回焦） =====
