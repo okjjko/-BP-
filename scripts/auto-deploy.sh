@@ -3,6 +3,7 @@
 # 功能：拉取代码 → 构建 → 重启服务
 
 set -e  # 遇到错误立即退出
+set -o pipefail  # 管道中任一命令失败即整体失败（避免 tee 掩盖 git/npm 失败 → 误判成功）
 
 # ==================== 配置 ====================
 PROJECT_DIR="/root/code/bp-tool"
@@ -53,6 +54,23 @@ cleanup() {
 # 注册退出时清理
 trap cleanup EXIT
 
+# git fetch 带重试（应对服务器到 GitHub 网络间歇性不通，实测 6/7 失败率）
+# lowSpeed 超时让卡住的连接快速失败，尽早进入下一次重试
+git_fetch_retry() {
+    local max=8
+    local i
+    for i in $(seq 1 "$max"); do
+        if git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=15 fetch origin master 2>&1 | tee -a "$LOG_FILE"; then
+            return 0
+        fi
+        if [ "$i" -lt "$max" ]; then
+            warn "git fetch 第 $i/$max 次失败，10s 后重试..."
+            sleep 10
+        fi
+    done
+    return 1
+}
+
 # ==================== 主流程 ====================
 
 main() {
@@ -69,8 +87,8 @@ main() {
     log "部署前版本: $(git rev-parse --short "$OLD_COMMIT")"
 
     log "正在拉取最新代码..."
-    if ! git fetch origin master 2>&1 | tee -a "$LOG_FILE"; then
-        error "git fetch 失败"
+    if ! git_fetch_retry; then
+        error "git fetch 重试 8 次仍失败（服务器当前访问 GitHub 不通）"
         exit 1
     fi
 
@@ -112,14 +130,14 @@ main() {
         cd "$PROJECT_DIR"
     fi
 
-    # 5. 构建前端
+    # 7. 构建前端
     log "正在构建前端..."
     if ! npm run build 2>&1 | tee -a "$LOG_FILE"; then
         error "构建失败"
         exit 1
     fi
 
-    # 6. 重启服务
+    # 8. 重启服务
     log "正在重启服务..."
 
     # PM2 重启所有相关进程
