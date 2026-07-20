@@ -256,6 +256,14 @@
           </button>
         </div>
 
+        <!-- 配置管理入口（植物 / 植物预设 / BP 流程配置），放在返回角色选择上方 -->
+        <div class="mt-4 flex justify-center">
+          <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
+            <template #icon><Sprout :size="18" /></template>
+            配置管理
+          </BaseButton>
+        </div>
+
         <!-- 返回角色选择（移至房间创建/信息区下方，两种状态均可见） -->
         <button
           @click="backFromHostPanel"

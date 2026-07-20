@@ -68,7 +68,11 @@
       <!-- 功能3：初始选边方式 -->
       <section class="space-y-3">
         <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wide">初始选边方式</h4>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="segment-track grid grid-cols-3 gap-2">
+          <div
+            class="segment-indicator rounded-md bg-plant-green/20 border border-plant-green"
+            :style="segmentIndicatorStyle(initialModeIndex, 3)"
+          ></div>
           <label
             v-for="opt in initialModeOptions"
             :key="opt.value"
@@ -82,7 +86,7 @@
               :disabled="!canEditRules"
               @change="onSync"
             />
-            <span class="block text-center text-xs py-2 px-1 rounded-md border transition-colors peer-checked:bg-plant-green/20 peer-checked:border-plant-green peer-checked:text-plant-green-neon border-gray-600 text-gray-400 hover:border-gray-400">
+            <span class="block text-center text-xs py-2 px-1 rounded-md border transition-colors peer-checked:text-plant-green-neon border-gray-600 text-gray-400 hover:border-gray-400">
               {{ opt.label }}
             </span>
           </label>
@@ -92,23 +96,29 @@
         <Transition name="slide-down">
           <div v-if="sideSelection.initialMode === 'assigned'" class="flex items-center gap-2 pl-1">
             <span class="text-[11px] text-gray-500">指定选边方：</span>
-            <label
-              v-for="opt in pickerOptions"
-              :key="opt.value"
-              :class="radioLabelClass"
-            >
-              <input
-                v-model="sideSelection.initialPicker"
-                :value="opt.value"
-                type="radio"
-                class="sr-only peer"
-                :disabled="!canEditRules"
-                @change="onSync"
-              />
-              <span class="inline-block text-xs py-1 px-3 rounded border transition-colors peer-checked:bg-pick-blue/20 peer-checked:border-pick-blue peer-checked:text-pick-blue-neon border-gray-600 text-gray-400 hover:border-gray-400">
-                {{ opt.label }}
-              </span>
-            </label>
+            <div class="segment-track inline-grid grid-cols-2 gap-2">
+              <div
+                class="segment-indicator rounded bg-pick-blue/20 border border-pick-blue"
+                :style="segmentIndicatorStyle(pickerIndex, 2)"
+              ></div>
+              <label
+                v-for="opt in pickerOptions"
+                :key="opt.value"
+                :class="radioLabelClass"
+              >
+                <input
+                  v-model="sideSelection.initialPicker"
+                  :value="opt.value"
+                  type="radio"
+                  class="sr-only peer"
+                  :disabled="!canEditRules"
+                  @change="onSync"
+                />
+                <span class="block text-center text-xs py-1 px-3 rounded border transition-colors peer-checked:text-pick-blue-neon border-gray-600 text-gray-400 hover:border-gray-400">
+                  {{ opt.label }}
+                </span>
+              </label>
+            </div>
           </div>
         </Transition>
 
@@ -120,7 +130,11 @@
       <!-- 功能3：每小局后选边权 -->
       <section class="space-y-3">
         <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wide">小局结束后选边权</h4>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="segment-track grid grid-cols-3 gap-2">
+          <div
+            class="segment-indicator rounded-md bg-plant-green/20 border border-plant-green"
+            :style="segmentIndicatorStyle(loserPickModeIndex, 3)"
+          ></div>
           <label
             v-for="opt in loserPickModeOptions"
             :key="opt.value"
@@ -134,7 +148,7 @@
               :disabled="!canEditRules"
               @change="onSync"
             />
-            <span class="block text-center text-xs py-2 px-1 rounded-md border transition-colors peer-checked:bg-plant-green/20 peer-checked:border-plant-green peer-checked:text-plant-green-neon border-gray-600 text-gray-400 hover:border-gray-400">
+            <span class="block text-center text-xs py-2 px-1 rounded-md border transition-colors peer-checked:text-plant-green-neon border-gray-600 text-gray-400 hover:border-gray-400">
               {{ opt.label }}
             </span>
           </label>
@@ -188,6 +202,21 @@ const loserPickModeOptions = [
   { value: 'winner', label: '胜者选' },
   { value: 'keep', label: '不换边' }
 ]
+
+// 各 radio 组选中项在选项数组中的索引（驱动滑动指示器定位）
+const initialModeIndex = computed(() =>
+  initialModeOptions.findIndex(o => o.value === sideSelection.value.initialMode))
+const loserPickModeIndex = computed(() =>
+  loserPickModeOptions.findIndex(o => o.value === sideSelection.value.loserPickMode))
+const pickerIndex = computed(() =>
+  pickerOptions.findIndex(o => o.value === sideSelection.value.initialPicker))
+
+// 滑动指示器定位：width 等分（扣掉 gap），translateX = index 个（自身宽 + gap）。
+// gap-2 = 0.5rem；translateX 的 100% 相对 indicator 自身宽，+ index*gap 补上 gap。
+const segmentIndicatorStyle = (index, count, gapRem = 0.5) => ({
+  width: `calc((100% - ${(count - 1) * gapRem}rem) / ${count})`,
+  transform: `translateX(calc(${index} * 100% + ${index * gapRem}rem))`,
+})
 
 const initialModeHint = computed(() => {
   switch (sideSelection.value.initialMode) {
@@ -290,6 +319,24 @@ const onSync = () => {
   margin-top: 0.75rem !important;
   opacity: 1;
   transform: translateY(0);
+}
+
+/* radio 组滑动指示器（segmented control）：选中高亮块在选项间平滑滑动 */
+.segment-track {
+  position: relative;
+}
+.segment-track label {
+  position: relative;
+  z-index: 1;
+}
+.segment-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  transition: transform 0.2s ease;
+  z-index: 10;
+  pointer-events: none;
 }
 </style>
 
