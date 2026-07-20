@@ -130,46 +130,47 @@
           </h3>
         </div>
 
-        <!-- 返回按钮 -->
-        <button
-          @click="backFromHostPanel"
-          class="mb-4 w-full px-4 py-2 text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
-        >
-          <span>←</span>
-          <span>返回角色选择</span>
-        </button>
-
         <!-- 房间创建/显示 -->
         <div v-if="!inviteCode" class="creation-section">
-          <!-- 公开房间开关 -->
-          <label class="public-toggle flex items-center gap-2 mb-4 cursor-pointer justify-center">
-            <input
-              type="checkbox"
-              v-model="isPublicRoom"
-              class="w-4 h-4 accent-purple-500"
-            >
-            <span class="text-gray-300 text-sm flex items-center gap-1.5"><Globe :size="16" /> 公开房间（其他人可在公共列表中看到并加入）</span>
-          </label>
-
-          <!-- 房主显示名（公开房间时必填） -->
-          <div v-if="isPublicRoom" class="input-group mb-4">
-            <label class="input-label">房主显示名</label>
-            <input
-              v-model="hostName"
-              type="text"
-              maxlength="20"
-              placeholder="如：小明"
-              class="player-input"
-            >
+          <!-- 房主显示名（创建公开房间时必填） -->
+          <div class="input-group mb-4">
+            <label class="input-label">房主显示名（创建公开房间时必填）</label>
+            <div class="field-grow" style="--grow-color:#a855f7">
+              <input
+                v-model="hostName"
+                type="text"
+                maxlength="20"
+                placeholder="如：小明"
+                class="player-input"
+              >
+            </div>
           </div>
 
+          <!-- 创建房间（私密，仅邀请码可加入） -->
           <button
-            @click="createRoom"
-            :disabled="isCreating || (isPublicRoom && !hostName.trim())"
+            @click="createPrivateRoom"
+            :disabled="isCreating"
             class="w-full px-6 py-4 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Loader2 v-if="isCreating" :size="20" class="animate-spin" />
-            {{ isCreating ? '创建中...' : (isPublicRoom ? '创建公开房间' : '创建房间') }}
+            {{ isCreating ? '创建中...' : '创建房间' }}
+          </button>
+
+          <!-- 分隔线 -->
+          <div class="lobby-divider flex items-center my-4 gap-3">
+            <div class="flex-1 h-px bg-gray-700"></div>
+            <span class="text-gray-500 text-xs">或者</span>
+            <div class="flex-1 h-px bg-gray-700"></div>
+          </div>
+
+          <!-- 创建公开房间（登记到 lobby 公共目录，他人可浏览加入） -->
+          <button
+            @click="createPublicRoom"
+            :disabled="isCreating || !hostName.trim()"
+            class="w-full px-4 py-2.5 bg-pick-blue/80 hover:bg-pick-blue disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          >
+            <Globe :size="18" />
+            <span>创建公开房间</span>
           </button>
         </div>
 
@@ -254,6 +255,15 @@
             解散房间
           </button>
         </div>
+
+        <!-- 返回角色选择（移至房间创建/信息区下方，两种状态均可见） -->
+        <button
+          @click="backFromHostPanel"
+          class="mt-4 w-full px-4 py-2 text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
+        >
+          <span>←</span>
+          <span>返回角色选择</span>
+        </button>
       </div>
 
       <!-- 选手/观众界面 -->
@@ -579,6 +589,18 @@ const createRoom = async () => {
   } finally {
     isCreating.value = false
   }
+}
+
+// 创建私密房间（仅邀请码可加入）
+const createPrivateRoom = () => {
+  isPublicRoom.value = false
+  createRoom()
+}
+
+// 创建公开房间（登记到 lobby 公共目录）
+const createPublicRoom = () => {
+  isPublicRoom.value = true
+  createRoom()
 }
 
 // 房主心跳保活：定期向 lobby 上报房间状态，防止被 TTL 清理

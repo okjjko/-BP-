@@ -33,27 +33,31 @@
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="block text-[11px] text-gray-500 mb-1">2 路阵营显示名</span>
-            <input
-              v-model="sideNames.road2"
-              type="text"
-              maxlength="8"
-              placeholder="二路"
-              :disabled="!canEditRules"
-              :class="inputClass"
-              @change="onSync"
-            />
+            <div class="field-grow" style="--grow-color:#00ff41">
+              <input
+                v-model="sideNames.road2"
+                type="text"
+                maxlength="8"
+                placeholder="二路"
+                :disabled="!canEditRules"
+                :class="inputClass"
+                @change="onSync"
+              />
+            </div>
           </label>
           <label class="block">
             <span class="block text-[11px] text-gray-500 mb-1">4 路阵营显示名</span>
-            <input
-              v-model="sideNames.road4"
-              type="text"
-              maxlength="8"
-              placeholder="四路"
-              :disabled="!canEditRules"
-              :class="inputClass"
-              @change="onSync"
-            />
+            <div class="field-grow" style="--grow-color:#00ff41">
+              <input
+                v-model="sideNames.road4"
+                type="text"
+                maxlength="8"
+                placeholder="四路"
+                :disabled="!canEditRules"
+                :class="inputClass"
+                @change="onSync"
+              />
+            </div>
           </label>
         </div>
         <p class="text-[10px] text-gray-600">仅影响显示文案，不影响 BP 顺序逻辑。留空将回退为默认名。</p>
@@ -84,27 +88,29 @@
           </label>
         </div>
 
-        <!-- assigned 模式下显示指定选边方 -->
-        <div v-if="sideSelection.initialMode === 'assigned'" class="flex items-center gap-2 pl-1">
-          <span class="text-[11px] text-gray-500">指定选边方：</span>
-          <label
-            v-for="opt in pickerOptions"
-            :key="opt.value"
-            :class="radioLabelClass"
-          >
-            <input
-              v-model="sideSelection.initialPicker"
-              :value="opt.value"
-              type="radio"
-              class="sr-only peer"
-              :disabled="!canEditRules"
-              @change="onSync"
-            />
-            <span class="inline-block text-xs py-1 px-3 rounded border transition-colors peer-checked:bg-pick-blue/20 peer-checked:border-pick-blue peer-checked:text-pick-blue-neon border-gray-600 text-gray-400 hover:border-gray-400">
-              {{ opt.label }}
-            </span>
-          </label>
-        </div>
+        <!-- assigned 模式下显示指定选边方（滑动展开） -->
+        <Transition name="slide-down">
+          <div v-if="sideSelection.initialMode === 'assigned'" class="flex items-center gap-2 pl-1">
+            <span class="text-[11px] text-gray-500">指定选边方：</span>
+            <label
+              v-for="opt in pickerOptions"
+              :key="opt.value"
+              :class="radioLabelClass"
+            >
+              <input
+                v-model="sideSelection.initialPicker"
+                :value="opt.value"
+                type="radio"
+                class="sr-only peer"
+                :disabled="!canEditRules"
+                @change="onSync"
+              />
+              <span class="inline-block text-xs py-1 px-3 rounded border transition-colors peer-checked:bg-pick-blue/20 peer-checked:border-pick-blue peer-checked:text-pick-blue-neon border-gray-600 text-gray-400 hover:border-gray-400">
+                {{ opt.label }}
+              </span>
+            </label>
+          </div>
+        </Transition>
 
         <p class="text-[10px] text-gray-600">{{ initialModeHint }}</p>
       </section>
@@ -201,7 +207,7 @@ const loserPickModeHint = computed(() => {
 // 样式：锁定时降低不透明度并禁用光标
 const inputClass = computed(() => [
   'w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-md text-sm text-white',
-  'focus:border-plant-green-neon focus:ring-1 focus:ring-plant-green-neon focus:outline-none transition-all',
+  'focus:outline-none transition-colors',
   'disabled:opacity-50 disabled:cursor-not-allowed'
 ])
 
@@ -226,6 +232,64 @@ const onSync = () => {
    因此刻高度已为 0，display:none 无跳变。 */
 .animated-details:not([open]) > .details-content {
   display: none;
+}
+
+/* 边框生长动效（border-grow / 生长边缘）—— 聚焦时彩色描边从中间向两端展开包围输入框，失焦反向收缩。
+   复用 RoomSetup 的 .field-grow 模式（RoomSetup 为 scoped，本组件需自带一份）。
+   参数对齐本组件 input：rounded-md=6px。颜色由 --grow-color 变量传入。 */
+.field-grow {
+  position: relative;
+}
+.field-grow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;   /* 对齐 input 的 rounded-md */
+  padding: 2px;         /* 描边环带宽度 */
+  background: var(--grow-color, transparent);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.field-grow:focus-within::before {
+  transform: scaleX(1);
+}
+
+/* assigned 选边方选项：滑动展开/收起
+   max-height + margin-top 让占位（含与上方的 space-y 间距）真实变化 → 下方提示文字完全平滑跟随，
+   不再瞬间跳变；transform+opacity 保留按钮的滑动淡入感；overflow:hidden 仅过渡期间裁剪位移。
+   margin-top 用 !important 覆盖 .space-y-3 > * + * 的更高优先级选择器。 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: max-height 0.25s ease, margin-top 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
+  overflow: hidden;
+}
+.slide-down-enter-from,
+.slide-down-leave-to {
+  max-height: 0;
+  margin-top: 0 !important;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.slide-down-enter-to,
+.slide-down-leave-from {
+  max-height: 50px;
+  margin-top: 0.75rem !important;
+  opacity: 1;
+  transform: translateY(0);
 }
 </style>
 
