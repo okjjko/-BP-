@@ -19,6 +19,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
+import { spawn } from 'node:child_process'
 
 import { handleLobbyRequest, isLobbyPath, startLobbyCleanupTimer } from './lobby-server.js'
 
@@ -30,6 +31,11 @@ const __dirname = path.dirname(__filename)
 const PORT = Number(process.env.PORT) || 8080
 const DIST_DIR = path.resolve(__dirname, '..', 'dist')
 const WS_PATH = '/ws'
+
+// Webhook 配置
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'change-me-in-production'
+const WEBHOOK_PATH = '/webhook/deploy'
+const DEPLOY_SCRIPT = path.resolve(__dirname, '..', 'scripts', 'auto-deploy.sh')
 
 // 服务器侧心跳（契约 §7：30s ping，45s 无响应断开）
 const SERVER_PING_INTERVAL_MS = 30 * 1000
@@ -538,6 +544,125 @@ function setupWebSocket(server) {
   return wss
 }
 
+// ==================== Webhook 自动部署 ====================
+
+/**
+ * 验证 GitHub/GitLab Webhook 签名
+ * GitHub: X-Hub-Signature-256: sha256=<HMAC>
+ * GitLab: X-Gitlab-Token: <plain token>
+ */
+function verifyWebhookSignature(req) {
+  const signature = req.headers['x-hub-signature-256'] || req.headers['x-gitlab-token']
+  if (!signature) {
+    return { valid: false, error: 'Missing signature' }
+  }
+
+  // GitLab: 直接比较 token
+  if (req.headers['x-gitlab-token']) {
+    return { valid: req.headers['x-gitlab-token'] === WEBHOOK_SECRET }
+  }
+
+  // GitHub: HMAC 验证
+  if (req.headers['x-hub-signature-256']) {
+    const payload = req.body || ''
+    const expectedSignature = 'sha256=' + crypto
+      .createHmac('sha256', WEBHOOK_SECRET)
+      .update(payload)
+      .digest('hex')
+    // timingSafeEqual 要求两 Buffer 等长，否则抛 RangeError；先比长度，拒绝异常签名
+    if (signature.length !== expectedSignature.length) {
+      return { valid: false, error: 'Signature length mismatch' }
+    }
+    return {
+      valid: crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+      )
+    }
+  }
+
+  return { valid: false, error: 'Unknown signature format' }
+}
+
+/**
+ * 触发部署脚本（异步，不阻塞响应）
+ */
+function triggerDeploy() {
+  console.log('[webhook] 触发自动部署...')
+
+  const deploy = spawn('bash', [DEPLOY_SCRIPT], {
+    cwd: path.dirname(DEPLOY_SCRIPT),
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+
+  // 记录输出
+  deploy.stdout.on('data', (data) => {
+    console.log(`[deploy:out] ${data.toString().trim()}`)
+  })
+
+  deploy.stderr.on('data', (data) => {
+    console.error(`[deploy:err] ${data.toString().trim()}`)
+  })
+
+  deploy.unref()  // 让父进程不等待子进程
+}
+
+/**
+ * Webhook 请求处理
+ */
+async function handleWebhook(req, res) {
+  // 仅允许 POST
+  if (req.method !== 'POST') {
+    res.writeHead(405, { 'Content-Type': 'application/json' })
+    return res.end(JSON.stringify({ ok: false, error: 'METHOD_NOT_ALLOWED' }))
+  }
+
+  // 读取请求体（限制 2MB，防止恶意大 payload 耗尽内存）
+  const chunks = []
+  let bodySize = 0
+  const MAX_BODY_BYTES = 2 * 1024 * 1024
+  for await (const chunk of req) {
+    bodySize += chunk.length
+    if (bodySize > MAX_BODY_BYTES) {
+      console.warn(`[webhook] 请求体超过 ${MAX_BODY_BYTES} 字节，拒绝`)
+      res.writeHead(413, { 'Content-Type': 'application/json' })
+      return res.end(JSON.stringify({ ok: false, error: 'PAYLOAD_TOO_LARGE' }))
+    }
+    chunks.push(chunk)
+  }
+  const body = Buffer.concat(chunks).toString()
+  req.body = body
+
+  // 验证签名
+  const verification = verifyWebhookSignature(req)
+  if (!verification.valid) {
+    console.warn(`[webhook] 签名验证失败: ${verification.error || 'Invalid signature'}`)
+    res.writeHead(401, { 'Content-Type': 'application/json' })
+    return res.end(JSON.stringify({ ok: false, error: 'UNAUTHORIZED' }))
+  }
+
+  // 解析事件类型（可选：限制仅在 push/push 事件时部署）
+  const event = req.headers['x-github-event'] || req.headers['x-gitlab-event']
+  console.log(`[webhook] 收到 ${event || 'unknown'} 事件`)
+
+  // 仅在 push 事件时部署
+  if (event && event !== 'Push Hook' && event !== 'push') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    return res.end(JSON.stringify({ ok: true, message: 'Event ignored', event }))
+  }
+
+  // 触发部署
+  triggerDeploy()
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify({
+    ok: true,
+    message: 'Deployment triggered',
+    timestamp: new Date().toISOString()
+  }))
+}
+
 // ==================== HTTP server（路由优先级） ====================
 
 /**
@@ -555,6 +680,11 @@ const server = http.createServer(async (req, res) => {
   } catch (e) {
     res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' })
     return res.end(JSON.stringify({ ok: false, error: 'BAD_URL' }))
+  }
+
+  // 1. Webhook 部署路由（优先级最高）
+  if (pathname === WEBHOOK_PATH) {
+    return handleWebhook(req, res)
   }
 
   // 2. lobby 路由（/lobby/*、/rooms、/health、/lobby、/lobby/health）
@@ -606,6 +736,7 @@ server.listen(PORT, () => {
   console.log(`[server]   ws     : ws://localhost:${PORT}${WS_PATH}`)
   console.log(`[server]   lobby  : http://localhost:${PORT}/lobby/rooms`)
   console.log(`[server]   health : http://localhost:${PORT}/health`)
+  console.log(`[server]   webhook: http://localhost:${PORT}${WEBHOOK_PATH}`)
   console.log(`[server]   static : ${DIST_EXISTS ? DIST_DIR : '(dist/ 未构建，SPA fallback 返回占位)'}`)
 })
 

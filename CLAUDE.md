@@ -220,6 +220,7 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
 - `server/index.js` - **统一入口（单进程）**
   - WebSocket hub（`/ws`）：房间管理、消息路由、身份分配、心跳（服务器 30s ping / 45s 超时断开）、断线清理
   - lobby HTTP 路由（`/lobby/*`、`/rooms`、`/health`）：公共房间目录（复用 `lobby-server.js` 的 handler）
+  - Webhook 自动部署（`POST /webhook/deploy`）：校验 GitHub `X-Hub-Signature-256` HMAC / GitLab `X-Gitlab-Token` 签名后异步 spawn `scripts/auto-deploy.sh`（`git fetch`→比较→`--ff-only` 合并→按需 `npm install`→`npm run build`→PM2 重启→reload aa_nginx）。密钥取 `WEBHOOK_SECRET` 环境变量（**勿加 `VITE_` 前缀**，否则会被打进前端 bundle 泄露）。路由优先级高于 lobby/静态
   - 静态文件（`../dist/`）+ SPA fallback（history 刷新）
   - 端口 `process.env.PORT || 8080`；启动 `cd server && npm install && npm start`
 
