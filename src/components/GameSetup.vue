@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-4">
+  <div class="flex-1 flex flex-col items-center justify-center p-4">
 
     <!-- 房间设置界面 -->
     <RoomSetup
@@ -8,12 +8,15 @@
       @cancel="handleRoomCancel"
     />
 
-    <!-- 游戏设置界面 -->
-    <div v-else class="glass-card rounded-2xl p-8 max-w-lg w-full relative overflow-hidden animate-slide-up">
+    <!-- 游戏设置界面（卡片 + 规则配置区：宽屏左右并排，窄屏纵向堆叠） -->
+    <template v-else>
+    <div class="w-full max-w-6xl flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-8">
+    <!-- 左：基础设置卡片 -->
+    <div class="glass-card rounded-2xl p-6 sm:p-8 w-full lg:flex-1 lg:max-w-2xl relative overflow-hidden animate-slide-up self-stretch">
       <!-- 返回按钮 -->
       <button
         @click="goBack"
-        class="absolute top-4 left-4 px-3 py-1.5 bg-gray-700/50 hover:bg-gray-600 text-gray-300 hover:text-white text-sm font-medium rounded-lg transition-all duration-200 border border-gray-600 hover:border-gray-500 flex items-center gap-1.5 z-10"
+        class="absolute top-4 left-4 px-3 py-1.5 bg-gray-700/50 hover:bg-gray-600 text-gray-300 hover:text-white text-sm font-medium rounded-lg transition-all duration-200 border border-gray-600 hover:border-gray-500 flex items-center gap-1.5 z-10 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
       >
         <span>←</span>
         <span>返回</span>
@@ -31,11 +34,11 @@
         PvZ B/P 对战
       </h1>
 
-      <form @submit.prevent="startGame" class="space-y-8">
+      <form @submit.prevent="startGame" class="max-w-lg mx-auto space-y-8">
         <!-- 选手 1 -->
         <div class="space-y-2">
           <label for="player1-input" class="block text-sm font-bold text-gray-300 uppercase tracking-wide">选手 1 (蓝色方)</label>
-          <div class="relative group">
+          <div class="relative group input-grow-wrap" style="--grow-color:#00e5ff">
             <input
               id="player1-input"
               v-model="player1Name"
@@ -44,9 +47,8 @@
               placeholder="输入 ID..."
               required
               autocomplete="off"
-              class="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-lg text-white focus:border-pick-blue-neon focus:ring-1 focus:ring-pick-blue-neon focus:outline-none transition-all placeholder-gray-500"
+              class="input-border-grow w-full px-4 py-3 bg-gray-900/50 border-2 border-gray-600 rounded-lg text-white focus:outline-none transition-colors placeholder-gray-500"
             />
-            <div class="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-pick-blue-neon to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
           </div>
           
           <!-- 选手1选路 -->
@@ -87,7 +89,7 @@
         <!-- 选手 2 -->
         <div class="space-y-2">
           <label for="player2-input" class="block text-sm font-bold text-gray-300 uppercase tracking-wide">选手 2 (红色方)</label>
-          <div class="relative group">
+          <div class="relative group input-grow-wrap" style="--grow-color:#ff1744">
             <input
               id="player2-input"
               v-model="player2Name"
@@ -96,9 +98,8 @@
               placeholder="输入 ID..."
               required
               autocomplete="off"
-              class="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-lg text-white focus:border-ban-red-neon focus:ring-1 focus:ring-ban-red-neon focus:outline-none transition-all placeholder-gray-500"
+              class="input-border-grow w-full px-4 py-3 bg-gray-900/50 border-2 border-gray-600 rounded-lg text-white focus:outline-none transition-colors placeholder-gray-500"
             />
-            <div class="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-ban-red-neon to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
           </div>
           
           <!-- 选手2选路 -->
@@ -139,19 +140,15 @@
         <!-- 大局获胜所需小局数 -->
         <div class="space-y-2">
           <label for="win-threshold-select" class="block text-sm font-bold text-gray-300 uppercase tracking-wide">大局获胜所需小局数</label>
-          <select
-            id="win-threshold-select"
-            v-model.number="winThreshold"
-            class="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-lg text-white focus:border-plant-green-neon focus:ring-1 focus:ring-plant-green-neon focus:outline-none transition-all"
-          >
-            <option v-for="n in 7" :key="n" :value="n">{{ n }} 胜（BO{{ n * 2 - 1 }}）</option>
-          </select>
-        </div>
-
-        <!-- 规则配置区（Phase 0 骨架占位；子组件由并行开发者 A/B 填充） -->
-        <div class="space-y-3">
-          <SideRulesEditor />
-          <BPRulesEditor />
+          <div class="relative group input-grow-wrap" style="--grow-color:#00ff41">
+            <select
+              id="win-threshold-select"
+              v-model.number="winThreshold"
+              class="input-border-grow w-full px-4 py-3 bg-gray-900/50 border-2 border-gray-600 rounded-lg text-white focus:outline-none transition-colors"
+            >
+              <option v-for="n in 7" :key="n" :value="n">{{ n }} 胜（BO{{ n * 2 - 1 }}）</option>
+            </select>
+          </div>
         </div>
 
         <button
@@ -167,18 +164,24 @@
       </form>
 
       <!-- 植物管理按钮 -->
-      <div class="mt-6 mb-6 flex justify-center">
+      <div class="mt-6 mb-2 flex justify-center">
         <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
           <template #icon><Sprout :size="18" /></template>
-          植物管理
+          配置管理
         </BaseButton>
       </div>
 
-      <div class="text-center" role="note">
-        <p class="text-xs text-gray-500 font-mono tracking-widest">本系统由@okjjko制作，GitHub仓库地址：https://github.com/okjjko/-BP-/tree/master</p>
-      </div>
-
     </div>
+
+    <!-- 右：阵营与选边规则（BP 流程配置已移入「配置管理」弹窗） -->
+    <div class="w-full lg:flex-1 lg:max-w-3xl animate-slide-up">
+      <h2 class="mb-3 text-sm font-bold text-gray-300 uppercase tracking-wide flex items-center gap-1.5">
+        <SlidersHorizontal :size="14" /> 阵营与选边规则
+      </h2>
+      <SideRulesEditor />
+    </div>
+    </div><!-- /.flex 左右并排容器 -->
+    </template>
   </div>
 </template>
 
@@ -188,14 +191,13 @@ import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/composables/useToast'
-import { Sprout } from 'lucide-vue-next'
+import { Sprout, SlidersHorizontal } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { getPlantById, PLANTS } from '@/data/plants'
 import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToBase64 } from '@/data/customPlants'
 import RoomSetup from '@/components/RoomSetup.vue'
 import roomManager from '@/utils/roomManager'
 import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'
-import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
@@ -426,3 +428,51 @@ onMounted(() => {
   globalBans.value = shuffled.slice(0, 5).map(p => p.id)
 })
 </script>
+
+<style scoped>
+/*
+  描边生长动效：聚焦时一条彩色描边从中间向两端展开并包围文本框，
+  失焦时反向从两端向中间收缩 —— 进出互为反向。
+  实现：
+    1. input 本体边框保持灰色不动（不是动画主体，避免瞬间整圈亮）；
+    2. .input-grow-wrap::before 是覆盖层，画一个完整彩色描边圆角矩形
+       （padding + mask 镂空成只留边框区），叠在 input 边框上方；
+    3. 覆盖层用 transform: scaleX 做显隐（transform-origin: center），
+       scaleX(0)→(1) 即「中间向两端展开」，与原下划线 scale-x 同源、稳健；
+    4. 颜色由 wrap 上的 --grow-color 变量传入，红/蓝复用同一套动画。
+*/
+.input-grow-wrap {
+  position: relative;
+}
+
+/* 覆盖层：完整彩色描边，默认缩在中间不可见 */
+.input-grow-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem; /* 对齐 rounded-lg */
+  padding: 2px; /* 对齐 border-2 */
+  background: var(--grow-color, transparent);
+  /* 镂空内部，只留边框环带 */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  /* 从中间向两端展开 */
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 聚焦：描边展开并包围整个框 */
+.input-grow-wrap:focus-within::before {
+  transform: scaleX(1);
+}
+</style>
+

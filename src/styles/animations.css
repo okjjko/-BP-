@@ -183,6 +183,50 @@
   clip: auto;
 }
 
+/* ========== ban/pick 植物动画（D5） ========== */
+
+/* 选中弹跳，末值对齐选中态 scale-105（不带 opacity，避免可见植物闪一下） */
+@keyframes selectPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  100% { transform: scale(1.05); }
+}
+.plant-select-pulse { animation: selectPulse .3s cubic-bezier(.34,1.56,.64,1); }
+
+/* 禁用瞬间一闪即逝的红边（仅 box-shadow，不常驻） */
+@keyframes banFlash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  50%      { box-shadow: 0 0 0 3px rgba(239,68,68,.5); }
+}
+.plant-ban-flash { animation: banFlash .3s ease-out; }
+
+/* 选择瞬间一闪即逝的蓝边（仅 box-shadow，不常驻） */
+@keyframes pickFlash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+  50%      { box-shadow: 0 0 0 3px rgba(59,130,246,.5); }
+}
+.plant-pick-flash { animation: pickFlash .3s ease-out; }
+
+/* BanArea 盖章进入：从上方轻微盖下并淡入 */
+@keyframes banStamp {
+  0%   { opacity: 0; transform: translateY(-4px); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.ban-enter-active { animation: banStamp .3s ease-out; }
+.ban-leave-active { transition: opacity .2s ease; }
+.ban-leave-to     { opacity: 0; }
+
+/* 飞行克隆体淡出（与真实项 enter 末段重叠） */
+.plant-flight-clone {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  will-change: transform, opacity;
+}
+
 /* 触觉反馈 - 尊重用户的运动偏好设置 */
 @media (prefers-reduced-motion: reduce) {
   *,

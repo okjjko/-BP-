@@ -8,7 +8,7 @@
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
         role="dialog"
         aria-modal="true"
-        aria-label="植物管理"
+        aria-label="配置管理"
       >
         <!-- 背景遮罩 -->
         <div
@@ -21,12 +21,12 @@
           <!-- 标题栏 -->
           <div class="flex items-center justify-between p-6 border-b border-gray-700/50">
             <h2 class="text-2xl font-bold flex items-center gap-2">
-              <Sprout :size="24" class="text-purple-400" /> 植物管理中心
+              <Sprout :size="24" class="text-purple-400" /> 配置管理
             </h2>
             <button
               @click="close"
               class="p-2 hover:bg-gray-700/50 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-              aria-label="关闭植物管理"
+              aria-label="关闭配置管理"
             >
               <X :size="24" />
             </button>
@@ -45,7 +45,7 @@
                   class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                   :class="currentTab === 'plants' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
                 >
-                  <Sprout :size="16" /> 植物管理
+                  <Sprout :size="16" /> 植物
                 </button>
                 <button
                   @click="currentTab = 'configs'"
@@ -54,7 +54,16 @@
                   class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                   :class="currentTab === 'configs' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
                 >
-                  <Folder :size="16" /> 配置管理
+                  <Folder :size="16" /> 植物预设
+                </button>
+                <button
+                  @click="currentTab = 'rules'"
+                  role="tab"
+                  :aria-selected="currentTab === 'rules'"
+                  class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                  :class="currentTab === 'rules' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                >
+                  <SlidersHorizontal :size="16" /> BP 流程
                 </button>
               </div>
 
@@ -178,9 +187,14 @@
               </Transition>
             </div>
 
-            <!-- 配置管理标签页 -->
+            <!-- 植物预设标签页 -->
             <div v-if="currentTab === 'configs'" class="flex-1 overflow-hidden">
               <ConfigManager />
+            </div>
+
+            <!-- BP 流程标签页：BPRulesEditor（已剥 details 外壳），独占左栏全宽、内部滚动 -->
+            <div v-if="currentTab === 'rules'" class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              <BPRulesEditor />
             </div>
           </div>
 
@@ -251,13 +265,14 @@ import { getAllPlantsSync, getHiddenBuiltinPlants, hideBuiltinPlant, unhideBuilt
 import { useGameStore } from '@/stores/gameStore'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
-import { Sprout, Folder, X, Plus, Trash2, RotateCcw } from 'lucide-vue-next'
+import { Sprout, Folder, X, Plus, Trash2, RotateCcw, SlidersHorizontal } from 'lucide-vue-next'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import PlantCard from './PlantCard.vue'
 import PlantForm from './PlantForm.vue'
 import ImportExport from './ImportExport.vue'
 import ConfigManager from './ConfigManager.vue'
+import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const props = defineProps({
   show: Boolean

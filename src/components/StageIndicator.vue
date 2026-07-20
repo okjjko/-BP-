@@ -159,6 +159,7 @@ const totalSteps = computed(() => {
 })
 
 const currentPlayerName = computed(() => {
+  if (currentPlayer.value === 'system') return '系统'
   if (currentPlayer.value === 'player1') {
     return store.player1.id || '蓝方'
   } else if (currentPlayer.value === 'player2') {
@@ -170,33 +171,36 @@ const currentPlayerName = computed(() => {
 const actionText = computed(() => {
   if (action.value === 'ban') return '禁用'
   if (action.value === 'pick') return '选择'
+  if (action.value === 'globalBan') return '全局禁用'
   return ''
 })
 
+// globalBan 与 ban 共用 ban-red 色系
+const isBanLike = (a) => a === 'ban' || a === 'globalBan'
+
 const stageClass = computed(() => {
-  if (action.value === 'ban') return 'text-ban-red'
+  if (isBanLike(action.value)) return 'text-ban-red'
   if (action.value === 'pick') return 'text-pick-blue'
   return 'text-gray-400'
 })
 
 // 当前操作条 = 全场唯一发光焦点（单层 glow + 单处 ping）
 const actionClass = computed(() => {
-  if (action.value === 'ban') return 'bg-ban-red text-white shadow-[0_0_18px_rgba(239,68,68,0.45)]'
+  if (isBanLike(action.value)) return 'bg-ban-red text-white shadow-[0_0_18px_rgba(239,68,68,0.45)]'
   if (action.value === 'pick') return 'bg-pick-blue text-white shadow-[0_0_18px_rgba(59,130,246,0.45)]'
   return 'bg-gray-600 text-white'
 })
 
 const progressBarClass = computed(() => {
-  if (action.value === 'ban') return 'bg-gradient-to-r from-ban-red-dark to-ban-red'
+  if (isBanLike(action.value)) return 'bg-gradient-to-r from-ban-red-dark to-ban-red'
   if (action.value === 'pick') return 'bg-gradient-to-r from-pick-blue-dark to-pick-blue'
   return 'bg-gray-500'
 })
 
-// 检查是否有南瓜保护激活（新增）
+// 检查是否有南瓜保护激活（extraPick.remaining > 0 表示有待消耗的南瓜保护名额）
 const hasPumpkinProtection = computed(() => {
   const extraPick = store.currentRound?.extraPick
-  const lastPumpkinIndex = store.currentRound?.lastPumpkinIndex
-  return extraPick && extraPick.remaining > 0 && lastPumpkinIndex !== undefined
+  return !!(extraPick && extraPick.remaining > 0)
 })
 </script>
 

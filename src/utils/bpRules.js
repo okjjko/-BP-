@@ -108,10 +108,11 @@ export const getBPSequence = (template, road2Player, road4Player) => {
 
   const useTemplate = (tpl && Array.isArray(tpl) && tpl.length > 0) ? tpl : BUILTIN_TEMPLATE
 
-  // 转换函数：将模板中的'road2'/'road4'替换为实际选手
+  // 转换函数：将模板中的'road2'/'road4'替换为实际选手。
+  // 其余 player 值（如 globalBan 步骤的 'system'）原样透传，不参与阵营替换。
   const convertTemplate = (stageTemplate) => {
     return stageTemplate.map(step => ({
-      player: step.player === 'road2' ? r2 : r4,
+      player: step.player === 'road2' ? r2 : step.player === 'road4' ? r4 : step.player,
       action: step.action,
       count: step.count || 1
     }))

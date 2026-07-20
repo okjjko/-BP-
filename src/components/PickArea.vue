@@ -52,6 +52,8 @@
             <div class="text-[10px] text-gray-500 truncate">{{ getPlantDesc(plantId) }}</div>
           </div>
         </div>
+        <!-- 飞行终点锚点：零宽零高，定位在列表末尾，供飞行 overlay 读取落点坐标 -->
+        <div :key="`pick-slot-${player}`" :data-pick-slot="player" class="h-0 w-0" aria-hidden="true" />
       </transition-group>
     </div>
 
@@ -169,11 +171,16 @@ const isProtectedByPumpkin = (index) => {
 </script>
 
 <style scoped>
-.list-enter-active,
+/* 落定弹跳：复用全局 successPop keyframe，去掉 translateX 以免与飞行水平运动重复 */
+.list-enter-active {
+  animation: successPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.list-enter-from {
+  opacity: 0;
+}
 .list-leave-active {
   transition: all 0.3s ease;
 }
-.list-enter-from,
 .list-leave-to {
   opacity: 0;
   transform: translateX(-20px);

@@ -10,7 +10,7 @@
       <div v-if="roundBans.length === 0" class="text-gray-500 text-xs italic py-2 text-center">
         等待禁用...
       </div>
-      <div class="grid grid-cols-5 gap-1.5">
+      <TransitionGroup name="ban" tag="div" class="grid grid-cols-5 gap-1.5">
         <div
           v-for="plantId in roundBans"
           :key="plantId"
@@ -32,15 +32,16 @@
             </svg>
           </div>
         </div>
-        <!-- 占位符：保持5个位置的宽度 -->
+        <!-- 占位符：保持5个位置的宽度；第一个占位符标 data-ban-slot 作为飞行终点 -->
         <div
           v-for="i in (5 - roundBans.length)"
           :key="`placeholder-${i}`"
+          :data-ban-slot="i === 1 ? player : undefined"
           class="w-12 h-12 border-2 border-dashed border-gray-700/50 rounded-lg flex items-center justify-center bg-black/20"
           aria-hidden="true"
         >
         </div>
-      </div>
+      </TransitionGroup>
     </div>
   </div>
 </template>

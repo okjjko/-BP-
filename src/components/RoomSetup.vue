@@ -51,7 +51,7 @@
     </div>
 
     <!-- 模式选择 -->
-    <div v-else-if="!mode" class="mode-selection">
+    <div v-else-if="!mode" class="mode-selection animate-slide-up">
       <h3 class="text-xl font-bold mb-4 text-center">选择对战模式</h3>
       <div class="flex gap-4 justify-center">
         <button
@@ -72,15 +72,15 @@
       <div class="mt-6 flex justify-center">
         <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
           <template #icon><Sprout :size="18" /></template>
-          植物管理
+          配置管理
         </BaseButton>
       </div>
     </div>
 
     <!-- 多人对战设置 -->
-    <div v-else class="multiplayer-setup">
-      <!-- 角色选择 -->
-      <div v-if="!role" class="role-selection">
+    <div v-else class="multiplayer-setup animate-slide-up">
+      <!-- 角色选择（切换沿用 animate-slide-up 一次性进入动画，与初始↔本地对战层一致，无退出等待，切换更流畅） -->
+      <div v-if="!role" class="role-selection animate-slide-up">
         <h3 class="text-xl font-bold mb-4 text-center">选择你的角色</h3>
         <div class="flex flex-col gap-3">
           <button
@@ -123,53 +123,54 @@
       </div>
 
       <!-- 主办方界面 -->
-      <div v-else-if="role === 'host'" class="host-panel">
+      <div v-else-if="role === 'host'" class="host-panel animate-slide-up">
         <div class="panel-header">
           <h3 class="text-xl font-bold text-center text-purple-400 flex items-center justify-center gap-2">
             <Crown :size="20" /> 主办方控制台
           </h3>
         </div>
 
-        <!-- 返回按钮 -->
-        <button
-          @click="backFromHostPanel"
-          class="mb-4 w-full px-4 py-2 text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
-        >
-          <span>←</span>
-          <span>返回对战模式选择</span>
-        </button>
-
         <!-- 房间创建/显示 -->
         <div v-if="!inviteCode" class="creation-section">
-          <!-- 公开房间开关 -->
-          <label class="public-toggle flex items-center gap-2 mb-4 cursor-pointer justify-center">
-            <input
-              type="checkbox"
-              v-model="isPublicRoom"
-              class="w-4 h-4 accent-purple-500"
-            >
-            <span class="text-gray-300 text-sm flex items-center gap-1.5"><Globe :size="16" /> 公开房间（其他人可在公共列表中看到并加入）</span>
-          </label>
-
-          <!-- 房主显示名（公开房间时必填） -->
-          <div v-if="isPublicRoom" class="input-group mb-4">
-            <label class="input-label">房主显示名</label>
-            <input
-              v-model="hostName"
-              type="text"
-              maxlength="20"
-              placeholder="如：小明"
-              class="player-input"
-            >
+          <!-- 房主显示名（创建公开房间时必填） -->
+          <div class="input-group mb-4">
+            <label class="input-label">房主显示名（创建公开房间时必填）</label>
+            <div class="field-grow" style="--grow-color:#a855f7">
+              <input
+                v-model="hostName"
+                type="text"
+                maxlength="20"
+                placeholder="如：小明"
+                class="player-input"
+              >
+            </div>
           </div>
 
+          <!-- 创建房间（私密，仅邀请码可加入） -->
           <button
-            @click="createRoom"
-            :disabled="isCreating || (isPublicRoom && !hostName.trim())"
+            @click="createPrivateRoom"
+            :disabled="isCreating"
             class="w-full px-6 py-4 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Loader2 v-if="isCreating" :size="20" class="animate-spin" />
-            {{ isCreating ? '创建中...' : (isPublicRoom ? '创建公开房间' : '创建房间') }}
+            {{ isCreating ? '创建中...' : '创建房间' }}
+          </button>
+
+          <!-- 分隔线 -->
+          <div class="lobby-divider flex items-center my-4 gap-3">
+            <div class="flex-1 h-px bg-gray-700"></div>
+            <span class="text-gray-500 text-xs">或者</span>
+            <div class="flex-1 h-px bg-gray-700"></div>
+          </div>
+
+          <!-- 创建公开房间（登记到 lobby 公共目录，他人可浏览加入） -->
+          <button
+            @click="createPublicRoom"
+            :disabled="isCreating || !hostName.trim()"
+            class="w-full px-4 py-2.5 bg-pick-blue/80 hover:bg-pick-blue disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          >
+            <Globe :size="18" />
+            <span>创建公开房间</span>
           </button>
         </div>
 
@@ -233,8 +234,9 @@
               <Crown :size="14" />
               赛前规则配置（仅主办方可改）
             </div>
-            <SideRulesEditor />
-            <BPRulesEditor />
+            <div class="space-y-4">
+              <SideRulesEditor />
+            </div>
           </div>
 
           <!-- 确认开始按钮 -->
@@ -253,10 +255,27 @@
             解散房间
           </button>
         </div>
+
+        <!-- 配置管理入口（植物 / 植物预设 / BP 流程配置），放在返回角色选择上方 -->
+        <div class="mt-4 flex justify-center">
+          <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
+            <template #icon><Sprout :size="18" /></template>
+            配置管理
+          </BaseButton>
+        </div>
+
+        <!-- 返回角色选择（移至房间创建/信息区下方，两种状态均可见） -->
+        <button
+          @click="backFromHostPanel"
+          class="mt-4 w-full px-4 py-2 text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
+        >
+          <span>←</span>
+          <span>返回角色选择</span>
+        </button>
       </div>
 
       <!-- 选手/观众界面 -->
-      <div v-else class="client-panel">
+      <div v-else class="client-panel animate-slide-up">
         <div class="panel-header">
           <h3 class="text-xl font-bold text-center text-plant-green flex items-center justify-center gap-2">
             <component :is="role === 'player' ? Gamepad2 : Eye" :size="20" />
@@ -268,27 +287,31 @@
         <div v-if="!isConnected" class="join-section">
           <div class="input-group">
             <label class="input-label">输入邀请码</label>
-            <input
-              v-model="inputInviteCode"
-              type="text"
-              maxlength="6"
-              placeholder="如：ABC123"
-              class="invite-input"
-              @keyup.enter="joinRoom"
-            >
+            <div class="field-grow" style="--grow-color:#22c55e">
+              <input
+                v-model="inputInviteCode"
+                type="text"
+                maxlength="6"
+                placeholder="如：ABC123"
+                class="invite-input"
+                @keyup.enter="joinRoom"
+              >
+            </div>
           </div>
 
           <!-- 选手ID输入 -->
           <div v-if="role === 'player'" class="input-group">
             <label class="input-label">你的ID/昵称</label>
-            <input
-              v-model="playerName"
-              type="text"
-              maxlength="20"
-              placeholder="输入选手ID..."
-              class="player-input"
-              @keyup.enter="joinRoom"
-            >
+            <div class="field-grow" style="--grow-color:#22c55e">
+              <input
+                v-model="playerName"
+                type="text"
+                maxlength="20"
+                placeholder="输入选手ID..."
+                class="player-input"
+                @keyup.enter="joinRoom"
+              >
+            </div>
           </div>
 
           <button
@@ -405,7 +428,6 @@ import {
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'
-import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const emit = defineEmits(['startGame', 'cancel'])
 const store = useGameStore()
@@ -511,8 +533,8 @@ const backFromHostPanel = () => {
     connectedUsers.value = []
     connStore.clearMultiplayerSession()
   }
-  // 返回模式选择
-  backToModeSelection()
+  // 返回角色选择（保留 mode='multiplayer'，不退回对战模式选择层）
+  backToRoleSelection()
 }
 
 // 选择角色
@@ -575,6 +597,18 @@ const createRoom = async () => {
   } finally {
     isCreating.value = false
   }
+}
+
+// 创建私密房间（仅邀请码可加入）
+const createPrivateRoom = () => {
+  isPublicRoom.value = false
+  createRoom()
+}
+
+// 创建公开房间（登记到 lobby 公共目录）
+const createPublicRoom = () => {
+  isPublicRoom.value = true
+  createRoom()
 }
 
 // 房主心跳保活：定期向 lobby 上报房间状态，防止被 TTL 清理
@@ -1036,7 +1070,7 @@ onUnmounted(() => {
 <style scoped>
 .room-setup {
   width: 100%;
-  max-width: 500px;
+  max-width: 820px;
   margin: 0 auto;
   padding: 20px;
 }
@@ -1153,7 +1187,7 @@ onUnmounted(() => {
 
 .invite-input:focus {
   outline: none;
-  border-color: #22c55e;
+  /* 边框生长动效由 .field-grow::before 覆盖层承担，本体边框不再瞬间变色 */
 }
 
 .invite-input::placeholder {
@@ -1174,11 +1208,47 @@ onUnmounted(() => {
 
 .player-input:focus {
   outline: none;
-  border-color: #22c55e;
+  /* 边框生长动效由 .field-grow::before 覆盖层承担，本体边框不再瞬间变色 */
 }
 
 .player-input::placeholder {
   color: #6b7280;
+}
+
+/* 边框生长动效（border-grow / 生长边缘）
+   聚焦时彩色描边从中间向两端放射展开并包围控件，失焦时反向收缩。
+   结构：.field-grow 仅包裹 input（不含 label），::before 绝对定位贴合 input 区域。
+   覆盖层用 padding+mask 镂空成边框环带，transform: scaleX（origin:center）做显隐。
+   颜色由 .field-grow 上的 --grow-color 变量传入。 */
+.field-grow {
+  position: relative;
+}
+.field-grow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 8px;   /* 对齐 input 的 border-radius:8px */
+  padding: 2px;         /* 对齐 input 的 border:2px */
+  background: var(--grow-color, transparent);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.field-grow:focus-within::before {
+  transform: scaleX(1);
 }
 
 .error-message {

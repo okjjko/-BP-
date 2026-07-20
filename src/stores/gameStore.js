@@ -46,6 +46,16 @@ export const useGameStore = defineStore('game', {
     globalBans: [],
     plantUsage: {},
     pumpkinUsage: { player1: 0, player2: 0 },
+    // 最近一次「局内手动抽取」的永 ban 植物 id（历史字段，原供 undoLastManualGlobalBan 撤销）。
+    // 注：通用撤销（undoLastAction）上线后该字段不再被写入，保留仅为旧存档/混版本向后兼容。
+    lastManualGlobalBan: null,
+
+    // 通用撤销栈：每个快照对应一次「可撤销操作」（confirmSelection / drawRandomGlobalBan）前的完整状态。
+    // 生命周期：startRound 清空；上限 30。自动步骤（_processAutoSteps）与 randomBanPlants 不单独压栈。
+    undoStack: [],
+    // 最近一次「可撤销操作」的执行者：'player1' | 'player2' | 'system' | null。
+    // 用于精确判定选手撤销权（选手仅能撤销自己刚做的操作）；见 undoLastAction。
+    lastActor: null,
 
     // 游戏状态
     gameStatus: 'setup',
@@ -89,8 +99,15 @@ export const useGameStore = defineStore('game', {
       const { bans, picks, currentPlayer, action, extraPick, pumpkinUsedThisRound } = currentRound
       // 植物使用上限可配（功能4），默认 2
       const maxUsage = state.ruleConfig?.limits?.maxPlantUsage ?? 2
+      // 南瓜特殊规则开关（默认开启）
+      const pumpkinEnabled = state.ruleConfig?.pumpkinRule?.enabled ?? true
 
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
+
+      // 自动步骤：系统抽取全局禁用，选手无需选择，返回空避免误触
+      if (action === 'globalBan') {
+        return []
+      }
 
       if (action === 'ban') {
         return getAllPlantsSync().filter(plant => !allBans.includes(plant.id))
@@ -111,8 +128,8 @@ export const useGameStore = defineStore('game', {
         const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
         if (ownPickCount + historicalUsage >= maxUsage) return false
 
-        // 南瓜头特殊规则
-        if (isPumpkin(plantId, getAllPlantsSync())) {
+        // 南瓜头特殊规则（开关关闭时回落到上方通用上限检查，南瓜当普通植物）
+        if (pumpkinEnabled && isPumpkin(plantId, getAllPlantsSync())) {
           // 对手已在本轮使用过南瓜，不可选（空值安全）
           const usedMap = pumpkinUsedThisRound || {}
           if (usedMap[opponent]) return false
@@ -135,7 +152,9 @@ export const useGameStore = defineStore('game', {
     maxPlantUsage: (state) => state.ruleConfig?.limits?.maxPlantUsage ?? 2,
     currentBPTemplate: (state) => state.ruleConfig?.bpSequence,
 
-    isPumpkinPlant: () => (plantId) => {
+    isPumpkinPlant: (state) => (plantId) => {
+      // 南瓜特殊规则开关关闭时，南瓜当作普通植物（不触发保护机制）
+      if (!(state.ruleConfig?.pumpkinRule?.enabled ?? true)) return false
       return isPumpkin(plantId, getAllPlantsSync())
     },
 
@@ -235,6 +254,9 @@ export const useGameStore = defineStore('game', {
     },
 
     startRound(roundNumber) {
+      // 进入新小局，清空撤销栈与 lastActor（撤销仅限当前小局）
+      this.undoStack = []
+      this.lastActor = null
       const road2 = this.player1.road === 2 ? 'player1' : this.player2.road === 2 ? 'player2' : null
       const road4 = this.player1.road === 4 ? 'player1' : this.player2.road === 4 ? 'player2' : null
       const bpSequence = getBPSequence(this.ruleConfig.bpSequence, road2, road4)
@@ -261,6 +283,8 @@ export const useGameStore = defineStore('game', {
 
       this.updateCurrentStep()
       this.gameStatus = 'banning'
+      // 首步可能是 globalBan（自动步骤），由权威方抽取并推进
+      this._processAutoSteps()
     },
 
     // ========== BP 流程控制 ==========
@@ -309,6 +333,19 @@ export const useGameStore = defineStore('game', {
       const player = this.currentRound.currentPlayer
       const action = this.currentRound.action
 
+      // pick 前置校验提前：避免压栈后校验失败而在栈中留下无效快照
+      if (action === 'pick') {
+        const canPickResult = canPick(plantId, player, this.$state)
+        if (!canPickResult.valid) {
+          useToast().warning(canPickResult.reason)
+          return
+        }
+      }
+
+      // 所有可能失败的校验已通过：压入操作前快照并记录操作者（供通用撤销，选手可撤自己刚做的操作）
+      this._pushUndoSnapshot()
+      this.lastActor = player
+
       if (action === 'ban') {
         this.currentRound.bans[player].push(plantId)
         this.currentRound.selectedPlant = null
@@ -319,12 +356,6 @@ export const useGameStore = defineStore('game', {
       }
 
       if (action === 'pick') {
-        const canPickResult = canPick(plantId, player, this.$state)
-        if (!canPickResult.valid) {
-          useToast().warning(canPickResult.reason)
-          return
-        }
-
         if (this.isPumpkinPlant(plantId)) {
           this._handlePumpkinPick(player, plantId)
           return
@@ -368,29 +399,37 @@ export const useGameStore = defineStore('game', {
           this.currentRound.lastPumpkinIndices &&
           this.currentRound.lastPumpkinIndices.length > 0) {
 
-        // 取出第一个待匹配的南瓜索引
+        // ① 取出本次要消耗的南瓜索引（splice 前的索引空间）
         const pumpkinIdx = this.currentRound.lastPumpkinIndices.shift()
 
-        // 从 picks 中移除南瓜头
-        this.currentRound.picks[player].splice(pumpkinIdx, 1)
-
-        // 计算被保护植物的实际索引
-        let actualIndex = newPlantIndex - 1 // 减1因为南瓜刚被移除
-        if (pumpkinIdx < newPlantIndex) {
-          actualIndex = newPlantIndex - 1
+        // ② splice 前：pumpkinProtection 中 index > pumpkinIdx 的 key 前移 1
+        //   （splice 会删除索引 pumpkinIdx，其后元素全部前移；仅影响当前 player）
+        const oldProtection = this.currentRound.pumpkinProtection || {}
+        const remappedProtection = {}
+        for (const [key, value] of Object.entries(oldProtection)) {
+          const m = key.match(/^(player[12])_(\d+)$/)
+          if (!m) { remappedProtection[key] = value; continue }
+          const p = m[1], idx = Number(m[2])
+          const newIdx = (p === player && idx > pumpkinIdx) ? idx - 1 : idx
+          remappedProtection[`${p}_${newIdx}`] = value
         }
+        this.currentRound.pumpkinProtection = remappedProtection
 
-        if (!this.currentRound.pumpkinProtection) {
-          this.currentRound.pumpkinProtection = {}
-        }
-
-        const protectionKey = `${player}_${actualIndex}`
-        this.currentRound.pumpkinProtection[protectionKey] = {
+        // ③ 为被保护植物建立保护记录（splice 后该植物索引 = newPlantIndex - 1，恒成立）
+        const actualIndex = newPlantIndex - 1
+        this.currentRound.pumpkinProtection[`${player}_${actualIndex}`] = {
           protectedBy: 'pumpkin',
           pumpkinIndex: pumpkinIdx
         }
 
-        // 减少剩余额外选择次数
+        // ④ splice 移除南瓜
+        this.currentRound.picks[player].splice(pumpkinIdx, 1)
+
+        // ⑤ lastPumpkinIndices 中所有 > pumpkinIdx 的元素 -1（与 picks 同步前移）
+        this.currentRound.lastPumpkinIndices =
+          this.currentRound.lastPumpkinIndices.map(i => i > pumpkinIdx ? i - 1 : i)
+
+        // ⑥ 消耗名额，归零则推进步骤
         this.currentRound.extraPick.remaining--
 
         if (this.currentRound.extraPick.remaining <= 0) {
@@ -413,6 +452,13 @@ export const useGameStore = defineStore('game', {
     },
 
     moveToNextStep() {
+      this._advanceOneStep()
+      // 推进后若落在自动步骤（globalBan），由权威方抽取并继续推进
+      this._processAutoSteps()
+    },
+
+    // 推进到下一个 BP 步骤（step++、更新 stage、updateCurrentStep；到末尾则进入 positioning）
+    _advanceOneStep() {
       const { bpSequence } = this.currentRound
       let totalSteps = 0
       for (const bpStage of bpSequence) {
@@ -436,11 +482,196 @@ export const useGameStore = defineStore('game', {
       } else {
         this.gameStatus = 'positioning'
       }
+    },
 
-      if (this.currentRound.lastPumpkinIndex !== undefined) {
-        delete this.currentRound.lastPumpkinIndex
-        this.saveToLocalStorage()
+    /**
+     * 处理自动步骤（globalBan）：当前步为「全局永久禁用」时，由权威方（local/host）
+     * 从未禁用池随机抽取 count 个植物并入 globalBans，再推进；循环直至落在手动步骤
+     * 或流程结束。非权威方（player/spectator）no-op——状态由 host 的 syncState 被动同步。
+     *
+     * 多人一致性：globalBan 步骤不属于任何选手（player='system'），无选手点击确认，
+     * 故必须由 host 单方抽取并广播，避免各端随机数不一致。沿用 randomBanPlants 的权威方模式。
+     */
+    _processAutoSteps() {
+      const connStore = useConnectionStore()
+      const isAuthority = connStore.roomMode === 'local' || connStore.roomMode === 'host'
+      if (!isAuthority) return
+
+      let processed = false
+      let guard = 0
+      while (this.gameStatus !== 'positioning'
+        && this.currentRound.action === 'globalBan'
+        && guard++ < 1000) {
+        const count = this.currentRound.pickCount || 1
+        this._drawGlobalBans(count)
+        this._advanceOneStep()
+        processed = true
       }
+
+      // 仅在确实处理过自动步骤时才落盘 + 同步（避免普通推进多一次 I/O）
+      if (processed) {
+        this.saveToLocalStorage()
+        connStore.syncState()
+      }
+    },
+
+    /**
+     * 从当前未禁用的植物池中随机抽取 count 个，加入 globalBans（全局永久禁用）。
+     * 池不足时抽满为止；已 in globalBans 或当小局 bans 的不会重复抽取。
+     * @returns {string[]} 实际抽到的 plantId 数组（供手动抽取复用，状态机调用不接收返回值）
+     */
+    _drawGlobalBans(count) {
+      const allBans = [
+        ...this.globalBans,
+        ...this.currentRound.bans.player1,
+        ...this.currentRound.bans.player2
+      ]
+      const pool = getAllPlantsSync().filter(p => !allBans.includes(p.id))
+      const shuffled = [...pool].sort(() => Math.random() - 0.5)
+      const drawn = shuffled.slice(0, Math.min(count, pool.length)).map(p => p.id)
+      this.globalBans = [...this.globalBans, ...drawn]
+      return drawn
+    },
+
+    /**
+     * 局内临时抽取「一个」全局永久禁用植物（手动触发，每次 1 个）。
+     * 与赛前预设的 globalBan 步骤互补：无需赛前配置，临时起意时由裁判/host 触发。
+     *
+     * 权威方语义：仅 local/host 执行抽取并 syncState 广播；player/spectator 返回失败（UI 守卫兜底）。
+     * 返回值供 UI 做 toast 反馈。
+     *
+     * @returns {{ ok:boolean, plantId?:string, reason?:string }}
+     *   ok=true 携带 plantId；ok=false 携带 reason：'not-authority' | 'no-round' | 'empty'
+     */
+    drawRandomGlobalBan() {
+      const connStore = useConnectionStore()
+      const isAuthority = connStore.roomMode === 'local' || connStore.roomMode === 'host'
+      if (!isAuthority) return { ok: false, reason: 'not-authority' }
+      if (!this.currentRound) return { ok: false, reason: 'no-round' }
+
+      // 压入操作前快照（host 抽取，选手无权撤，故 lastActor='system'）。
+      // 若抽取失败（池空），回滚刚压入的快照与 lastActor，避免留下无效撤销点。
+      const prevLastActor = this.lastActor
+      this._pushUndoSnapshot()
+      this.lastActor = 'system'
+
+      const drawn = this._drawGlobalBans(1)
+      if (drawn.length === 0) {
+        this.undoStack.pop()
+        this.lastActor = prevLastActor
+        return { ok: false, reason: 'empty' }
+      }
+
+      this.saveToLocalStorage()
+      connStore.syncState()
+      return { ok: true, plantId: drawn[0] }
+    },
+
+    /**
+     * 通用撤销：弹出最近一个操作前快照，整体恢复状态。
+     *
+     * 权限：观众拒绝；裁判（local/host）永真；选手仅当 lastActor===myAssignedPlayer
+     * （即撤销的是自己刚做的操作）。撤销后回合回退给被撤销步的原操作者，由其重做。
+     *
+     * 不触发 _processAutoSteps（仅调用 updateCurrentStep 重算指针），避免撤销回 globalBan
+     * 自动步骤时被自动重抽破坏快照恢复。范围：仅当前小局（startRound 已清栈）。
+     *
+     * @returns {{ ok:boolean, undone?:object, reason?:string }}
+     *   ok=true 携带 undone（供 UI toast）；ok=false 携带 reason：
+     *   'not-allowed' | 'wrong-phase' | 'empty'
+     */
+    undoLastAction() {
+      const connStore = useConnectionStore()
+      if (connStore.isViewOnly) return { ok: false, reason: 'not-allowed' }
+      const isAuthority = connStore.roomMode === 'local' || connStore.myRole === 'host'
+      if (!isAuthority && this.lastActor !== connStore.myAssignedPlayer) {
+        return { ok: false, reason: 'not-allowed' }
+      }
+      if (this.gameStatus !== 'banning') return { ok: false, reason: 'wrong-phase' }
+      if (this.undoStack.length === 0) return { ok: false, reason: 'empty' }
+
+      // 记录撤销前状态，供 _describeUndone 解析「撤了什么」
+      const before = {
+        action: this.currentRound.action,
+        currentPlayer: this.currentRound.currentPlayer,
+        picks: {
+          player1: [...this.currentRound.picks.player1],
+          player2: [...this.currentRound.picks.player2]
+        },
+        bans: {
+          player1: [...this.currentRound.bans.player1],
+          player2: [...this.currentRound.bans.player2]
+        },
+        globalBans: [...this.globalBans],
+      }
+
+      const snapshot = this.undoStack.pop()
+      this.currentRound = JSON.parse(JSON.stringify(snapshot.currentRound))
+      this.globalBans = [...snapshot.globalBans]
+      this.plantUsage = { ...snapshot.plantUsage }
+      this.pumpkinUsage = { ...snapshot.pumpkinUsage }
+      this.gameStatus = snapshot.gameStatus
+      // 回到干净待选状态；lastActor 清空（撤销后无「刚操作的选手」，选手需重做后才能再撤）
+      this.currentRound.selectedPlant = null
+      this.lastActor = null
+      // 仅据 step 重算 currentPlayer/action，不推进、不触发自动步骤
+      this.updateCurrentStep()
+
+      const undone = this._describeUndone(before)
+      this.saveToLocalStorage()
+      connStore.syncState()
+      return { ok: true, undone }
+    },
+
+    /**
+     * 构造操作前快照（仅含会被可撤销操作修改的字段；深拷贝避开响应式代理与后续 mutation）。
+     */
+    _buildUndoSnapshot() {
+      return {
+        currentRound: JSON.parse(JSON.stringify(this.currentRound)),
+        globalBans: [...this.globalBans],
+        plantUsage: { ...this.plantUsage },
+        pumpkinUsage: { ...this.pumpkinUsage },
+        gameStatus: this.gameStatus,
+      }
+    },
+
+    /**
+     * 压入操作前快照到 undoStack；上限 30，超出则丢弃最旧。
+     */
+    _pushUndoSnapshot() {
+      if (!this.currentRound) return
+      this.undoStack.push(this._buildUndoSnapshot())
+      if (this.undoStack.length > 30) this.undoStack.shift()
+    },
+
+    /**
+     * 对比撤销前后状态，描述「撤了什么」供 UI toast。
+     * @returns {{ action:string, player?:string, plantId?:string, manualBan?:boolean }}
+     */
+    _describeUndone(before) {
+      const cr = this.currentRound
+      // 1. globalBans 变短 → 撤的是手动抽取永禁（自动步骤不单独压栈，故此处只能是手动）
+      if (before.globalBans.length > this.globalBans.length) {
+        const removed = before.globalBans.find(id => !this.globalBans.includes(id))
+        return { action: 'globalBan', plantId: removed, manualBan: true }
+      }
+      // 2. picks 变短 → 撤的是 pick（含南瓜：快照整体恢复后 picks 长度回退）
+      for (const p of ['player1', 'player2']) {
+        if (before.picks[p].length > cr.picks[p].length) {
+          const removed = before.picks[p][before.picks[p].length - 1]
+          return { action: 'pick', player: p, plantId: removed }
+        }
+      }
+      // 3. bans 变短 → 撤的是 ban
+      for (const p of ['player1', 'player2']) {
+        if (before.bans[p].length > cr.bans[p].length) {
+          const removed = before.bans[p][before.bans[p].length - 1]
+          return { action: 'ban', player: p, plantId: removed }
+        }
+      }
+      // 4. fallback
+      return { action: cr.action, player: cr.currentPlayer }
     },
 
     // ========== 站位与结算 ==========
@@ -527,14 +758,17 @@ export const useGameStore = defineStore('game', {
 
     updatePlantUsage() {
       const { picks } = this.currentRound
-      // 遍历 picks 时跳过南瓜头（南瓜头的使用次数由 pumpkinUsage 单独追踪）
+      // 南瓜特殊规则开启时，南瓜头使用次数由 pumpkinUsage 单独追踪，此处跳过；
+      // 开关关闭时南瓜当作普通植物，正常计入 plantUsage。
+      const pumpkinEnabled = this.ruleConfig?.pumpkinRule?.enabled ?? true
+      const skipPumpkin = (plantId) => pumpkinEnabled && isPumpkin(plantId, getAllPlantsSync())
       picks.player1.forEach(plantId => {
-        if (isPumpkin(plantId, getAllPlantsSync())) return
+        if (skipPumpkin(plantId)) return
         const key = `player1_${plantId}`
         this.plantUsage[key] = (this.plantUsage[key] || 0) + 1
       })
       picks.player2.forEach(plantId => {
-        if (isPumpkin(plantId, getAllPlantsSync())) return
+        if (skipPumpkin(plantId)) return
         const key = `player2_${plantId}`
         this.plantUsage[key] = (this.plantUsage[key] || 0) + 1
       })
@@ -549,6 +783,9 @@ export const useGameStore = defineStore('game', {
         globalBans: this.globalBans,
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
+        lastManualGlobalBan: this.lastManualGlobalBan,
+        undoStack: this.undoStack,
+        lastActor: this.lastActor,
         currentRound: this.currentRound,
         gameStatus: this.gameStatus,
         firstPlayer: this.firstPlayer,
@@ -569,6 +806,9 @@ export const useGameStore = defineStore('game', {
           this.globalBans = state.globalBans
           this.plantUsage = state.plantUsage
           this.pumpkinUsage = state.pumpkinUsage || { player1: 0, player2: 0 }
+          this.lastManualGlobalBan = state.lastManualGlobalBan || null
+          this.undoStack = Array.isArray(state.undoStack) ? state.undoStack : []
+          this.lastActor = state.lastActor ?? null
           this.currentRound = state.currentRound
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
@@ -634,19 +874,67 @@ export const useGameStore = defineStore('game', {
       })
     },
 
+    // 清理 buggy 旧存档：picks 中残留的南瓜头。
+    // 正常 pending 状态下南瓜头会临时放在 picks 末尾连续段（待匹配被保护植物）；
+    // 旧版本（连续选南瓜索引失效 bug）会在普通植物之间留下穿插的南瓜残留。
+    // 这里保留末尾连续南瓜（重建 pending），清理穿插残留，并重映射 pumpkinProtection 的 key。
     migrateLegacyPumpkinProtection() {
-      ['player1', 'player2'].forEach(player => {
+      if (!this.currentRound) return
+
+      ;['player1', 'player2'].forEach(player => {
         const picks = this.currentRound?.picks?.[player] || []
-        const pumpkinIndices = []
-        picks.forEach((plantId, index) => {
-          if (this.isPumpkinPlant(plantId)) {
-            pumpkinIndices.push(index)
-          }
+        const isPumpkinAt = picks.map(id => this.isPumpkinPlant(id))
+        const pumpkinCount = isPumpkinAt.filter(Boolean).length
+        if (pumpkinCount === 0) return
+
+        // 末尾连续南瓜数 = 正常 pending；其余穿插南瓜 = buggy 残留
+        let trailingCount = 0
+        for (let i = isPumpkinAt.length - 1; i >= 0 && isPumpkinAt[i]; i--) trailingCount++
+        const strayCount = pumpkinCount - trailingCount
+        if (strayCount > 0) {
+          console.warn(`[迁移] 检测到 ${player} 的 picks 中有 ${strayCount} 个穿插南瓜头（buggy 残留），正在清理`)
+        }
+
+        // 重建 picks（删除穿插南瓜）并建立 oldIdx → newIdx 映射
+        const indexMap = {}
+        const cleanPicks = []
+        picks.forEach((plantId, oldIdx) => {
+          const isStray = isPumpkinAt[oldIdx] && oldIdx < picks.length - trailingCount
+          if (isStray) return
+          indexMap[oldIdx] = cleanPicks.length
+          cleanPicks.push(plantId)
         })
-        if (pumpkinIndices.length > 0) {
-          console.warn(`[迁移] 检测到 ${player} 的 picks 中有 ${pumpkinIndices.length} 个南瓜头`)
+        this.currentRound.picks[player] = cleanPicks
+
+        // 重映射 pumpkinProtection 的 key（指向已删除穿插南瓜的 key 丢弃）
+        const oldProtection = this.currentRound.pumpkinProtection || {}
+        const newProtection = {}
+        for (const [key, value] of Object.entries(oldProtection)) {
+          const m = key.match(/^(player[12])_(\d+)$/)
+          if (!m || m[1] !== player) { newProtection[key] = value; continue }
+          const oldIdx = Number(m[2])
+          if (oldIdx in indexMap) {
+            newProtection[`${player}_${indexMap[oldIdx]}`] = value
+          }
+        }
+        this.currentRound.pumpkinProtection = newProtection
+
+        // 基于末尾连续南瓜重建 pending 状态
+        if (trailingCount > 0) {
+          const start = cleanPicks.length - trailingCount
+          this.currentRound.lastPumpkinIndices =
+            Array.from({ length: trailingCount }, (_, i) => start + i)
+          this.currentRound.extraPick = { player, remaining: trailingCount }
         }
       })
+
+      // 清理后已无南瓜却仍残留 pending（无法可靠恢复），重置
+      const hasPumpkin = ['player1', 'player2'].some(p =>
+        (this.currentRound?.picks?.[p] || []).some(id => this.isPumpkinPlant(id)))
+      if (!hasPumpkin && this.currentRound?.extraPick) {
+        this.currentRound.extraPick = null
+        delete this.currentRound.lastPumpkinIndices
+      }
     },
 
     // ========== 导出 ==========
@@ -662,6 +950,7 @@ export const useGameStore = defineStore('game', {
         globalBans: this.globalBans,
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
+        lastManualGlobalBan: this.lastManualGlobalBan,
         currentRound: this.currentRound,
         customPlants: []
       }
@@ -691,6 +980,9 @@ export const useGameStore = defineStore('game', {
       this.globalBans = [...gameState.globalBans]
       this.plantUsage = { ...gameState.plantUsage }
       this.pumpkinUsage = { ...gameState.pumpkinUsage }
+      this.lastManualGlobalBan = gameState.lastManualGlobalBan || null
+      this.undoStack = Array.isArray(gameState.undoStack) ? gameState.undoStack : []
+      this.lastActor = gameState.lastActor ?? null
       this.gameStatus = gameState.gameStatus
       this.roundWinner = gameState.roundWinner
       this.winThreshold = gameState.winThreshold || 4
@@ -706,6 +998,9 @@ export const useGameStore = defineStore('game', {
         globalBans: this.globalBans,
         plantUsage: this.plantUsage,
         pumpkinUsage: this.pumpkinUsage,
+        lastManualGlobalBan: this.lastManualGlobalBan,
+        undoStack: this.undoStack,
+        lastActor: this.lastActor,
         gameStatus: this.gameStatus,
         roundWinner: this.roundWinner,
         winThreshold: this.winThreshold,
