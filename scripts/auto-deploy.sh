@@ -140,6 +140,12 @@ main() {
     # 8. 重启服务
     log "正在重启服务..."
 
+    # ⚠️ 本脚本由 bp-server spawn，pm2 restart bp-server 时 PM2 会向其进程树发
+    # SIGINT/SIGTERM（实测会殃及本脚本，导致 restart 之后的 aa_nginx reload +
+    # “部署成功完成”日志缺失；部署本身成功，但日志不完整影响可观测性）。
+    # 临时屏蔽这两类信号，跑完收尾；脚本自然 exit 时 EXIT trap 仍清理 PID 锁。
+    trap '' INT TERM
+
     # PM2 重启所有相关进程
     if command -v pm2 &> /dev/null; then
         # 重启 bp-server
