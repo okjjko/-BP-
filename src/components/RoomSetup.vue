@@ -51,7 +51,7 @@
     </div>
 
     <!-- 模式选择 -->
-    <div v-else-if="!mode" class="mode-selection">
+    <div v-else-if="!mode" class="mode-selection animate-slide-up">
       <h3 class="text-xl font-bold mb-4 text-center">选择对战模式</h3>
       <div class="flex gap-4 justify-center">
         <button
@@ -78,9 +78,9 @@
     </div>
 
     <!-- 多人对战设置 -->
-    <div v-else class="multiplayer-setup">
-      <!-- 角色选择 -->
-      <div v-if="!role" class="role-selection">
+    <div v-else class="multiplayer-setup animate-slide-up">
+      <!-- 角色选择（切换沿用 animate-slide-up 一次性进入动画，与初始↔本地对战层一致，无退出等待，切换更流畅） -->
+      <div v-if="!role" class="role-selection animate-slide-up">
         <h3 class="text-xl font-bold mb-4 text-center">选择你的角色</h3>
         <div class="flex flex-col gap-3">
           <button
@@ -123,7 +123,7 @@
       </div>
 
       <!-- 主办方界面 -->
-      <div v-else-if="role === 'host'" class="host-panel">
+      <div v-else-if="role === 'host'" class="host-panel animate-slide-up">
         <div class="panel-header">
           <h3 class="text-xl font-bold text-center text-purple-400 flex items-center justify-center gap-2">
             <Crown :size="20" /> 主办方控制台
@@ -136,7 +136,7 @@
           class="mb-4 w-full px-4 py-2 text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
         >
           <span>←</span>
-          <span>返回对战模式选择</span>
+          <span>返回角色选择</span>
         </button>
 
         <!-- 房间创建/显示 -->
@@ -258,7 +258,7 @@
       </div>
 
       <!-- 选手/观众界面 -->
-      <div v-else class="client-panel">
+      <div v-else class="client-panel animate-slide-up">
         <div class="panel-header">
           <h3 class="text-xl font-bold text-center text-plant-green flex items-center justify-center gap-2">
             <component :is="role === 'player' ? Gamepad2 : Eye" :size="20" />
@@ -270,27 +270,31 @@
         <div v-if="!isConnected" class="join-section">
           <div class="input-group">
             <label class="input-label">输入邀请码</label>
-            <input
-              v-model="inputInviteCode"
-              type="text"
-              maxlength="6"
-              placeholder="如：ABC123"
-              class="invite-input"
-              @keyup.enter="joinRoom"
-            >
+            <div class="field-grow" style="--grow-color:#22c55e">
+              <input
+                v-model="inputInviteCode"
+                type="text"
+                maxlength="6"
+                placeholder="如：ABC123"
+                class="invite-input"
+                @keyup.enter="joinRoom"
+              >
+            </div>
           </div>
 
           <!-- 选手ID输入 -->
           <div v-if="role === 'player'" class="input-group">
             <label class="input-label">你的ID/昵称</label>
-            <input
-              v-model="playerName"
-              type="text"
-              maxlength="20"
-              placeholder="输入选手ID..."
-              class="player-input"
-              @keyup.enter="joinRoom"
-            >
+            <div class="field-grow" style="--grow-color:#22c55e">
+              <input
+                v-model="playerName"
+                type="text"
+                maxlength="20"
+                placeholder="输入选手ID..."
+                class="player-input"
+                @keyup.enter="joinRoom"
+              >
+            </div>
           </div>
 
           <button
@@ -513,8 +517,8 @@ const backFromHostPanel = () => {
     connectedUsers.value = []
     connStore.clearMultiplayerSession()
   }
-  // 返回模式选择
-  backToModeSelection()
+  // 返回角色选择（保留 mode='multiplayer'，不退回对战模式选择层）
+  backToRoleSelection()
 }
 
 // 选择角色
@@ -1155,7 +1159,7 @@ onUnmounted(() => {
 
 .invite-input:focus {
   outline: none;
-  border-color: #22c55e;
+  /* 边框生长动效由 .field-grow::before 覆盖层承担，本体边框不再瞬间变色 */
 }
 
 .invite-input::placeholder {
@@ -1176,11 +1180,47 @@ onUnmounted(() => {
 
 .player-input:focus {
   outline: none;
-  border-color: #22c55e;
+  /* 边框生长动效由 .field-grow::before 覆盖层承担，本体边框不再瞬间变色 */
 }
 
 .player-input::placeholder {
   color: #6b7280;
+}
+
+/* 边框生长动效（border-grow / 生长边缘）
+   聚焦时彩色描边从中间向两端放射展开并包围控件，失焦时反向收缩。
+   结构：.field-grow 仅包裹 input（不含 label），::before 绝对定位贴合 input 区域。
+   覆盖层用 padding+mask 镂空成边框环带，transform: scaleX（origin:center）做显隐。
+   颜色由 .field-grow 上的 --grow-color 变量传入。 */
+.field-grow {
+  position: relative;
+}
+.field-grow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 8px;   /* 对齐 input 的 border-radius:8px */
+  padding: 2px;         /* 对齐 input 的 border:2px */
+  background: var(--grow-color, transparent);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.field-grow:focus-within::before {
+  transform: scaleX(1);
 }
 
 .error-message {

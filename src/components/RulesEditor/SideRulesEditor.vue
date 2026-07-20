@@ -4,12 +4,19 @@
     数据入口：直接读写 useGameStore().ruleConfig.sideNames / .sideSelection
     勿改动 BPRulesEditor.vue（开发者 A 负责）。
   -->
-  <details class="rounded-lg border border-gray-700/60 bg-gray-900/30" open>
-    <summary class="cursor-pointer select-none px-4 py-3 text-sm font-bold text-gray-400 uppercase tracking-wide hover:text-gray-200">
+  <details
+    ref="detailsRef"
+    :open="isOpen"
+    class="animated-details rounded-lg border border-gray-700/60 bg-gray-900/30"
+  >
+    <summary
+      @click.prevent="toggle"
+      class="cursor-pointer select-none px-4 py-3 text-sm font-bold text-gray-400 uppercase tracking-wide hover:text-gray-200"
+    >
       阵营与选边规则
     </summary>
 
-    <div class="px-4 pb-4 pt-1 space-y-6">
+    <div ref="contentRef" class="details-content px-4 pb-4 pt-1 space-y-6">
       <!-- 多人对局进行中锁定提示 -->
       <div
         v-if="!store.isRuleEditable"
@@ -128,17 +135,27 @@
         </div>
         <p class="text-[10px] text-gray-600">{{ loserPickModeHint }}</p>
       </section>
-    </div>
+      </div>
   </details>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
+import { useDetailsAnimation } from '@/composables/useDetailsAnimation'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
+
+// details 折叠面板丝滑展开/收起动画（grid 0fr→1fr 在 Chrome 实测不插值，改用 JS+height）
+const detailsRef = ref(null)
+const contentRef = ref(null)
+const { isOpen, toggle } = useDetailsAnimation({
+  getDetails: () => detailsRef.value,
+  getContent: () => contentRef.value,
+  initialOpen: true, // 阵营与选边规则默认展开
+})
 
 // 多人权限（契约2）：单机恒可改；多人仅 host 且赛前可改。
 const canEditRules = computed(() =>
@@ -201,3 +218,14 @@ const onSync = () => {
   }
 }
 </script>
+
+<style scoped>
+/* details 收起态隐藏内容。
+   必须显式控制：原生 details 在「运行时移除 open 属性」时不可靠隐藏子内容（实测高度残留），
+   且需保证页面初始（未 open）时内容也是隐藏的。靠 JS 动画结束时 open=false 触发本规则，
+   因此刻高度已为 0，display:none 无跳变。 */
+.animated-details:not([open]) > .details-content {
+  display: none;
+}
+</style>
+
