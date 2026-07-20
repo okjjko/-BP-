@@ -23,7 +23,7 @@
 
       <!-- 全局页脚 -->
       <footer class="py-3 text-center text-xs text-gray-500 font-mono tracking-widest">
-        本系统由@okjjko制作，GitHub仓库地址：<a href="https://github.com/okjjko/-BP-/tree/master" target="_blank" class="text-pick-blue hover:text-pick-blue-hover underline">https://github.com/okjjko/-BP-/tree/master</a>
+        本系统由@okjjko制作，GitHub仓库地址：<a href="https://github.com/okjjko/-BP-" target="_blank" class="text-pick-blue hover:text-pick-blue-hover underline">https://github.com/okjjko/-BP-</a>
       </footer>
 
       <!-- 植物管理模态框（全局） -->
