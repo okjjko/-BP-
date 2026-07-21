@@ -6,60 +6,76 @@
       - 选边模式（initialMode / loserPickMode 中文文案）
       - BP 模板（阶段数 + 总步数）
       - 同种植物使用上限（maxPlantUsage）
+      - 南瓜特殊规则开关
     所有角色（host / 选手 / 观众）均可见，仅用于查看当前生效规则。
+
+    形态：单行胶囊（2026-07 重构）。压成一行紧凑标签常驻 BP 头部，
+    纵向占用从 ~100px（标题+grid 两行+BP 流程行）降到 ~28px，
+    让 BP 界面不必下滑即可看清所有信息；窄屏自动 flex-wrap。
   -->
   <div
-    class="rules-summary rounded-lg border border-gray-700/50 bg-gray-900/30 px-4 py-3 text-xs text-gray-300"
+    class="rules-summary flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] leading-tight text-gray-400 mt-3 pt-2.5 border-t border-gray-700/30"
     role="group"
     aria-label="当前比赛规则摘要"
   >
-    <div class="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-      <ScrollText :size="13" />
+    <span class="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-gray-500">
+      <ScrollText :size="12" />
       规则
-    </div>
+    </span>
 
-    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
-      <!-- 阵营 -->
-      <div class="summary-item">
-        <span class="label">阵营</span>
-        <span class="value">
-          <span class="text-pick-blue">{{ sideName2 }}</span>
-          <span class="mx-1 text-gray-600">/</span>
-          <span class="text-ban-red">{{ sideName4 }}</span>
-        </span>
-      </div>
+    <span class="sep" aria-hidden="true">·</span>
 
-      <!-- 初始选边 -->
-      <div class="summary-item">
-        <span class="label">初始选边</span>
-        <span class="value">{{ initialModeLabel }}</span>
-      </div>
+    <!-- 阵营 -->
+    <span class="chip">
+      <span class="lbl">阵营</span>
+      <span class="val">
+        <span class="text-pick-blue">{{ sideName2 }}</span>
+        <span class="mx-0.5 text-gray-600">/</span>
+        <span class="text-ban-red">{{ sideName4 }}</span>
+      </span>
+    </span>
 
-      <!-- 小局后选边权 -->
-      <div class="summary-item">
-        <span class="label">小局后选边</span>
-        <span class="value">{{ loserPickModeLabel }}</span>
-      </div>
+    <span class="sep" aria-hidden="true">·</span>
 
-      <!-- 使用上限 -->
-      <div class="summary-item">
-        <span class="label">同种植物上限</span>
-        <span class="value">{{ maxPlantUsage }} 次</span>
-      </div>
+    <!-- 初始选边 -->
+    <span class="chip">
+      <span class="lbl">初始</span>
+      <span class="val">{{ initialModeLabel }}</span>
+    </span>
 
-      <!-- 南瓜特殊规则 -->
-      <div class="summary-item">
-        <span class="label">南瓜特殊规则</span>
-        <span class="value" :class="pumpkinRuleEnabled ? 'text-pick-blue' : 'text-gray-500'">
-          {{ pumpkinRuleEnabled ? '已启用' : '已禁用' }}
-        </span>
-      </div>
-    </div>
+    <span class="sep" aria-hidden="true">·</span>
+
+    <!-- 小局后选边权 -->
+    <span class="chip">
+      <span class="lbl">小局后</span>
+      <span class="val">{{ loserPickModeLabel }}</span>
+    </span>
+
+    <span class="sep" aria-hidden="true">·</span>
+
+    <!-- 使用上限 -->
+    <span class="chip">
+      <span class="lbl">上限</span>
+      <span class="val">{{ maxPlantUsage }} 次</span>
+    </span>
+
+    <span class="sep" aria-hidden="true">·</span>
+
+    <!-- 南瓜特殊规则 -->
+    <span class="chip">
+      <span class="lbl">南瓜</span>
+      <span class="val" :class="pumpkinRuleEnabled ? 'text-pick-blue' : 'text-gray-600'">
+        {{ pumpkinRuleEnabled ? '启用' : '禁用' }}
+      </span>
+    </span>
+
+    <span class="sep" aria-hidden="true">·</span>
 
     <!-- BP 模板概要 -->
-    <div class="mt-2 border-t border-gray-700/40 pt-1.5 text-[11px] text-gray-500">
-      BP 流程：{{ stageCount }} 阶段 · 共 {{ totalSteps }} 步
-    </div>
+    <span class="chip">
+      <span class="lbl">流程</span>
+      <span class="val">{{ stageCount }} 阶段 · {{ totalSteps }} 步</span>
+    </span>
   </div>
 </template>
 
@@ -107,26 +123,29 @@ const totalSteps = computed(() =>
 </script>
 
 <style scoped>
-.summary-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
+/* 单行胶囊：分隔符弱化，label 极小灰字，value 主色加粗 */
+.rules-summary .sep {
+  color: #4b5563; /* gray-600 */
+  user-select: none;
+}
+
+.rules-summary .chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
   min-width: 0;
 }
 
-.summary-item .label {
+.rules-summary .lbl {
   font-size: 10px;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: #6b7280; /* gray-500 */
+  letter-spacing: 0.02em;
 }
 
-.summary-item .value {
-  font-size: 12px;
+.rules-summary .val {
+  font-size: 11px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #e5e7eb; /* gray-200 */
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 </style>
