@@ -106,7 +106,13 @@ import { useConfirm } from '@/composables/useConfirm'
 
 const props = defineProps({
   plant: Object,
-  isEdit: Boolean
+  isEdit: Boolean,
+  // 可选：草稿模式下由父传入需校验的 id 列表（内置 + 草稿内其他植物，已排除自身）；
+  // 不传则查全局 IndexedDB（checkPlantIdExists）
+  existingIds: {
+    type: Array,
+    default: null
+  }
 })
 const emit = defineEmits(['save', 'cancel'])
 
@@ -188,18 +194,25 @@ const handleSubmit = async () => {
       return
     }
 
-    // 验证ID唯一性
-    try {
-      const { checkPlantIdExists } = await import('@/data/customPlants')
-      const exists = await checkPlantIdExists(newId, originalId.value)
-      if (exists) {
+    // 验证ID唯一性：传入 existingIds（草稿模式）用 includes；否则查全局 IndexedDB
+    if (props.existingIds) {
+      if (props.existingIds.includes(newId)) {
         toast.error(`植物ID "${newId}" 已存在，请使用其他 ID`)
         return
       }
-    } catch (error) {
-      console.error('ID验证失败:', error)
-      toast.error('ID 验证失败，请重试')
-      return
+    } else {
+      try {
+        const { checkPlantIdExists } = await import('@/data/customPlants')
+        const exists = await checkPlantIdExists(newId, originalId.value)
+        if (exists) {
+          toast.error(`植物ID "${newId}" 已存在，请使用其他 ID`)
+          return
+        }
+      } catch (error) {
+        console.error('ID验证失败:', error)
+        toast.error('ID 验证失败，请重试')
+        return
+      }
     }
 
     // 确认ID修改

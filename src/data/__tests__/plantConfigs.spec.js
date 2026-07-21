@@ -18,7 +18,7 @@ vi.mock('@/data/customPlants', () => ({
   base64ToBlob: vi.fn(async () => new Blob(['x'], { type: 'image/png' }))
 }))
 
-import { saveConfig, loadConfig, getConfigById, importConfig, deleteConfig, getAllConfigs, getActiveConfig, updateConfigRuleConfig } from '@/data/plantConfigs'
+import { saveConfig, loadConfig, getConfigById, importConfig, deleteConfig, getAllConfigs, getActiveConfig, updateConfigRuleConfig, updateConfigPlants } from '@/data/plantConfigs'
 
 describe('plantConfigs 配置预设 - ruleConfig 透传', () => {
   beforeEach(() => {
@@ -103,5 +103,26 @@ describe('plantConfigs 配置预设 - ruleConfig 透传', () => {
     // 深拷贝：修改原对象不影响已存配置
     newRule.limits.maxPlantUsage = 99
     expect(persisted.ruleConfig.limits.maxPlantUsage).toBe(5)
+  })
+
+  it('updateConfigPlants 把 plants + hiddenBuiltinPlants 深拷贝写回预设（不动 ruleConfig）', async () => {
+    const saved = await saveConfig('植物编辑', '', { limits: { maxPlantUsage: 2 } })
+    const newPlants = [
+      { id: 'custom_a', name: 'A', description: 'a', type: '副C', image: 'data:image/png;base64,xxx', builtin: false }
+    ]
+    const newHidden = ['scaredyshroom']
+    await updateConfigPlants(saved.id, newPlants, newHidden)
+
+    const persisted = await getConfigById(saved.id)
+    expect(persisted.plants).toHaveLength(1)
+    expect(persisted.plants[0].name).toBe('A')
+    expect(persisted.hiddenBuiltinPlants).toEqual(['scaredyshroom'])
+    // 深拷贝：修改原数组不影响已存配置
+    newPlants[0].name = 'changed'
+    newHidden.push('sunflower')
+    expect(persisted.plants[0].name).toBe('A')
+    expect(persisted.hiddenBuiltinPlants).toEqual(['scaredyshroom'])
+    // ruleConfig 不受影响（plants 与 ruleConfig 双写分离）
+    expect(persisted.ruleConfig.limits.maxPlantUsage).toBe(2)
   })
 })

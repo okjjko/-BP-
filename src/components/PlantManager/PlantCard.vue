@@ -115,13 +115,26 @@ const props = defineProps({
   selected: {
     type: Boolean,
     default: false
+  },
+  // 可选：父组件显式传入隐藏态（预设草稿模式基于副本判断）；不传则 fallback 全局 isPlantHidden
+  hidden: {
+    type: Boolean,
+    default: null
   }
 })
 
 const emit = defineEmits(['edit', 'delete', 'hide', 'toggle-select'])
 
-const plantImage = computed(() => getPlantImage(props.plant.id))
-const isHidden = computed(() => props.plant.builtin !== false && isPlantHidden(props.plant.id))
+const plantImage = computed(() => {
+  // 预设副本植物(image=Base64)/内置植物(image=路径)直接带 image 字段；
+  // 全局自定义植物只有 imageData(Blob)，走 getPlantImage 转 ObjectURL
+  if (props.plant.image) return props.plant.image
+  return getPlantImage(props.plant.id)
+})
+const isHidden = computed(() => {
+  if (props.hidden !== null && props.hidden !== undefined) return props.hidden
+  return props.plant.builtin !== false && isPlantHidden(props.plant.id)
+})
 
 const plantClass = computed(() => {
   const baseClass = props.selected

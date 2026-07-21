@@ -92,8 +92,8 @@
           {{ validationError }}
         </div>
 
-        <!-- 阶段列表编辑器 -->
-        <div class="space-y-2">
+        <!-- 阶段列表编辑器：阶段多时内部滚动，避免撑高对话框/页面溢出屏幕 -->
+        <div class="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
           <div
             v-for="(stage, stageIdx) in localSequence"
             :key="stageIdx"

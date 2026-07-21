@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-4">
         <h3 class="text-xl font-bold text-purple-400 flex items-center gap-2">
-          <Folder :size="20" /> 配置管理
+          <Folder :size="20" /> 比赛预设
         </h3>
         <span v-if="activeConfig" class="text-sm text-gray-400">
           当前: <span class="text-green-400">{{ activeConfig.name }}</span>
@@ -100,11 +100,10 @@
               重命名
             </button>
             <button
-              v-if="config.ruleConfig"
-              @click="handleEditRule(config)"
+              @click="handleEditPreset(config)"
               class="min-h-[40px] px-3 py-1.5 bg-pick-blue hover:bg-pick-blue-hover text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
             >
-              <SlidersHorizontal :size="14" /> 编辑规则
+              <Pencil :size="14" /> 编辑预设
             </button>
             <button
               @click="handleExport(config.id)"
@@ -177,18 +176,59 @@
       </template>
     </BaseDialog>
 
-    <!-- 编辑预设 BP 流程对话框 -->
-    <BaseDialog v-model="showRuleEditor" panel-class="max-w-3xl" aria-label="编辑预设 BP 流程">
-      <template #header><span class="flex items-center gap-2"><SlidersHorizontal :size="20" /> 编辑预设 BP 流程</span></template>
-      <p class="text-xs text-gray-500 mb-3">修改的是该预设保存的 BP 流程（快照），不影响当前对局；下次「加载」该预设时生效。</p>
-      <BPRulesEditor
-        v-if="editingRuleConfig"
-        :preset-rule-config="editingRuleConfig"
-        @update:preset-rule-config="onRuleUpdate"
-      />
+    <!-- 编辑预设对话框（植物卡组 + BP 流程） -->
+    <BaseDialog
+      v-model="showPresetEditor"
+      panel-class="max-w-6xl h-[85vh]"
+      body-flex
+      aria-label="编辑预设"
+    >
+      <template #header>
+        <span class="flex items-center gap-2"><Pencil :size="20" /> 编辑预设 — {{ editingConfigName }}</span>
+      </template>
+
+      <!-- 子 tab -->
+      <div class="flex gap-2 px-6 pt-4 border-b border-gray-700/50" role="tablist">
+        <button
+          @click="presetTab = 'plants'"
+          role="tab"
+          :aria-selected="presetTab === 'plants'"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+          :class="presetTab === 'plants' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+        >
+          <Sprout :size="14" /> 植物卡组
+        </button>
+        <button
+          @click="presetTab = 'rules'"
+          role="tab"
+          :aria-selected="presetTab === 'rules'"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+          :class="presetTab === 'rules' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+        >
+          <SlidersHorizontal :size="14" /> BP 流程
+        </button>
+      </div>
+
+      <!-- 子 tab 内容（bodyFlex 内容区 flex-1 flex-col，这里再 flex-1 flex 放面板） -->
+      <div class="flex-1 flex overflow-hidden">
+        <PlantLibrary
+          v-if="presetTab === 'plants'"
+          mode="draft"
+          v-model:plants="editingPlants"
+          v-model:hidden-builtin-plants="editingHiddenIds"
+          :hide-import-export="true"
+        />
+        <div v-if="presetTab === 'rules'" class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          <BPRulesEditor
+            :preset-rule-config="editingRuleConfig"
+            @update:preset-rule-config="onRuleUpdate"
+          />
+        </div>
+      </div>
+
       <template #footer>
-        <BaseButton variant="ghost" @click="showRuleEditor = false">取消</BaseButton>
-        <BaseButton variant="primary" @click="saveRuleEdit">保存</BaseButton>
+        <BaseButton variant="ghost" @click="showPresetEditor = false">取消</BaseButton>
+        <BaseButton variant="primary" @click="savePresetEdit">保存</BaseButton>
       </template>
     </BaseDialog>
   </div>
@@ -206,7 +246,8 @@ import {
   exportConfig,
   importConfig,
   setActiveConfig,
-  updateConfigRuleConfig
+  updateConfigRuleConfig,
+  updateConfigPlants
 } from '@/data/plantConfigs'
 import { useGameStore } from '@/stores/gameStore'
 import { useToast } from '@/composables/useToast'
@@ -215,6 +256,7 @@ import { Folder, FolderOpen, Save, Upload, Check, Sprout, Ban, Pencil, SlidersHo
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
+import PlantLibrary from './PlantLibrary.vue'
 import defaultRules from '@/config/defaultRules'
 
 const emit = defineEmits(['configLoaded'])
@@ -230,14 +272,18 @@ const activeConfig = computed(() => configs.value.find(c => c.id === activeConfi
 // 对话框状态
 const showSaveDialog = ref(false)
 const showRenameDialog = ref(false)
-const showRuleEditor = ref(false)
+const showPresetEditor = ref(false)
 const newConfigName = ref('')
 const newConfigDesc = ref('')
 const renameConfigId = ref(null)
 const renameValue = ref('')
-// 编辑预设 BP 流程
+// 编辑预设（植物卡组 + BP 流程）
 const editingConfigId = ref(null)
+const editingConfigName = ref('')
 const editingRuleConfig = ref(null)
+const editingPlants = ref([])
+const editingHiddenIds = ref([])
+const presetTab = ref('plants') // 'plants' | 'rules'
 
 // 文件输入
 const fileInput = ref(null)
@@ -322,12 +368,17 @@ const confirmRename = async () => {
   }
 }
 
-// 编辑预设内的 BP 流程（改预设快照，不影响当前对局）
-const handleEditRule = (config) => {
+// 编辑预设（植物卡组 + BP 流程，改预设快照，不影响当前对局）
+const handleEditPreset = (config) => {
   editingConfigId.value = config.id
+  editingConfigName.value = config.name
+  // 深拷贝，避免编辑过程中直接 mutate 原配置
+  editingPlants.value = JSON.parse(JSON.stringify(config.plants || []))
+  editingHiddenIds.value = [...(config.hiddenBuiltinPlants || [])]
   // 合并默认值，保证 ruleConfig 字段完整（bpSequence/limits/pumpkinRule/sideNames/sideSelection）
   editingRuleConfig.value = { ...defaultRules, ...(config.ruleConfig || {}) }
-  showRuleEditor.value = true
+  presetTab.value = 'plants'
+  showPresetEditor.value = true
 }
 
 // BPRulesEditor 预设模式 emit 回传的编辑结果
@@ -335,12 +386,14 @@ const onRuleUpdate = (updated) => {
   editingRuleConfig.value = updated
 }
 
-const saveRuleEdit = async () => {
+const savePresetEdit = async () => {
   try {
+    // 双写：植物/隐藏 与 规则 分两个 API（与 updateConfigRuleConfig 对称）
+    await updateConfigPlants(editingConfigId.value, editingPlants.value, editingHiddenIds.value)
     await updateConfigRuleConfig(editingConfigId.value, editingRuleConfig.value)
     await loadConfigs()
-    showRuleEditor.value = false
-    toast.success('预设 BP 流程已更新')
+    showPresetEditor.value = false
+    toast.success('预设已更新（植物卡组 + BP 流程）')
   } catch (error) {
     toast.error('保存失败：' + error.message)
   }

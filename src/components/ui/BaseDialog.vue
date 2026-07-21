@@ -16,9 +16,12 @@
           ref="panelRef"
           tabindex="-1"
           class="relative z-10 w-full outline-none"
-          :class="panelClass"
+          :class="[panelClass, { 'flex flex-col': bodyFlex }]"
         >
-          <div class="glass-panel rounded-2xl shadow-2xl">
+          <div
+            class="glass-panel rounded-2xl shadow-2xl"
+            :class="{ 'h-full flex flex-col overflow-hidden': bodyFlex }"
+          >
             <!-- 头部 -->
             <div
               v-if="title || $slots.header || closable"
@@ -39,7 +42,7 @@
             </div>
 
             <!-- 内容 -->
-            <div class="px-6 py-5 text-slate-300">
+            <div :class="['text-slate-300', bodyFlex ? 'flex-1 overflow-hidden flex flex-col' : 'px-6 py-5']">
               <slot />
             </div>
 
@@ -63,6 +66,10 @@
  */
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { X } from 'lucide-vue-next'
+import { registerBaseDialogOpen, unregisterBaseDialogOpen } from './baseDialogState'
+
+// 本实例唯一标识，用于在 baseDialogState 中追踪打开状态
+const instanceId = Symbol('base-dialog')
 
 const props = defineProps({
   modelValue: Boolean,
@@ -72,6 +79,8 @@ const props = defineProps({
   closeOnBackdrop: { type: Boolean, default: true },
   closeOnEsc: { type: Boolean, default: true },
   closable: { type: Boolean, default: true },
+  // 内容区是否 flex 撑满（用于嵌入需自身滚动的面板，如 PlantLibrary）；需配合 panelClass 设固定高度
+  bodyFlex: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue', 'close'])
 
@@ -143,12 +152,20 @@ function onBackdrop() {
 watch(
   () => props.modelValue,
   (v) => {
-    if (v) open()
-    else teardown()
+    if (v) {
+      registerBaseDialogOpen(instanceId)
+      open()
+    } else {
+      unregisterBaseDialogOpen(instanceId)
+      teardown()
+    }
   }
 )
 
-onBeforeUnmount(teardown)
+onBeforeUnmount(() => {
+  unregisterBaseDialogOpen(instanceId)
+  teardown()
+})
 </script>
 
 <style scoped>

@@ -259,6 +259,33 @@ export async function updateConfigRuleConfig(configId, ruleConfig) {
 }
 
 /**
+ * 更新配置的 plants + hiddenBuiltinPlants（编辑预设内植物卡组快照）
+ * @param {string} configId - 配置ID
+ * @param {Array} plants - 新 plants（image 为 Base64 字符串）
+ * @param {Array<string>} hiddenBuiltinPlants - 隐藏的内置植物 id 数组
+ */
+export async function updateConfigPlants(configId, plants, hiddenBuiltinPlants) {
+  try {
+    const data = getConfigsData()
+    const config = data.configs.find(c => c.id === configId)
+    if (!config) {
+      throw new Error('配置不存在')
+    }
+    config.plants = JSON.parse(JSON.stringify(plants || []))
+    config.hiddenBuiltinPlants = Array.isArray(hiddenBuiltinPlants)
+      ? [...hiddenBuiltinPlants]
+      : (config.hiddenBuiltinPlants || [])
+    config.updatedAt = new Date().toISOString()
+    saveConfigsData(data)
+    console.log('[plantConfigs] 已更新配置 plants/hidden:', config.name)
+    return config
+  } catch (error) {
+    console.error('更新配置 plants 失败:', error)
+    throw new Error('更新配置植物失败: ' + error.message)
+  }
+}
+
+/**
  * 设置活动配置
  * @param {string} configId - 配置ID
  */

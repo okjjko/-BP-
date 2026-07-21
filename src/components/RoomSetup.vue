@@ -256,7 +256,7 @@
           </button>
         </div>
 
-        <!-- 配置管理入口（植物 / 植物预设 / BP 流程配置），放在返回角色选择上方 -->
+        <!-- 配置管理入口（植物 / 比赛预设 / BP 流程配置），放在返回角色选择上方 -->
         <div class="mt-4 flex justify-center">
           <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
             <template #icon><Sprout :size="18" /></template>
