@@ -305,7 +305,7 @@ This is implemented via `getBPSequence()` which takes actual player IDs as param
 
 **ruleConfig 配置契约（自定义规则集中层，2026-07）：**
 开局可自定义的比赛规则（阵营名 / 选边方式 / BP 顺序模板 / 植物使用上限）集中存于 `gameStore.state.ruleConfig` 单一对象，不再散落为顶级字段。约定：
-1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits,pumpkinRule}.js`。聚合器定型后不再改动，各功能默认值在各自子文件维护。
+1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits,pumpkinRule,randomBan}.js`。聚合器定型后不再改动，各功能默认值在各自子文件维护。
 2. **序列化整体处理**：`saveToLocalStorage` / `loadFromLocalStorage` / `getSyncPayload` / `applySyncState` 对 `ruleConfig` 整体存取（`{ ...defaultRules, ...(state.ruleConfig||{}) }` 深合并默认值，向后兼容）。**新增配置项禁止在这四个函数里逐字段列举**——只改对应 `rules/` 子文件即可自动获得持久化 + 多人同步。
 3. **并行协作锚点**：`gameStore.js` getters 区有 `// A-ANCHOR`（maxPlantUsage，功能4）与 `// B-ANCHOR`（sideName，功能1）占位注释；开发者 A/B 在各自锚点下新增 getter，避免冲突。规则编辑器分两个组件：`SideRulesEditor.vue`（B，阵营名称/选边方式，渲染于 GameSetup 与 RoomSetup 主页）与 `BPRulesEditor.vue`（A，BP 流程/上限，2026-07 迁入「配置管理」弹窗 `PlantManager/index.vue` 的「BP 流程」tab，主页不再直接渲染）。
 4. **解耦**：`bpSequence` 模板始终用 `road2`/`road4` 占位符；`sideNames` 仅影响显示文案；两者通过 road 数值（2/4）桥接。
@@ -375,7 +375,7 @@ Custom colors defined in `tailwind.config.js`:
 
 **全局永久禁用（globalBan）预设步骤（2026-07）:**
 
-BP 流程模板（`ruleConfig.bpSequence`）的步骤 `action` 除 `'ban'`/`'pick'` 外，新增 `'globalBan'`：在**指定时机**自动抽取植物进入全局永久禁用（`globalBans`），实现"预设步骤抽取永 ban"。与开局 `randomBanPlants()`（一次性随机 5 个）互补——globalBan 可在 BP 流程任意位置插入、可多步、数量可配。
+BP 流程模板（`ruleConfig.bpSequence`）的步骤 `action` 除 `'ban'`/`'pick'` 外，新增 `'globalBan'`：在**指定时机**自动抽取植物进入全局永久禁用（`globalBans`），实现"预设步骤抽取永 ban"。与开局 `randomBanPlants()`（一次性随机 N 个，由 `ruleConfig.randomBan` 配置、默认 5；详见下方「开局随机永久禁用可配」）互补——globalBan 可在 BP 流程任意位置插入、可多步、数量可配。
 
 - **数据结构**：`{ player: 'system', action: 'globalBan', count: N }`
   - `player: 'system'`：占位，不归属任何阵营；`getBPSequence` 的 `convertTemplate` 仅替换 `road2`/`road4`，其余原样透传（`src/utils/bpRules.js`）
@@ -502,6 +502,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤；可由 `ruleConfig.pumpkinRule.enabled` 开关在赛前启停，默认开启，关闭时南瓜当作普通植物处理——消耗 BP 步骤、受 maxPlantUsage 上限约束、计入 plantUsage）
 - ✅ **阵营名称自定义**（功能1）：`ruleConfig.sideNames` 可改默认「二路/四路」，`gameStore.sideName(road)` 统一映射显示
 - ✅ **选边方式自定义**（功能3）：初始选边（双方互斥/指定一方/随机）+ 小局后选边权（败者选/胜者选/不换边），由 `ruleConfig.sideSelection` 驱动
+- ✅ **开局随机永久禁用可配**（`ruleConfig.randomBan`）：开关（`enabled` 默认开启）+ 数量（`count` 默认 5）；`enabled=false` 则开局不禁用（`globalBans` 为空）。开局一次性抽取入 `globalBans`，与 BP 流程内的 globalBan 预设步骤 / 手动抽取互补。配置入口：BPRulesEditor「BP 流程」tab；默认值子文件 `src/config/rules/randomBan.js`；回归测试：`src/stores/__tests__/gameStore.randomBan.spec.js`
 - ✅ **预设全局永久禁用步骤**（globalBan）：BP 模板步骤 action 可为 `'globalBan'`，流程进行到该步时由系统自动从未禁用池随机抽取 `count` 个植物并入 `globalBans`（跨小局永久生效），无需选手点击；详见下方「全局永久禁用（globalBan）预设步骤」
 - ✅ **局内临时抽取永禁**（手动触发，2026-07）：BP 流程进行中，裁判/host 可点「抽取永禁」按钮从未禁用池随机抽 1 个植物入 `globalBans`；撤销由通用 `undoLastAction` 统一承担（不再有专门的「撤销抽取」）。与预设版互补，详见下方「局内临时抽取永 ban（手动触发）」
 - ✅ **通用撤销 / Undo Stack**（2026-07）：BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁）统一可撤销。采用操作前快照压栈 + 撤销时整体 pop 恢复；权限用 `lastActor` 模型（裁判随时可撤、选手可撤自己刚做的操作）；仅当前小局可撤（startRound 清栈）；撤销不触发自动步骤、不重新随机（多人安全）。详见下方「通用撤销（Undo Stack）」

@@ -423,9 +423,12 @@ const onPlayer2Input = () => {
 }
 
 onMounted(() => {
-  // 预览随机禁用的植物
+  // 预览随机禁用的植物（数量跟随 ruleConfig.randomBan，与实际抽取保持一致）
+  const rb = store.ruleConfig?.randomBan ?? {}
+  const raw = Number(rb.count)
+  const count = rb.enabled === false ? 0 : Math.max(0, Number.isNaN(raw) ? 5 : raw)
   const shuffled = [...PLANTS].sort(() => Math.random() - 0.5)
-  globalBans.value = shuffled.slice(0, 5).map(p => p.id)
+  globalBans.value = shuffled.slice(0, count).map(p => p.id)
 })
 </script>
 

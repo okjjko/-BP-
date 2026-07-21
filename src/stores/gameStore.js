@@ -248,9 +248,13 @@ export const useGameStore = defineStore('game', {
     },
 
     randomBanPlants() {
+      const cfg = this.ruleConfig?.randomBan ?? {}
+      if (cfg.enabled === false) { this.globalBans = []; return } // 严格假才跳过；默认/旧存档照抽
+      const raw = Number(cfg.count)                                // 仅 NaN/缺省兜底 5（0 是合法值：抽 0 个）
+      const count = Math.max(0, Number.isNaN(raw) ? 5 : raw)
       const allPlants = getAllPlantsSync()
       const shuffled = [...allPlants].sort(() => Math.random() - 0.5)
-      this.globalBans = shuffled.slice(0, 5).map(p => p.id)
+      this.globalBans = shuffled.slice(0, count).map(p => p.id)   // 池不足时 slice 自动抽满
     },
 
     startRound(roundNumber) {

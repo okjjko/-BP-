@@ -12,11 +12,13 @@ import sideSelection from './rules/sideSelection'
 import bpSequence from './rules/bpSequence'
 import limits from './rules/limits'
 import pumpkinRule from './rules/pumpkinRule'
+import randomBan from './rules/randomBan'
 
 export default {
   sideNames,
   sideSelection,
   bpSequence,
   limits,
-  pumpkinRule
+  pumpkinRule,
+  randomBan
 }

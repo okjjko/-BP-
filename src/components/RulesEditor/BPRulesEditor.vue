@@ -60,6 +60,46 @@
         </div>
       </section>
 
+      <!-- 开局随机永久禁用植物：开关 + 数量 -->
+      <section class="rounded-lg bg-black/20 border border-white/5 p-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div class="min-w-0 flex flex-col gap-2">
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" :class="{ 'cursor-not-allowed opacity-60': !canEditRules }">
+                <input
+                  type="checkbox"
+                  :checked="randomBanEnabled"
+                  :disabled="!canEditRules"
+                  @change="toggleRandomBan"
+                  class="sr-only peer"
+                />
+                <div class="w-9 h-5 bg-gray-600 peer-checked:bg-ban-red rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+              </label>
+              <div class="min-w-0">
+                <span class="text-xs font-semibold text-gray-300 block">开局随机永久禁用</span>
+                <p class="text-[10px] text-gray-600 mt-0.5">
+                  开启：开局随机抽取若干植物入永久禁用；关闭：开局不禁用。与 BP 流程内的全局禁用步骤互补。
+                </p>
+              </div>
+            </div>
+            <!-- 数量输入：仅在开关开启时显示 -->
+            <div v-if="randomBanEnabled" class="flex items-center gap-2 pl-12">
+              <span class="text-xs text-gray-400">抽取数量</span>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                :value="randomBanCount"
+                :disabled="!canEditRules"
+                @input="onRandomBanCountInput"
+                class="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white text-center focus:outline-none focus:ring-1 focus:ring-ban-red"
+              />
+              <span class="text-xs text-gray-500">个（1~20，池不足抽满）</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- 功能2：BP 顺序模板 -->
       <section class="rounded-lg bg-black/20 border border-white/5 p-3 space-y-3">
         <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -285,6 +325,21 @@ const maxPlantUsage = computed(() => sourceRuleConfig.value?.limits?.maxPlantUsa
 const pumpkinRuleEnabled = computed(() => sourceRuleConfig.value?.pumpkinRule?.enabled ?? true)
 const togglePumpkinRule = () => {
   writeRuleConfig({ pumpkinRule: { enabled: !pumpkinRuleEnabled.value } })
+  syncRuleConfig()
+}
+
+// 开局随机永久禁用：开关 + 数量（默认开启抽 5 个，与历史行为一致）
+const randomBanEnabled = computed(() => sourceRuleConfig.value?.randomBan?.enabled ?? true)
+const randomBanCount = computed(() => sourceRuleConfig.value?.randomBan?.count ?? 5)
+const toggleRandomBan = () => {
+  writeRuleConfig({ randomBan: { enabled: !randomBanEnabled.value, count: randomBanCount.value } })
+  syncRuleConfig()
+}
+const onRandomBanCountInput = (e) => {
+  let val = parseInt(e.target.value, 10)
+  if (isNaN(val)) val = 5
+  val = Math.min(20, Math.max(1, val))
+  writeRuleConfig({ randomBan: { enabled: true, count: val } })
   syncRuleConfig()
 }
 
