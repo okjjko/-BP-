@@ -8,7 +8,7 @@
   <div class="space-y-5">
       <!-- 多人对局进行中锁定提示 -->
       <div
-        v-if="!store.isRuleEditable"
+        v-if="!isPresetMode && !store.isRuleEditable"
         class="text-xs text-gray-500 bg-gray-800/40 border border-gray-700/50 rounded-md px-3 py-2 flex items-center gap-2"
       >
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,7 +112,6 @@
                 </button>
                 <button
                   type="button"
-                  v-if="stage.length === 0"
                   @click="removeStage(stageIdx)"
                   :disabled="!canEditRules"
                   class="text-[11px] px-1.5 py-0.5 rounded bg-ban-red/20 hover:bg-ban-red/40 text-ban-red border border-ban-red/40 transition-colors"
@@ -209,20 +208,55 @@
 import { computed, ref, watch } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
+import { useConfirm } from '@/composables/useConfirm'
 import { PRESET_TEMPLATES, getDefaultTemplate } from '@/config/rules/bpSequence'
+
+// 可选 presetRuleConfig：传入则进入"预设编辑模式"，编辑该对象的副本（bpSequence/limits/pumpkinRule），
+// commit 时 emit update；不传则维持原行为（编辑 store.ruleConfig，含持久化与多人同步）。
+const props = defineProps({
+  presetRuleConfig: { type: Object, default: null }
+})
+const emit = defineEmits(['update:presetRuleConfig'])
 
 const store = useGameStore()
 
 const connStore = useConnectionStore()
 
-// 多人权限（契约2）：单机恒可改；多人仅 host 且赛前可改。
+const { confirm } = useConfirm()
+
+const isPresetMode = computed(() => !!props.presetRuleConfig)
+
+// 预设模式下的本地可编辑副本（仅在 presetRuleConfig 变化时重新初始化）
+const editablePreset = ref(null)
+watch(() => props.presetRuleConfig, (val) => {
+  if (isPresetMode.value && val) {
+    editablePreset.value = JSON.parse(JSON.stringify(val))
+  }
+}, { immediate: true })
+
+// 当前编辑目标：预设模式用 editablePreset；否则用 store.ruleConfig
+const sourceRuleConfig = computed(() => (isPresetMode.value ? editablePreset.value : store.ruleConfig))
+
+// 多人权限：预设模式编辑的是快照，恒可改；原模式单机恒可改、多人仅 host 且赛前可改。
 const canEditRules = computed(() =>
-  (connStore.roomMode === 'local' || connStore.myRole === 'host') && store.isRuleEditable
+  isPresetMode.value || ((connStore.roomMode === 'local' || connStore.myRole === 'host') && store.isRuleEditable)
 )
+
+// 把部分 ruleConfig 字段更新写回当前编辑目标（预设模式写 editablePreset 并 emit；原模式写 store）
+const writeRuleConfig = (partial) => {
+  if (isPresetMode.value) {
+    editablePreset.value = { ...editablePreset.value, ...partial }
+    emit('update:presetRuleConfig', editablePreset.value)
+  } else {
+    Object.assign(store.ruleConfig, partial)
+  }
+}
 
 // 写回后显式同步（契约3）：仅 host 广播；客户端 disabled 不会触发，天然无回环。
 // local 模式 syncState 内部 return，安全。仅 host 改完一次广播一次（commit/失焦时触发，非每次输入抖动）。
+// 预设模式不同步（数据经 emit 由父组件写回预设）。
 const syncRuleConfig = () => {
+  if (isPresetMode.value) return
   store.saveToLocalStorage()
   if (connStore.roomMode === 'host') {
     connStore.syncState()
@@ -233,8 +267,8 @@ const PRESET_NONE = '__none__'
 const presets = PRESET_TEMPLATES
 const selectedPreset = ref(PRESET_NONE)
 
-// 当前生效模板（来自 store）
-const currentSequence = computed(() => store.ruleConfig.bpSequence || [])
+// 当前生效模板（预设模式取 editablePreset，否则取 store）
+const currentSequence = computed(() => sourceRuleConfig.value?.bpSequence || [])
 
 // 本地可编辑副本（深拷贝），编辑后 commit 回 store
 const localSequence = ref(JSON.parse(JSON.stringify(currentSequence.value)))
@@ -245,12 +279,12 @@ watch(currentSequence, (val) => {
 }, { deep: true })
 
 // 最大使用上限
-const maxPlantUsage = computed(() => store.ruleConfig.limits.maxPlantUsage)
+const maxPlantUsage = computed(() => sourceRuleConfig.value?.limits?.maxPlantUsage ?? 2)
 
 // 南瓜特殊规则开关（默认开启；关闭后南瓜当作普通植物）
-const pumpkinRuleEnabled = computed(() => store.ruleConfig.pumpkinRule?.enabled ?? true)
+const pumpkinRuleEnabled = computed(() => sourceRuleConfig.value?.pumpkinRule?.enabled ?? true)
 const togglePumpkinRule = () => {
-  store.ruleConfig.pumpkinRule = { enabled: !pumpkinRuleEnabled.value }
+  writeRuleConfig({ pumpkinRule: { enabled: !pumpkinRuleEnabled.value } })
   syncRuleConfig()
 }
 
@@ -292,7 +326,7 @@ const commit = () => {
       action: step.action,
       count: Number(step.count) || 1
     })))
-  store.ruleConfig.bpSequence = cleaned
+  writeRuleConfig({ bpSequence: cleaned })
   // 同步本地副本（过滤后索引可能变化）
   localSequence.value = JSON.parse(JSON.stringify(cleaned))
   syncRuleConfig()
@@ -314,7 +348,7 @@ const applyPreset = () => {
   const tpl = presets[selectedPreset.value]
   if (!tpl || !tpl.sequence) return
   const cloned = JSON.parse(JSON.stringify(tpl.sequence))
-  store.ruleConfig.bpSequence = cloned
+  writeRuleConfig({ bpSequence: cloned })
   localSequence.value = JSON.parse(JSON.stringify(cloned))
   syncRuleConfig()
   // 重置下拉显示
@@ -324,7 +358,7 @@ const applyPreset = () => {
 // 重置为默认
 const resetToDefault = () => {
   const def = getDefaultTemplate()
-  store.ruleConfig.bpSequence = def
+  writeRuleConfig({ bpSequence: def })
   localSequence.value = JSON.parse(JSON.stringify(def))
   syncRuleConfig()
   selectedPreset.value = PRESET_NONE
@@ -336,7 +370,19 @@ const addStage = () => {
   commit()
 }
 
-const removeStage = (stageIdx) => {
+const removeStage = async (stageIdx) => {
+  const stage = localSequence.value[stageIdx]
+  const stepCount = Array.isArray(stage) ? stage.length : 0
+  // 非空阶段直接删会连带丢失其内步骤，需确认；空阶段无损失，直接删
+  if (stepCount > 0) {
+    const ok = await confirm({
+      title: '删除阶段',
+      message: `确定删除阶段 ${stageIdx + 1}？该阶段的 ${stepCount} 个步骤将一并删除。`,
+      confirmText: '删除',
+      variant: 'danger',
+    })
+    if (!ok) return
+  }
   localSequence.value.splice(stageIdx, 1)
   commit()
 }
@@ -357,7 +403,7 @@ const onMaxUsageInput = (e) => {
   let val = parseInt(e.target.value, 10)
   if (isNaN(val)) val = 2
   val = Math.min(5, Math.max(1, val))
-  store.ruleConfig.limits.maxPlantUsage = val
+  writeRuleConfig({ limits: { ...(sourceRuleConfig.value?.limits || {}), maxPlantUsage: val } })
   syncRuleConfig()
 }
 </script>

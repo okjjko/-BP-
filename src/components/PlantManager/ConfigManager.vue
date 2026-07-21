@@ -74,6 +74,9 @@
             <span v-if="config.hiddenBuiltinPlants.length > 0" class="flex items-center gap-1 text-gray-400">
               <Ban :size="14" /> {{ config.hiddenBuiltinPlants.length }} 个隐藏
             </span>
+            <span v-if="config.ruleConfig" class="flex items-center gap-1 text-pick-blue" title="含自定义比赛规则（BP 流程/上限/南瓜/阵营/选边）">
+              <SlidersHorizontal :size="14" /> 含规则
+            </span>
           </div>
 
           <!-- 配置时间 -->
@@ -97,6 +100,13 @@
               重命名
             </button>
             <button
+              v-if="config.ruleConfig"
+              @click="handleEditRule(config)"
+              class="min-h-[40px] px-3 py-1.5 bg-pick-blue hover:bg-pick-blue-hover text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
+            >
+              <SlidersHorizontal :size="14" /> 编辑规则
+            </button>
+            <button
               @click="handleExport(config.id)"
               class="min-h-[40px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
@@ -104,8 +114,7 @@
             </button>
             <button
               @click="handleDelete(config.id)"
-              :disabled="config.id === activeConfigId && configs.length === 1"
-              class="min-h-[40px] px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+              class="min-h-[40px] px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
             >
               删除
             </button>
@@ -167,6 +176,21 @@
         <BaseButton variant="primary" :disabled="!renameValue.trim()" @click="confirmRename">确认</BaseButton>
       </template>
     </BaseDialog>
+
+    <!-- 编辑预设 BP 流程对话框 -->
+    <BaseDialog v-model="showRuleEditor" panel-class="max-w-3xl" aria-label="编辑预设 BP 流程">
+      <template #header><span class="flex items-center gap-2"><SlidersHorizontal :size="20" /> 编辑预设 BP 流程</span></template>
+      <p class="text-xs text-gray-500 mb-3">修改的是该预设保存的 BP 流程（快照），不影响当前对局；下次「加载」该预设时生效。</p>
+      <BPRulesEditor
+        v-if="editingRuleConfig"
+        :preset-rule-config="editingRuleConfig"
+        @update:preset-rule-config="onRuleUpdate"
+      />
+      <template #footer>
+        <BaseButton variant="ghost" @click="showRuleEditor = false">取消</BaseButton>
+        <BaseButton variant="primary" @click="saveRuleEdit">保存</BaseButton>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
@@ -181,15 +205,20 @@ import {
   renameConfig,
   exportConfig,
   importConfig,
-  setActiveConfig
+  setActiveConfig,
+  updateConfigRuleConfig
 } from '@/data/plantConfigs'
+import { useGameStore } from '@/stores/gameStore'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
-import { Folder, FolderOpen, Save, Upload, Check, Sprout, Ban, Pencil } from 'lucide-vue-next'
+import { Folder, FolderOpen, Save, Upload, Check, Sprout, Ban, Pencil, SlidersHorizontal } from 'lucide-vue-next'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
+import defaultRules from '@/config/defaultRules'
 
 const emit = defineEmits(['configLoaded'])
+const store = useGameStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -201,10 +230,14 @@ const activeConfig = computed(() => configs.value.find(c => c.id === activeConfi
 // 对话框状态
 const showSaveDialog = ref(false)
 const showRenameDialog = ref(false)
+const showRuleEditor = ref(false)
 const newConfigName = ref('')
 const newConfigDesc = ref('')
 const renameConfigId = ref(null)
 const renameValue = ref('')
+// 编辑预设 BP 流程
+const editingConfigId = ref(null)
+const editingRuleConfig = ref(null)
 
 // 文件输入
 const fileInput = ref(null)
@@ -231,7 +264,7 @@ const confirmSave = async () => {
   if (!newConfigName.value.trim()) return
 
   try {
-    await saveConfig(newConfigName.value.trim(), newConfigDesc.value.trim())
+    await saveConfig(newConfigName.value.trim(), newConfigDesc.value.trim(), store.ruleConfig)
     await loadConfigs()
     showSaveDialog.value = false
     newConfigName.value = ''
@@ -248,13 +281,17 @@ const handleLoad = async (configId) => {
 
   if (!await confirm({
     title: '加载配置',
-    message: `确定要加载配置"${config.name}"吗？当前的自定义植物和隐藏设置将被替换。`,
+    message: `确定要加载配置"${config.name}"吗？当前的自定义植物、隐藏设置${config.ruleConfig ? '和比赛规则（BP 流程等）' : ''}将被替换。`,
     confirmText: '加载',
     variant: 'primary',
   })) return
 
   try {
-    await loadConfig(configId)
+    const loaded = await loadConfig(configId)
+    // 恢复自定义比赛规则（BP 流程/上限/南瓜/阵营/选边）；写入 bpGameState 后随 reload 生效
+    if (loaded?.ruleConfig) {
+      store.applyRuleConfig(loaded.ruleConfig)
+    }
     toast.info(`配置"${config.name}"已加载，页面即将刷新...`, { duration: 1500 })
     setTimeout(() => {
       window.location.reload()
@@ -285,6 +322,30 @@ const confirmRename = async () => {
   }
 }
 
+// 编辑预设内的 BP 流程（改预设快照，不影响当前对局）
+const handleEditRule = (config) => {
+  editingConfigId.value = config.id
+  // 合并默认值，保证 ruleConfig 字段完整（bpSequence/limits/pumpkinRule/sideNames/sideSelection）
+  editingRuleConfig.value = { ...defaultRules, ...(config.ruleConfig || {}) }
+  showRuleEditor.value = true
+}
+
+// BPRulesEditor 预设模式 emit 回传的编辑结果
+const onRuleUpdate = (updated) => {
+  editingRuleConfig.value = updated
+}
+
+const saveRuleEdit = async () => {
+  try {
+    await updateConfigRuleConfig(editingConfigId.value, editingRuleConfig.value)
+    await loadConfigs()
+    showRuleEditor.value = false
+    toast.success('预设 BP 流程已更新')
+  } catch (error) {
+    toast.error('保存失败：' + error.message)
+  }
+}
+
 // 导出配置
 const handleExport = async (configId) => {
   try {
@@ -299,9 +360,15 @@ const handleExport = async (configId) => {
 const handleDelete = async (configId) => {
   const config = configs.value.find(c => c.id === configId)
 
+  // 删除最后一个配置时额外澄清：仅移除预设记录，当前植物/隐藏/规则保持不变
+  const isLast = configs.value.length === 1
+  const message = isLast
+    ? `确定要删除配置"${config.name}"吗？删除后配置列表将为空，但当前的自定义植物、隐藏设置和比赛规则保持不变。此操作无法撤销。`
+    : `确定要删除配置"${config.name}"吗？此操作无法撤销。`
+
   if (!await confirm({
     title: '删除配置',
-    message: `确定要删除配置"${config.name}"吗？此操作无法撤销。`,
+    message,
     confirmText: '删除',
     variant: 'danger',
   })) return

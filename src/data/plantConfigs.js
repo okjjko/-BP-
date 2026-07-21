@@ -76,7 +76,7 @@ export async function getConfigById(configId) {
  * @param {string} description - 配置描述
  * @returns {Object|null} 创建的配置对象
  */
-export async function saveConfig(name, description) {
+export async function saveConfig(name, description, ruleConfig = null) {
   try {
     // 1. 从 IndexedDB 加载所有自定义植物
     const plants = await loadCustomPlants()
@@ -96,7 +96,7 @@ export async function saveConfig(name, description) {
     // 3. 获取隐藏的内置植物列表
     const hiddenBuiltinPlants = getHiddenPlants()
 
-    // 4. 创建配置对象
+    // 4. 创建配置对象（含自定义比赛规则 ruleConfig：BP 流程/上限/南瓜/阵营名/选边方式）
     const config = {
       id: 'config_' + Date.now(),
       name: name.trim(),
@@ -104,7 +104,9 @@ export async function saveConfig(name, description) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       plants: plantsToSave,
-      hiddenBuiltinPlants
+      hiddenBuiltinPlants,
+      // 整体存取（ruleConfig 配置契约）；深拷贝避免与 store 状态共享引用
+      ruleConfig: ruleConfig ? JSON.parse(JSON.stringify(ruleConfig)) : null
     }
 
     // 5. 保存到 localStorage
@@ -230,6 +232,29 @@ export async function renameConfig(configId, newName) {
   } catch (error) {
     console.error('重命名配置失败:', error)
     throw new Error('重命名配置失败: ' + error.message)
+  }
+}
+
+/**
+ * 更新配置的 ruleConfig（编辑预设内 BP 流程 / 上限 / 南瓜规则）
+ * @param {string} configId - 配置ID
+ * @param {Object} ruleConfig - 新的 ruleConfig
+ */
+export async function updateConfigRuleConfig(configId, ruleConfig) {
+  try {
+    const data = getConfigsData()
+    const config = data.configs.find(c => c.id === configId)
+    if (!config) {
+      throw new Error('配置不存在')
+    }
+    config.ruleConfig = ruleConfig ? JSON.parse(JSON.stringify(ruleConfig)) : null
+    config.updatedAt = new Date().toISOString()
+    saveConfigsData(data)
+    console.log('[plantConfigs] 已更新配置 ruleConfig:', config.name)
+    return config
+  } catch (error) {
+    console.error('更新配置 ruleConfig 失败:', error)
+    throw new Error('更新配置规则失败: ' + error.message)
   }
 }
 

@@ -1012,6 +1012,13 @@ export const useGameStore = defineStore('game', {
       // 递增计数器（而非 Date.now()）：保证每次 bump 严格不同，
       // 避免同毫秒内连续触发（如自动化/测试/批量操作）碰撞导致依赖该版本号的 computed 不重算
       this._plantCacheVersion++
+    },
+
+    // 从配置预设恢复 ruleConfig（整体合并默认值，与 loadFromLocalStorage/applySyncState 同范式）。
+    // 由 ConfigManager 加载配置时调用：写入 bpGameState 后随页面 reload 生效。
+    applyRuleConfig(ruleConfig) {
+      this.ruleConfig = { ...defaultRules, ...(ruleConfig || {}) }
+      this.saveToLocalStorage()
     }
   }
 })
