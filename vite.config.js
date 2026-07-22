@@ -1,9 +1,28 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
+import { readFileSync } from 'fs'
+import { execSync } from 'child_process'
+
+// 应用版本号：单一事实来源为 package.json 的 version 字段
+const pkg = JSON.parse(readFileSync(path.resolve(__dirname, './package.json'), 'utf-8'))
+
+// 构建时注入当前 git commit 短 hash。auto-deploy.sh 在 `git merge --ff-only` 之后才
+// `npm run build`，故 build 期拿到的 HEAD 即最新部署 commit —— 每次自动部署后 hash
+// 自动变化，前端据此确认 webhook 部署是否生效。非 git 环境兜底 'unknown'。
+let gitHash = 'unknown'
+try {
+  gitHash = execSync('git rev-parse --short HEAD').toString().trim()
+} catch {
+  // 非 git 环境（如解压源码包构建）
+}
 
 export default defineConfig({
   plugins: [vue()],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_GIT_HASH__: JSON.stringify(gitHash),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')

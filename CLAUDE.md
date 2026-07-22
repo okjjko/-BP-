@@ -22,6 +22,8 @@ npm run build
 npm run preview
 ```
 
+**版本号确认 webhook 部署生效**:`App.vue` 全局 footer 显示 `v{version} · {git短hash}`(如 `v3.1.0 · 6df59eb`)。`vite.config.js` 的 `define` 在构建期注入 `__APP_VERSION__`(取自 `package.json` 的 `version`)与 `__APP_GIT_HASH__`(`git rev-parse --short HEAD`),封装于 `src/config/buildInfo.js`。`scripts/auto-deploy.sh` 在 `git merge --ff-only` 之后才 `npm run build`,故 build 期拿到的 HEAD 即最新部署 commit —— 每次 push → webhook → 部署后 hash 自动变化,刷新页面看 footer hash 是否更新即知部署是否生效;**版本号自动递增(pre-commit 钩子)**:`.githooks/pre-commit` 每次 commit 自动把 patch+1(满 10 进 minor;minor 不进 major——major 仅大重构/重大功能时手动改 `package.json`),bump 逻辑见 `scripts/bump-version.mjs`;`core.hooksPath` 由 `scripts/setup-hooks.mjs`(npm `prepare` 钩子,clone/install 后自动配置 + 给 hook 加可执行位)管理,无新依赖。手动改 major 后若不想那次 commit 再 +1,用 `git commit --no-verify`。语义版本里程碑:v1.0.0 首次 / v2.0.0 多人对战 / v3.0.0 WS 中心化。
+
 ## Testing & Quality Assurance
 
 **单元测试（vitest，多人对战回归主力）：**

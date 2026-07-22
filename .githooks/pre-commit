@@ -1,0 +1,7 @@
+#!/bin/sh
+# pre-commit：自动递增版本号（patch+1，满10进 minor），并把 bump 纳入本次 commit。
+# 详见 scripts/bump-version.mjs。
+#
+# 手动改 major 后若不想那次 commit 再 +1，用：git commit --no-verify
+# 注意：commit 时若 package.json 有其他未暂存改动（如刚加依赖），也会被一并纳入。
+node scripts/bump-version.mjs && git add package.json
