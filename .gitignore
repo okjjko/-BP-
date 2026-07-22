@@ -27,3 +27,7 @@ CLAUDE.local.md
 # Test artifacts (Playwright screenshots & run results)
 agents/screenshots/
 test-results/
+
+# Deploy runtime state（auto-deploy.sh 的并发锁与"上次部署 HEAD"标记，勿提交）
+.deploy.pid
+.last-deployed-commit
