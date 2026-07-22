@@ -176,12 +176,22 @@ main() {
         exit 1
     fi
 
-    # 8. 重启服务
-    log "正在重启服务..."
+    # 8. 记录本次部署 HEAD（build 成功即视为主体完成，趁早落盘）。
+    #    ⚠️ 必须放在 pm2 restart 之前：本脚本由 bp-server spawn，pm2 restart 会让 bp-server
+    #    重启、其进程树受信号波及，实测 restart 之后的收尾步骤会被中断（标记没写 → 下次误判
+    #    未部署而重复 build）。把"写标记 + nginx reload"提前到 restart 之前；restart 命令一旦
+    #    交给 PM2 daemon 即由 daemon 独立完成，本脚本随后是否被中断都不影响部署实质。
+    echo "$CURRENT" > "$LAST_BUILT_FILE"
+    log "已记录部署版本: $(git rev-parse --short "$CURRENT")"
 
-    # ⚠️ 本脚本由 bp-server spawn，pm2 restart bp-server 时 PM2 会向其进程树发
-    # SIGINT/SIGTERM（实测殃及本脚本，导致 restart 之后的收尾日志缺失）。
-    # 屏蔽这两类信号跑完收尾；脚本自然 exit 时 EXIT trap 仍清理 PID 锁。
+    # 9. reload aa_nginx（确保识别到新的 dist）
+    if command -v /usr/sbin/aa_nginx &> /dev/null; then
+        log "正在 reload aa_nginx..."
+        /usr/sbin/aa_nginx -s reload 2>&1 | tee -a "$LOG_FILE" || true
+    fi
+
+    # 10. 重启服务（放最后；脚本自然 exit 时 EXIT trap 仍清理 PID 锁）
+    log "正在重启服务..."
     trap '' INT TERM
 
     if command -v pm2 &> /dev/null; then
@@ -202,16 +212,6 @@ main() {
     else
         warn "未安装 PM2，跳过服务重启"
     fi
-
-    # 9. reload aa_nginx（确保 nginx 识别到新的 dist）
-    if command -v /usr/sbin/aa_nginx &> /dev/null; then
-        log "正在 reload aa_nginx..."
-        /usr/sbin/aa_nginx -s reload 2>&1 | tee -a "$LOG_FILE" || true
-    fi
-
-    # 10. 记录本次成功部署的 HEAD（仅在 build+restart 全部成功后才写，
-    #     保证部署失败时不更新标记 → 下次仍会重试）
-    echo "$CURRENT" > "$LAST_BUILT_FILE"
 
     log "========== 部署成功完成 =========="
     log "版本: $(git rev-parse --short "$CURRENT")"
