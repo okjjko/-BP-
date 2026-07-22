@@ -164,10 +164,14 @@
       </form>
 
       <!-- 植物管理按钮 -->
-      <div class="mt-6 mb-2 flex justify-center">
+      <div class="mt-6 mb-2 flex justify-center gap-3">
         <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
           <template #icon><Sprout :size="18" /></template>
           配置管理
+        </BaseButton>
+        <BaseButton variant="blue" @click="uiStore.setShowBPRulesEditor(true)">
+          <template #icon><SlidersHorizontal :size="18" /></template>
+          BP 规则
         </BaseButton>
       </div>
 

@@ -47,15 +47,18 @@
     <div v-else class="flex-1 overflow-y-auto custom-scrollbar">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div
-          v-for="config in configs"
+          v-for="config in sortedConfigs"
           :key="config.id"
           class="config-card glass-panel rounded-xl p-4 transition-colors duration-200"
-          :class="{ 'active': config.id === activeConfigId }"
+          :class="{ 'active': config.id === activeConfigId, 'config-card-default': config.isDefault }"
         >
           <!-- 配置头部 -->
           <div class="flex items-start justify-between mb-3">
             <div class="flex-1">
-              <h4 class="font-bold text-lg text-white mb-1">{{ config.name }}</h4>
+              <h4 class="font-bold text-lg text-white mb-1 flex items-center gap-2">
+                {{ config.name }}
+                <span v-if="config.isDefault" class="px-2 py-0.5 bg-purple-600/30 text-purple-300 text-[10px] rounded-full border border-purple-500/40">默认</span>
+              </h4>
               <p v-if="config.description" class="text-sm text-gray-400 line-clamp-2">
                 {{ config.description }}
               </p>
@@ -68,10 +71,13 @@
 
           <!-- 配置统计 -->
           <div class="flex items-center gap-4 mb-4 text-sm">
-            <span class="flex items-center gap-1 text-gray-400">
+            <span v-if="config.isDefault" class="flex items-center gap-1 text-gray-400">
+              <Sprout :size="14" /> 全部内置植物
+            </span>
+            <span v-else class="flex items-center gap-1 text-gray-400">
               <Sprout :size="14" /> {{ config.plants.length }} 个植物
             </span>
-            <span v-if="config.hiddenBuiltinPlants.length > 0" class="flex items-center gap-1 text-gray-400">
+            <span v-if="!config.isDefault && config.hiddenBuiltinPlants.length > 0" class="flex items-center gap-1 text-gray-400">
               <Ban :size="14" /> {{ config.hiddenBuiltinPlants.length }} 个隐藏
             </span>
             <span v-if="config.ruleConfig" class="flex items-center gap-1 text-pick-blue" title="含自定义比赛规则（BP 流程/上限/南瓜/阵营/选边）">
@@ -79,10 +85,11 @@
             </span>
           </div>
 
-          <!-- 配置时间 -->
-          <div class="text-xs text-gray-500 mb-4">
+          <!-- 配置时间（默认预设 createdAt 为 null，显示系统标记） -->
+          <div v-if="!config.isDefault" class="text-xs text-gray-500 mb-4">
             创建于 {{ formatDate(config.createdAt) }}
           </div>
+          <div v-else class="text-xs text-gray-600 mb-4 italic">系统预设 · 不可修改</div>
 
           <!-- 操作按钮 -->
           <div class="flex flex-wrap gap-2">
@@ -93,30 +100,50 @@
             >
               加载
             </button>
-            <button
-              @click="handleRename(config.id)"
-              class="min-h-[40px] px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-            >
-              重命名
-            </button>
-            <button
-              @click="handleEditPreset(config)"
-              class="min-h-[40px] px-3 py-1.5 bg-pick-blue hover:bg-pick-blue-hover text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
-            >
-              <Pencil :size="14" /> 编辑预设
-            </button>
-            <button
-              @click="handleExport(config.id)"
-              class="min-h-[40px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-            >
-              导出
-            </button>
-            <button
-              @click="handleDelete(config.id)"
-              class="min-h-[40px] px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-            >
-              删除
-            </button>
+
+            <!-- 默认预设：复制 + 导出（不可编辑/重命名/删除） -->
+            <template v-if="config.isDefault">
+              <button
+                @click="handleDuplicate(config.id)"
+                class="min-h-[40px] px-3 py-1.5 bg-pick-blue hover:bg-pick-blue-hover text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
+              >
+                <Copy :size="14" /> 复制
+              </button>
+              <button
+                @click="handleExport(config.id)"
+                class="min-h-[40px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                导出
+              </button>
+            </template>
+
+            <!-- 普通预设：重命名 + 编辑预设 + 导出 + 删除 -->
+            <template v-else>
+              <button
+                @click="handleRename(config.id)"
+                class="min-h-[40px] px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+              >
+                重命名
+              </button>
+              <button
+                @click="handleEditPreset(config)"
+                class="min-h-[40px] px-3 py-1.5 bg-pick-blue hover:bg-pick-blue-hover text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
+              >
+                <Pencil :size="14" /> 编辑预设
+              </button>
+              <button
+                @click="handleExport(config.id)"
+                class="min-h-[40px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                导出
+              </button>
+              <button
+                @click="handleDelete(config.id)"
+                class="min-h-[40px] px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+              >
+                删除
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -247,12 +274,14 @@ import {
   importConfig,
   setActiveConfig,
   updateConfigRuleConfig,
-  updateConfigPlants
+  updateConfigPlants,
+  ensureDefaultPreset,
+  duplicateConfig
 } from '@/data/plantConfigs'
 import { useGameStore } from '@/stores/gameStore'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
-import { Folder, FolderOpen, Save, Upload, Check, Sprout, Ban, Pencil, SlidersHorizontal } from 'lucide-vue-next'
+import { Folder, FolderOpen, Save, Upload, Check, Sprout, Ban, Pencil, SlidersHorizontal, Copy } from 'lucide-vue-next'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
@@ -268,6 +297,14 @@ const { confirm } = useConfirm()
 const configs = ref([])
 const activeConfigId = ref(null)
 const activeConfig = computed(() => configs.value.find(c => c.id === activeConfigId.value))
+// 默认预设置顶
+const sortedConfigs = computed(() => {
+  return [...configs.value].sort((a, b) => {
+    if (a.isDefault && !b.isDefault) return -1
+    if (!a.isDefault && b.isDefault) return 1
+    return 0
+  })
+})
 
 // 对话框状态
 const showSaveDialog = ref(false)
@@ -409,6 +446,17 @@ const handleExport = async (configId) => {
   }
 }
 
+// 复制预设为可编辑副本（默认预设的入口：一键生成可改可删的普通预设）
+const handleDuplicate = async (configId) => {
+  try {
+    const copy = await duplicateConfig(configId)
+    await loadConfigs()
+    toast.success(`已复制为「${copy.name}」（可编辑）`)
+  } catch (error) {
+    toast.error('复制失败：' + error.message)
+  }
+}
+
 // 删除配置
 const handleDelete = async (configId) => {
   const config = configs.value.find(c => c.id === configId)
@@ -461,8 +509,9 @@ const handleImport = async (event) => {
 }
 
 // 初始化
-onMounted(() => {
-  loadConfigs()
+onMounted(async () => {
+  await ensureDefaultPreset()
+  await loadConfigs()
 })
 </script>
 
@@ -479,6 +528,11 @@ onMounted(() => {
 .config-card.active {
   border-color: #22c55e;
   box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3);
+}
+
+.config-card-default {
+  border-color: rgba(147, 51, 234, 0.4);
+  box-shadow: 0 0 0 1px rgba(147, 51, 234, 0.15);
 }
 
 .line-clamp-2 {

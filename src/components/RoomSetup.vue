@@ -69,10 +69,14 @@
       </div>
 
       <!-- 植物管理按钮 -->
-      <div class="mt-6 flex justify-center">
+      <div class="mt-6 flex justify-center gap-3">
         <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
           <template #icon><Sprout :size="18" /></template>
           配置管理
+        </BaseButton>
+        <BaseButton variant="blue" @click="uiStore.setShowBPRulesEditor(true)">
+          <template #icon><SlidersHorizontal :size="18" /></template>
+          BP 规则
         </BaseButton>
       </div>
     </div>
@@ -256,11 +260,15 @@
           </button>
         </div>
 
-        <!-- 配置管理入口（植物 / 比赛预设 / BP 流程配置），放在返回角色选择上方 -->
-        <div class="mt-4 flex justify-center">
+        <!-- 配置管理入口（植物库 / 比赛预设），放在返回角色选择上方 -->
+        <div class="mt-4 flex justify-center gap-3">
           <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
             <template #icon><Sprout :size="18" /></template>
             配置管理
+          </BaseButton>
+          <BaseButton variant="blue" @click="uiStore.setShowBPRulesEditor(true)">
+            <template #icon><SlidersHorizontal :size="18" /></template>
+            BP 规则
           </BaseButton>
         </div>
 
@@ -424,7 +432,7 @@ import { useToast } from '@/composables/useToast'
 import {
   RefreshCw, Globe, Home, Sprout, Crown, Gamepad2, Eye,
   ClipboardCopy, Check, TriangleAlert, Plug, CheckCircle2,
-  CircleX, Lock, HelpCircle, Loader2,
+  CircleX, Lock, HelpCircle, Loader2, SlidersHorizontal,
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'

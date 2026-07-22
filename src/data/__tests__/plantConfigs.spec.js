@@ -18,7 +18,7 @@ vi.mock('@/data/customPlants', () => ({
   base64ToBlob: vi.fn(async () => new Blob(['x'], { type: 'image/png' }))
 }))
 
-import { saveConfig, loadConfig, getConfigById, importConfig, deleteConfig, getAllConfigs, getActiveConfig, updateConfigRuleConfig, updateConfigPlants } from '@/data/plantConfigs'
+import { saveConfig, loadConfig, getConfigById, importConfig, deleteConfig, getAllConfigs, getActiveConfig, updateConfigRuleConfig, updateConfigPlants, ensureDefaultPreset, duplicateConfig, renameConfig, DEFAULT_CONFIG_ID } from '@/data/plantConfigs'
 
 describe('plantConfigs 配置预设 - ruleConfig 透传', () => {
   beforeEach(() => {
@@ -124,5 +124,56 @@ describe('plantConfigs 配置预设 - ruleConfig 透传', () => {
     expect(persisted.hiddenBuiltinPlants).toEqual(['scaredyshroom'])
     // ruleConfig 不受影响（plants 与 ruleConfig 双写分离）
     expect(persisted.ruleConfig.limits.maxPlantUsage).toBe(2)
+  })
+})
+
+describe('默认预设（不可改/不可删）+ 复制', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('ensureDefaultPreset：空列表注入默认预设（id=config_default, isDefault=true）', async () => {
+    await ensureDefaultPreset()
+    const all = await getAllConfigs()
+    expect(all).toHaveLength(1)
+    expect(all[0].id).toBe(DEFAULT_CONFIG_ID)
+    expect(all[0].isDefault).toBe(true)
+    expect(all[0].plants).toEqual([])
+    expect(all[0].ruleConfig).toBeTruthy()
+  })
+
+  it('ensureDefaultPreset：已存在默认预设时不重复注入', async () => {
+    await ensureDefaultPreset()
+    await ensureDefaultPreset()
+    const all = await getAllConfigs()
+    expect(all.filter(c => c.id === DEFAULT_CONFIG_ID)).toHaveLength(1)
+  })
+
+  it('deleteConfig 拒绝删除默认预设', async () => {
+    await ensureDefaultPreset()
+    await expect(deleteConfig(DEFAULT_CONFIG_ID)).rejects.toThrow()
+    expect(await getAllConfigs()).toHaveLength(1)
+  })
+
+  it('renameConfig 拒绝重命名默认预设', async () => {
+    await ensureDefaultPreset()
+    await expect(renameConfig(DEFAULT_CONFIG_ID, '新名')).rejects.toThrow()
+  })
+
+  it('updateConfigRuleConfig 拒绝修改默认预设规则', async () => {
+    await ensureDefaultPreset()
+    await expect(updateConfigRuleConfig(DEFAULT_CONFIG_ID, { limits: { maxPlantUsage: 9 } })).rejects.toThrow()
+  })
+
+  it('duplicateConfig：生成新 id + isDefault:false + 深拷贝', async () => {
+    await ensureDefaultPreset()
+    const copy = await duplicateConfig(DEFAULT_CONFIG_ID)
+    expect(copy.id).not.toBe(DEFAULT_CONFIG_ID)
+    expect(copy.isDefault).toBe(false)
+    expect(copy.name).toBe('默认预设 副本')
+    expect(copy.ruleConfig).toBeTruthy()
+    const all = await getAllConfigs()
+    expect(all).toHaveLength(2)
+    expect(all.some(c => c.id === copy.id)).toBe(true)
   })
 })

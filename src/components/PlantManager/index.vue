@@ -43,16 +43,7 @@
                 class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                 :class="currentTab === 'plants' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
               >
-                <Sprout :size="16" /> 植物
-              </button>
-              <button
-                @click="currentTab = 'rules'"
-                role="tab"
-                :aria-selected="currentTab === 'rules'"
-                class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                :class="currentTab === 'rules' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
-              >
-                <SlidersHorizontal :size="16" /> BP 流程
+                <Sprout :size="16" /> 植物库
               </button>
               <button
                 @click="currentTab = 'configs'"
@@ -70,11 +61,6 @@
               <!-- 植物 tab：PlantLibrary（global 模式，读写全局 IndexedDB） -->
               <PlantLibrary v-if="currentTab === 'plants'" mode="global" />
 
-              <!-- BP 流程 tab -->
-              <div v-if="currentTab === 'rules'" class="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                <BPRulesEditor />
-              </div>
-
               <!-- 比赛预设 tab -->
               <div v-if="currentTab === 'configs'" class="flex-1 overflow-hidden">
                 <ConfigManager />
@@ -90,17 +76,16 @@
 <script setup>
 import { ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { isAnyBaseDialogOpen } from '@/components/ui/baseDialogState'
-import { Sprout, Folder, X, SlidersHorizontal } from 'lucide-vue-next'
+import { Sprout, Folder, X } from 'lucide-vue-next'
 import PlantLibrary from './PlantLibrary.vue'
 import ConfigManager from './ConfigManager.vue'
-import BPRulesEditor from '@/components/RulesEditor/BPRulesEditor.vue'
 
 const props = defineProps({
   show: Boolean
 })
 const emit = defineEmits(['update:show'])
 
-const currentTab = ref('plants') // 'plants' | 'rules' | 'configs'
+const currentTab = ref('plants') // 'plants' | 'configs'
 
 const close = () => emit('update:show', false)
 

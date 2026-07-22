@@ -35,6 +35,9 @@
       <!-- 植物管理模态框（全局） -->
       <PlantManager v-model:show="uiStore.showPlantManager" />
 
+      <!-- BP 规则编辑模态框（全局；赛前快速改当前对局 BP 规则，不存预设） -->
+      <BPRulesDialog v-model:show="uiStore.showBPRulesEditor" />
+
       <!-- 全局反馈层：Toast 与 Confirm -->
       <ToastContainer />
       <ConfirmDialog />
@@ -49,6 +52,7 @@ import { useGameStore } from '@/stores/gameStore'
 import { useUIStore } from '@/stores/uiStore'
 import { initializeCache } from '@/data/customPlants'
 import PlantManager from '@/components/PlantManager/index.vue'
+import BPRulesDialog from '@/components/RulesEditor/BPRulesDialog.vue'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import { APP_VERSION, APP_GIT_HASH } from '@/config/buildInfo'

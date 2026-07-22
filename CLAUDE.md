@@ -340,7 +340,9 @@ The application supports importing custom plants through the PlantManager UI:
 - **Storage**: Images stored as Blob objects in IndexedDB
 - **Export/Import**: Custom plants can be exported to JSON (images as Base64) and imported across devices
 
-Access custom plant management through the "配置管理" (Config Manager) dialog's "植物" tab.
+Access custom plant management through the "配置管理" (Config Manager) dialog's "植物库" tab.
+
+**配置管理弹窗结构（2026-07 重构）**:两个 tab ——「植物库」（浏览/管理全部内置+自定义植物，`PlantLibrary mode="global"`）与「比赛预设」（`ConfigManager`，预设 = 植物卡组 + BP 流程规则）。原独立的「BP 流程」tab 已删（与预设编辑器的 BP 流程子 tab 重叠）；赛前改当前对局 BP 规则改走 GameSetup/RoomSetup 的「BP 规则」按钮 → 全局 `BPRulesDialog`（`BPRulesEditor` 原模式，改 `store.ruleConfig`，不存预设）。比赛预设内置一个不可改、不可删的「默认预设」（`DEFAULT_CONFIG_ID='config_default'`，`ensureDefaultPreset` 注入并置顶，可加载/导出/复制；`duplicateConfig` 复制为可编辑副本），作为用户创建第一个预设的起点。
 
 **Built-in Plant Data:**
 Edit `src/data/plants.js` to replace placeholder images/data:
@@ -373,7 +375,7 @@ Custom colors defined in `tailwind.config.js`:
   - `src/stores/gameStore.js:543` (migrateLegacyPumpkinProtection 迁移逻辑)
 
 **自定义南瓜头植物**:
-用户可以通过「配置管理」弹窗的"植物"tab 添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
+用户可以通过「配置管理」弹窗的"植物库"tab 添加自定义植物，如果将植物名称设置为 "南瓜头"，即使植物 ID 不是 `'pumpkin'`，也会触发南瓜头特殊规则。
 
 **全局永久禁用（globalBan）预设步骤（2026-07）:**
 
@@ -504,7 +506,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ 南瓜头特殊规则（Pick 阶段选择南瓜头不消耗 BP 步骤；可由 `ruleConfig.pumpkinRule.enabled` 开关在赛前启停，默认开启，关闭时南瓜当作普通植物处理——消耗 BP 步骤、受 maxPlantUsage 上限约束、计入 plantUsage）
 - ✅ **阵营名称自定义**（功能1）：`ruleConfig.sideNames` 可改默认「二路/四路」，`gameStore.sideName(road)` 统一映射显示
 - ✅ **选边方式自定义**（功能3）：初始选边（双方互斥/指定一方/随机）+ 小局后选边权（败者选/胜者选/不换边），由 `ruleConfig.sideSelection` 驱动
-- ✅ **开局随机永久禁用可配**（`ruleConfig.randomBan`）：开关（`enabled` 默认开启）+ 数量（`count` 默认 5）；`enabled=false` 则开局不禁用（`globalBans` 为空）。开局一次性抽取入 `globalBans`，与 BP 流程内的 globalBan 预设步骤 / 手动抽取互补。配置入口：BPRulesEditor「BP 流程」tab；默认值子文件 `src/config/rules/randomBan.js`；回归测试：`src/stores/__tests__/gameStore.randomBan.spec.js`
+- ✅ **开局随机永久禁用可配**（`ruleConfig.randomBan`）：开关（`enabled` 默认开启）+ 数量（`count` 默认 5）；`enabled=false` 则开局不禁用（`globalBans` 为空）。开局一次性抽取入 `globalBans`，与 BP 流程内的 globalBan 预设步骤 / 手动抽取互补。配置入口：BPRulesEditor（赛前「BP 规则」弹窗 / 比赛预设编辑器）；默认值子文件 `src/config/rules/randomBan.js`；回归测试：`src/stores/__tests__/gameStore.randomBan.spec.js`
 - ✅ **预设全局永久禁用步骤**（globalBan）：BP 模板步骤 action 可为 `'globalBan'`，流程进行到该步时由系统自动从未禁用池随机抽取 `count` 个植物并入 `globalBans`（跨小局永久生效），无需选手点击；详见下方「全局永久禁用（globalBan）预设步骤」
 - ✅ **局内临时抽取永禁**（手动触发，2026-07）：BP 流程进行中，裁判/host 可点「抽取永禁」按钮从未禁用池随机抽 1 个植物入 `globalBans`；撤销由通用 `undoLastAction` 统一承担（不再有专门的「撤销抽取」）。与预设版互补，详见下方「局内临时抽取永 ban（手动触发）」
 - ✅ **通用撤销 / Undo Stack**（2026-07）：BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁）统一可撤销。采用操作前快照压栈 + 撤销时整体 pop 恢复；权限用 `lastActor` 模型（裁判随时可撤、选手可撤自己刚做的操作）；仅当前小局可撤（startRound 清栈）；撤销不触发自动步骤、不重新随机（多人安全）。详见下方「通用撤销（Undo Stack）」

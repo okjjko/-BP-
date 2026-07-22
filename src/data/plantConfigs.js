@@ -9,8 +9,65 @@
  */
 
 import { loadCustomPlants, addCustomPlant, deleteCustomPlant, clearAllCustomPlants, blobToBase64, base64ToBlob } from './customPlants'
+import defaultRules from '@/config/defaultRules'
 
 const CONFIGS_KEY = 'bpPlantConfigs'
+
+// 默认预设固定 ID（稳定可检测，不随时间戳变化）
+export const DEFAULT_CONFIG_ID = 'config_default'
+
+/**
+ * 构造默认预设（标准规则 + 全部内置植物）。
+ * plants: [] + hiddenBuiltinPlants: [] → 加载后即全部内置植物（预设 plants 仅存自定义植物）。
+ * 由 ensureDefaultPreset 首次注入；用户不可改、不可删（CRUD 守卫 + UI 禁用）。
+ */
+function createDefaultConfig() {
+  return {
+    id: DEFAULT_CONFIG_ID,
+    name: '默认预设',
+    description: '标准规则 + 全部内置植物',
+    plants: [],
+    hiddenBuiltinPlants: [],
+    ruleConfig: JSON.parse(JSON.stringify(defaultRules)),
+    isDefault: true,
+    createdAt: null,
+    updatedAt: null
+  }
+}
+
+/**
+ * 确保默认预设存在：若无 DEFAULT_CONFIG_ID 则插入列表开头。
+ * 由 ConfigManager.onMounted 调用（应用层 seed，不污染 getAllConfigs 的纯净语义与既有测试）。
+ */
+export async function ensureDefaultPreset() {
+  const data = getConfigsData()
+  if (!data.configs.some(c => c.id === DEFAULT_CONFIG_ID)) {
+    data.configs.unshift(createDefaultConfig())
+    saveConfigsData(data)
+    console.log('[plantConfigs] 已注入默认预设')
+  }
+}
+
+/**
+ * 复制预设为可编辑副本（新 id、name 加「 副本」、isDefault:false）。
+ */
+export async function duplicateConfig(configId) {
+  const data = getConfigsData()
+  const source = data.configs.find(c => c.id === configId)
+  if (!source) {
+    throw new Error('配置不存在')
+  }
+  const copy = JSON.parse(JSON.stringify(source))
+  copy.id = 'config_' + Date.now()
+  copy.name = `${source.name} 副本`
+  copy.isDefault = false
+  copy.createdAt = new Date().toISOString()
+  copy.updatedAt = new Date().toISOString()
+  data.configs.push(copy)
+  saveConfigsData(data)
+  console.log('[plantConfigs] 已复制预设:', copy.name)
+  return copy
+}
 
 /**
  * 从 localStorage 获取所有配置数据
@@ -192,6 +249,11 @@ export async function deleteConfig(configId) {
       throw new Error('配置不存在')
     }
 
+    // 默认预设不可删除
+    if (data.configs[configIndex].isDefault) {
+      throw new Error('默认预设不可删除')
+    }
+
     // 删除配置
     data.configs.splice(configIndex, 1)
 
@@ -223,6 +285,11 @@ export async function renameConfig(configId, newName) {
       throw new Error('配置不存在')
     }
 
+    // 默认预设不可重命名
+    if (config.isDefault) {
+      throw new Error('默认预设不可重命名')
+    }
+
     config.name = newName.trim()
     config.updatedAt = new Date().toISOString()
 
@@ -247,6 +314,10 @@ export async function updateConfigRuleConfig(configId, ruleConfig) {
     if (!config) {
       throw new Error('配置不存在')
     }
+    // 默认预设不可修改规则
+    if (config.isDefault) {
+      throw new Error('默认预设不可修改')
+    }
     config.ruleConfig = ruleConfig ? JSON.parse(JSON.stringify(ruleConfig)) : null
     config.updatedAt = new Date().toISOString()
     saveConfigsData(data)
@@ -270,6 +341,10 @@ export async function updateConfigPlants(configId, plants, hiddenBuiltinPlants) 
     const config = data.configs.find(c => c.id === configId)
     if (!config) {
       throw new Error('配置不存在')
+    }
+    // 默认预设不可修改植物卡组
+    if (config.isDefault) {
+      throw new Error('默认预设不可修改')
     }
     config.plants = JSON.parse(JSON.stringify(plants || []))
     config.hiddenBuiltinPlants = Array.isArray(hiddenBuiltinPlants)
@@ -356,10 +431,11 @@ export async function importConfig(importedData) {
 
     const config = importedData.config
 
-    // 生成新的 ID（避免冲突）
+    // 生成新的 ID（避免冲突）；导入的默认预设降级为普通预设（不覆盖本地默认、不触发内置保护）
     const newConfig = {
       ...config,
       id: 'config_' + Date.now(),
+      isDefault: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
