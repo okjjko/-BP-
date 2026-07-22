@@ -110,8 +110,11 @@ main() {
 
     # 5. 安装依赖（仅在根 package.json 变化时）
     if git diff --name-only "$OLD_COMMIT" HEAD -- package.json | grep -q .; then
+        # ⚠️ 必须 --include=dev：本脚本由 bp-server（ecosystem.config.cjs 注入 NODE_ENV=production）
+        # spawn，会继承 NODE_ENV=production，导致 npm install 默认省略 devDependencies。
+        # 而 build 依赖 vite（在 devDependencies）→ 不装 dev 会 vite: command not found → 构建失败。
         log "检测到 package.json 变化，正在安装依赖..."
-        if ! npm install 2>&1 | tee -a "$LOG_FILE"; then
+        if ! npm install --include=dev 2>&1 | tee -a "$LOG_FILE"; then
             error "npm install 失败"
             exit 1
         fi
@@ -123,7 +126,7 @@ main() {
     if [ -f "server/package.json" ] && git diff --name-only "$OLD_COMMIT" HEAD -- server/package.json | grep -q .; then
         log "检测到 server/package.json 变化，正在安装服务端依赖..."
         cd server
-        if ! npm install 2>&1 | tee -a "$LOG_FILE"; then
+        if ! npm install --include=dev 2>&1 | tee -a "$LOG_FILE"; then
             error "server npm install 失败"
             exit 1
         fi
