@@ -232,4 +232,169 @@ describe('connectionStore', () => {
       expect(store.myAssignedPlayer).toBeNull()
     })
   })
+
+  describe('rederiveMyIdentity 身份自愈（重连后本地推导）', () => {
+    beforeEach(() => {
+      store.roomMode = 'player'
+      store.myRole = 'player'
+      store.isViewOnly = false
+      store.myAssignedPlayer = null
+    })
+
+    it('myPlayerName 匹配 player1.id → player1', () => {
+      store.myPlayerName = 'alice'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBe('player1')
+    })
+
+    it('myPlayerName 匹配 player2.id → player2', () => {
+      store.myPlayerName = 'bob'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBe('player2')
+    })
+
+    it('已有身份不覆盖（幂等）', () => {
+      store.myPlayerName = 'alice'
+      store.myAssignedPlayer = 'player2' // 故意设"错"，验证不被覆盖
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBe('player2')
+    })
+
+    it('名字都不匹配 → 保持 null（安全失败，降级只读）', () => {
+      store.myPlayerName = 'carol'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBeNull()
+    })
+
+    it('local / spectator / host 不推导', () => {
+      store.myPlayerName = 'alice'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+
+      store.roomMode = 'local'
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBeNull()
+
+      store.roomMode = 'player'
+      store.myRole = 'spectator'
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBeNull()
+
+      store.myRole = 'host'
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBeNull()
+    })
+
+    it('端到端：setMyIdentity 重置 null → handleStateUpdate 后身份自愈 → isMyTurn 正确', () => {
+      store.myPlayerName = 'alice'
+      gameStore.currentRound = { currentPlayer: 'player1' }
+      // 重连：joinRoom 触发 setMyIdentity，把 myAssignedPlayer 清成 null（bug 复现）
+      store.setMyIdentity('player', 'alice')
+      expect(store.myAssignedPlayer).toBeNull()
+      expect(store.isMyTurn).toBe(false) // 即便轮到自己也无法操作
+
+      // 收到 host 推送的状态 → 真实 applySyncState 恢复 player1/player2.id → rederive 自愈
+      store.stateVersion = 0
+      store.handleStateUpdate({
+        senderId: 'host', senderRole: 'host',
+        timestamp: Date.now(), version: 1,
+        gameState: {
+          player1: { id: 'alice', score: 0, road: 2 },
+          player2: { id: 'bob', score: 0, road: 4 },
+          firstPlayer: 'player1',
+          currentRound: { currentPlayer: 'player1' },
+          globalBans: [],
+          plantUsage: {},
+          pumpkinUsage: { player1: 0, player2: 0 },
+          gameStatus: 'banning'
+        }
+      })
+
+      expect(store.myAssignedPlayer).toBe('player1')
+      expect(store.isMyTurn).toBe(true) // 修复后：轮到自己能操作
+    })
+  })
+
+  describe('handleRoster host 补发身份（重新加入场景）', () => {
+    beforeEach(() => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      vi.clearAllMocks()
+    })
+
+    it('游戏进行中 + members 含匹配 player → 补发 identityAssigned + syncState', () => {
+      gameStore.gameStatus = 'banning'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      vi.spyOn(gameStore, 'getSyncPayload').mockReturnValue({ s: 1 })
+
+      store.handleRoster({
+        members: [
+          { clientId: 'c1', role: 'player', playerName: 'alice', connected: true },
+          { clientId: 'c2', role: 'player', playerName: 'bob', connected: true },
+          { clientId: 'c3', role: 'spectator', playerName: 'eve', connected: true }
+        ]
+      })
+
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledWith('alice', 'player1')
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledWith('bob', 'player2')
+      expect(roomManager.broadcastState).toHaveBeenCalled() // syncState → host 走 broadcastState
+    })
+
+    it('赛前（gameStatus=setup）不补发', () => {
+      gameStore.gameStatus = 'setup'
+      gameStore.player1 = { id: 'alice', score: 0, road: null }
+      gameStore.player2 = { id: 'bob', score: 0, road: null }
+
+      store.handleRoster({
+        members: [{ clientId: 'c1', role: 'player', playerName: 'alice', connected: true }]
+      })
+
+      expect(roomManager.sendIdentityAssignment).not.toHaveBeenCalled()
+      expect(roomManager.broadcastState).not.toHaveBeenCalled()
+    })
+
+    it('非 host 不补发', () => {
+      store.myRole = 'player'
+      store.roomMode = 'player'
+      gameStore.gameStatus = 'banning'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+
+      store.handleRoster({
+        members: [{ clientId: 'c1', role: 'player', playerName: 'alice', connected: true }]
+      })
+
+      expect(roomManager.sendIdentityAssignment).not.toHaveBeenCalled()
+    })
+
+    it('members 无匹配 player → 不补发、不推状态', () => {
+      gameStore.gameStatus = 'banning'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+
+      store.handleRoster({
+        members: [{ clientId: 'c3', role: 'spectator', playerName: 'eve', connected: true }]
+      })
+
+      expect(roomManager.sendIdentityAssignment).not.toHaveBeenCalled()
+      expect(roomManager.broadcastState).not.toHaveBeenCalled()
+    })
+
+    it('已注册到 startStateSync（roster 事件）', () => {
+      store.startStateSync()
+      const calls = roomManager.on.mock.calls
+      const rosterCall = calls.find((c) => c[0] === 'roster')
+      expect(rosterCall).toBeTruthy()
+      expect(rosterCall[1]).toBe(store.handleRoster)
+    })
+  })
 })

@@ -300,5 +300,31 @@ describe('roomManager (ws centralized)', () => {
       expect(u).toHaveProperty('connected')
     })
   })
+
+  it('roster 消息：emit roster 事件 + 应用 members（供 host 补发身份）', async () => {
+    const received = []
+    host.on('roster', (m) => received.push(m))
+
+    host._handleMessage({ data: JSON.stringify({
+      type: 'roster',
+      members: [
+        { clientId: 'c1', role: 'host', playerName: '', connected: true },
+        { clientId: 'c2', role: 'player', playerName: 'alice', connected: true }
+      ]
+    }) })
+
+    expect(received.length).toBe(1)
+    expect(received[0].type).toBe('roster')
+    expect(received[0].members.length).toBe(2)
+    // members 已应用到本地名册
+    expect(host.getConnectedUsers().some((u) => u.playerName === 'alice')).toBe(true)
+  })
+
+  it('roster 消息 members 非数组 → 不 emit（早退保护）', async () => {
+    const received = []
+    host.on('roster', (m) => received.push(m))
+    host._handleMessage({ data: JSON.stringify({ type: 'roster', members: null }) })
+    expect(received.length).toBe(0)
+  })
 })
 

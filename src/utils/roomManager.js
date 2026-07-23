@@ -11,7 +11,7 @@
  * - emit 事件名与 payload 字段与 PeerJS 版完全一致（roomCreated / connected /
  *   userJoined / userLeft / stateUpdate / gameStart / customPlants / identityAssigned /
  *   error / connectionStatus / reconnecting / reconnected / reconnectFailed /
- *   connectionError）。
+ *   connectionError）；roster 为 WS 中心化版新增（成员名册变动时 emit，供 host 补发身份）。
  *
  * 语义映射（PeerJS → WS 中心化）：
  * - this.peer.id → 服务器分配的 this.clientId
@@ -169,6 +169,8 @@ class RoomManager {
       playerName: m.playerName,
       connected: m.connected !== false
     }))
+    // 通知上层（host 的 connectionStore.handleRoster 据此为重连/重新加入者补发身份 + 推状态）
+    this.emit('roster', msg)
   }
 
   _applyUserJoined(msg) {

@@ -240,6 +240,13 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
   - C2S：`createRoom` / `joinRoom` / `stateUpdate` / `gameStart` / `customPlants` / `identityAssigned` / `ping` / `leave`
   - S2C：`roomCreated` / `connected` / `roster` / `userJoined` / `userLeft` / `stateUpdate` / `gameStart` / `customPlants` / `identityAssigned` / `pong` / `error` / `connectionStatus`
   - 转发规则：`stateUpdate` 广播给同房除发送者外所有人（含 host）；`gameStart`/`customPlants` 广播除 host 外；`identityAssigned` 按 `playerName` 定向单投（joinRoom 校验同房 playerName 唯一，冲突返 `NAME_TAKEN`）。
+  - `roster`（成员名册，含 playerName）由服务器在每次成员变动时全房广播；前端 `roomManager._applyRoster` 应用到本地 `members` 并 `emit('roster')`，供 host 侧补发身份（见「重连身份自愈」）。
+
+- **重连身份自愈（2026-07）**：`myAssignedPlayer` 不持久化，页面刷新重连 / 重新加入后内存丢失 → 重连选手 `isMyTurn` 与撤销权（`lastActor===myAssignedPlayer`）失效。修复采用「本地推导为主、host 补发为辅」双通道，无需持久化身份：
+  - **本地自愈 `connectionStore.rederiveMyIdentity()`**（幂等：已有身份不覆盖）：`myRole==='player'` 且 `myAssignedPlayer` 为空时，用 `myPlayerName` 匹配 `gameStore.player1.id`/`player2.id`（= 选手名字，随每次 `stateUpdate` 下发）推导；都不匹配则保持 `null`（降级只读，安全失败）。调用时机：`handleStateUpdate` 的 `applySyncState` 之后 + `RoomSetup.performReconnect` 选手分支 `loadFromLocalStorage` 之后。
+  - **host 补发 `connectionStore.handleRoster(message)`**：host 收到 roster 且 `gameStatus!=='setup'`（对局中）时，对每个 connected 的 player 成员按 `playerName` 重发 `identityAssigned`（服务器定向单投，幂等）并 `syncState()` 推一次当前状态——覆盖「host 刷新重连（新邀请码）→ 选手重新加入」等无 `gameStart` 场景。
+  - **重新加入自动进入对局**：选手/观众重新加入（无 `gameStart`）时，`RoomSetup` 监听 `stateUpdate`，收到 `gameStatus!=='setup'` 的状态自动 `emit('startGame')` 进入对局路由（组件随后卸载，天然防重）。
+  - 回归测试：`src/stores/__tests__/connectionStore.spec.js`（rederive 矩阵 + handleRoster 补发 + 端到端自愈）、`src/utils/__tests__/roomManager.spec.js`（roster emit）。
 
 - **连接地址**：dev `ws://localhost:3000/ws`（vite proxy，需配 `{target:'http://localhost:8080', ws:true}`）；prod `wss://okjjko.top/ws`（nginx 终止 TLS 并反代到 Node :8080，需 `Upgrade`/`Connection:upgrade` 头与 `proxy_read_timeout 3600s`）。
 

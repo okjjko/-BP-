@@ -926,6 +926,9 @@ const performReconnect = async () => {
       // 重连成功后，恢复游戏状态
       if (isConnected.value && store.loadFromLocalStorage()) {
         console.log('[RoomSetup] 游戏状态已恢复')
+        // 恢复选手身份：joinRoom 的 setMyIdentity 会把 myAssignedPlayer 重置为 null，
+        // 此处从已恢复的 player1/player2.id 本地重推导（见 connectionStore.rederiveMyIdentity）
+        connStore.rederiveMyIdentity()
         emit('startGame', {
           mode: 'multiplayer',
           role: session.myRole,
@@ -1042,12 +1045,28 @@ const handleConnectionStatus = ({ status, message }) => {
   }
 }
 
+// 重新加入（无 gameStart，如 host 刷新重连→新邀请码→选手重新加入）场景：
+// 收到对局中状态 → 自动进入对局。本组件 emit startGame 后会被父组件卸载，天然防重。
+const handleRejoinOnState = (message) => {
+  if (!isConnected.value) return
+  if (role.value !== 'player' && role.value !== 'spectator') return
+  const gs = message?.gameState
+  if (!gs || gs.gameStatus === 'setup') return
+  console.log('[RoomSetup] 重新加入：收到对局中状态，自动进入对局')
+  emit('startGame', {
+    mode: 'multiplayer',
+    role: connStore.myRole,
+    inviteCode: connStore.inviteCode
+  })
+}
+
 // 设置事件监听器（使用命名函数）
 const setupEventListeners = () => {
   roomManager.on('userJoined', handleUserJoined)
   roomManager.on('userLeft', handleUserLeft)
   roomManager.on('connected', handleConnected)
   roomManager.on('gameStart', handleGameStart)
+  roomManager.on('stateUpdate', handleRejoinOnState)
   roomManager.on('error', handleError)
   roomManager.on('connectionStatus', handleConnectionStatus)
 }
@@ -1058,6 +1077,7 @@ const cleanupEventListeners = () => {
   roomManager.off('userLeft', handleUserLeft)
   roomManager.off('connected', handleConnected)
   roomManager.off('gameStart', handleGameStart)
+  roomManager.off('stateUpdate', handleRejoinOnState)
   roomManager.off('error', handleError)
   roomManager.off('connectionStatus', handleConnectionStatus)
 }

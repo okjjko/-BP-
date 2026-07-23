@@ -151,6 +151,7 @@ export const useConnectionStore = defineStore('connection', {
 
       roomManager.on('stateUpdate', this.handleStateUpdate)
       roomManager.on('customPlants', this.handleCustomPlantsSync)
+      roomManager.on('roster', this.handleRoster)
       roomManager.on('identityAssigned', (data) => {
         if (data.playerName === this.myPlayerName) {
           this.receiveIdentityAssignment(data.playerNumber)
@@ -161,6 +162,7 @@ export const useConnectionStore = defineStore('connection', {
     stopStateSync() {
       roomManager.off('stateUpdate', this.handleStateUpdate)
       roomManager.off('customPlants', this.handleCustomPlantsSync)
+      roomManager.off('roster', this.handleRoster)
       this._isSyncing = false
     },
 
@@ -192,6 +194,9 @@ export const useConnectionStore = defineStore('connection', {
 
         const gameStore = useGameStore()
         gameStore.applySyncState(gameState)
+
+        // 身份自愈：重连/重新加入后 myAssignedPlayer 可能丢失，从刚恢复的 player1/player2.id 本地推导
+        this.rederiveMyIdentity()
 
         nextTick(() => {
           this.isSyncing = false
@@ -232,6 +237,48 @@ export const useConnectionStore = defineStore('connection', {
         console.error('[connectionStore] 同步植物配置失败:', error)
         this.syncError = '植物同步失败: ' + error.message
       }
+    },
+
+    // ========== 身份自愈与重连补发 ==========
+
+    // 从已恢复的游戏状态本地重推导 myAssignedPlayer（幂等：已有身份不覆盖）。
+    // 动机：myAssignedPlayer 不持久化，页面刷新重连/重新加入后内存丢失；
+    // 而 player1.id/player2.id（= 选手名字）随每次状态同步下发，可纯本地推导，无需 host 重发。
+    // 修复重连后 isMyTurn / 撤销权（lastActor===myAssignedPlayer）失效问题。
+    rederiveMyIdentity() {
+      if (this.roomMode === 'local') return
+      if (this.myRole !== 'player') return
+      if (this.myAssignedPlayer) return
+      const gameStore = useGameStore()
+      if (gameStore.player1?.id && gameStore.player1.id === this.myPlayerName) {
+        this.myAssignedPlayer = 'player1'
+      } else if (gameStore.player2?.id && gameStore.player2.id === this.myPlayerName) {
+        this.myAssignedPlayer = 'player2'
+      }
+      // 都不匹配则保持 null → 降级只读（安全失败，不会误判成对方）
+    },
+
+    // host 侧：成员名册变动时，若游戏已开始，为（重新）加入的选手补发身份 + 推送当前状态。
+    // 覆盖「host 刷新重连（新邀请码）后选手重新加入」等无 gameStart 的场景，让重连者无缝续上。
+    // 服务器 identityAssigned 按 playerName 定向单投，重复补发幂等；syncState 带版本号，在线者去重。
+    handleRoster(message) {
+      if (this.myRole !== 'host') return
+      const gameStore = useGameStore()
+      // 赛前正常走 gameStart 流程，无需补发
+      if (!gameStore.gameStatus || gameStore.gameStatus === 'setup') return
+
+      const members = Array.isArray(message?.members) ? message.members : []
+      let touched = false
+      for (const m of members) {
+        if (m.role !== 'player' || m.connected === false || !m.playerName) continue
+        if (m.playerName === gameStore.player1?.id) {
+          this._sendIdentityAssignment(m.playerName, 'player1'); touched = true
+        } else if (m.playerName === gameStore.player2?.id) {
+          this._sendIdentityAssignment(m.playerName, 'player2'); touched = true
+        }
+      }
+      // 推一次当前状态，让重新加入者立刻拿到进度
+      if (touched) this.syncState()
     },
 
     // ========== 会话持久化 ==========
