@@ -845,10 +845,22 @@ export const useGameStore = defineStore('game', {
     },
 
     resetGame() {
+      // 重置前保留当前对局应用的 BP/规则。store.ruleConfig 与比赛预设脱钩（加载预设后各自独立、
+      // 赛前 BPRulesDialog 改的也只进 store），是「当前应用的 BP」的权威来源。$reset() 会把
+      // ruleConfig 重置回 defaultRules（默认预设的标准 20 步），导致重置后 BP 流程变回默认预设
+      // 而非用户当前应用的 BP——故在此显式保留。深拷贝避免与重置后的 state 共享引用。
+      const keepRuleConfig = this.ruleConfig
+        ? JSON.parse(JSON.stringify(this.ruleConfig))
+        : null
       this.$reset()
-      localStorage.removeItem('bpGameState')
       useConnectionStore().clearMultiplayerSession()
       this.pumpkinUsage = { player1: 0, player2: 0 }
+      if (keepRuleConfig) {
+        this.ruleConfig = keepRuleConfig
+      }
+      // 用「新对局起点」（初始 setup + 保留的 ruleConfig）覆盖旧存档，保证刷新后仍以同一套
+      // BP 开始，而非回退到默认预设（原 removeItem 会让刷新后 ruleConfig 丢失变默认）。
+      this.saveToLocalStorage()
     },
 
     // ========== 数据迁移 ==========

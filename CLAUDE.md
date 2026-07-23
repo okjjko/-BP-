@@ -190,6 +190,7 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
    - 流程：BP阶段 → Positioning (站位设置) → Result (小局结算) → 下一小局
    - 败者获得下一小局的选路权（败者选路权）
    - 说明：比分中的「分」即小局胜场数；变量名沿用 `currentRound`(当前小局)/`setRoundWinner`/`gameStatus`；胜负阈值存于顶级字段 `winThreshold`，开局设置、持久化并随多人状态同步
+   - **重置游戏（`resetGame`）保留当前 BP 规则**：`resetGame()` 清空所有对局进度（选手/比分/bans/picks/站位/撤销栈等回初始），但**保留当前应用的 `ruleConfig`**（BP 流程模板/阵营名/上限/南瓜/选边/随机禁用）——`store.ruleConfig` 与比赛预设脱钩，是「当前应用的 BP」的权威来源（赛前 `BPRulesDialog` 改的也只进 store，不写预设）。实现：`$reset()` 前缓存 `ruleConfig`、`$reset()` 后恢复，并用 `saveToLocalStorage()` 覆盖旧存档为「新对局起点」（初始 setup + 保留的 `ruleConfig`），保证刷新后仍以同一套 BP 开始（原 `removeItem` 会让刷新后 `ruleConfig` 丢失变默认预设）。`winThreshold` 不在保留之列（回默认 4，属「进度」）。回归测试：`src/stores/__tests__/gameStore.reset.spec.js`
 
 ### Key Files & Responsibilities
 
@@ -536,4 +537,4 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 
 Modern browsers with ES6+ support: Chrome, Firefox, Edge, Safari.
 
-LocalStorage is used for persistence - clearing browser data or clicking "重置游戏" resets everything.
+LocalStorage is used for persistence - clearing browser data wipes everything; clicking "重置游戏" clears game progress but **keeps the currently-applied BP/rule config (`ruleConfig`)** so the next match starts with the same BP flow (see Round Flow / `resetGame`).
