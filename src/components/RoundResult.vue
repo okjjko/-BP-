@@ -21,6 +21,7 @@
       <div class="flex gap-6 justify-center items-stretch">
         <button
           @click="setWinner('player1')"
+          :disabled="!canControlMatch"
           class="group flex-1 py-6 bg-pick-blue/10 hover:bg-pick-blue/25 border-2 border-pick-blue/50 hover:border-pick-blue rounded-xl font-bold text-2xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <span class="inline-block w-6 h-6 rounded-full bg-pick-blue mb-2 transition-transform group-hover:scale-110"></span>
@@ -31,6 +32,7 @@
 
         <button
           @click="setWinner('player2')"
+          :disabled="!canControlMatch"
           class="group flex-1 py-6 bg-ban-red/10 hover:bg-ban-red/25 border-2 border-ban-red/50 hover:border-ban-red rounded-xl font-bold text-2xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ban-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <span class="inline-block w-6 h-6 rounded-full bg-ban-red mb-2 transition-transform group-hover:scale-110"></span>
@@ -39,6 +41,7 @@
       </div>
 
       <button
+        v-if="canControlMatch"
         @click="cancelFinishRound"
         class="text-slate-400 hover:text-white underline underline-offset-4 transition-colors text-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded"
       >
@@ -60,7 +63,7 @@
       </div>
 
       <!-- 败者/胜者选路（按 loserPickMode 切换；keep 模式直接跳过选路） -->
-      <fieldset v-if="!isGameEnd && needsRoadSelection && loserPickMode !== 'keep'" class="mt-8 pt-8 border-t border-slate-700/50">
+      <fieldset v-if="!isGameEnd && needsRoadSelection && loserPickMode !== 'keep'" :disabled="!canSelectSide" class="mt-8 pt-8 border-t border-slate-700/50">
         <legend class="text-lg font-bold text-slate-300 px-4">
           <span :class="pickerIsBlue ? 'text-pick-blue' : 'text-ban-red'">{{ pickerName }}</span> {{ pickerLegendLabel }}
         </legend>
@@ -111,6 +114,7 @@
       <div v-if="!isGameEnd && !needsRoadSelection" class="mt-8 pt-8 border-t border-slate-700/50">
         <p class="text-slate-400 mb-6">下一局道路已自动确定</p>
         <button
+          v-if="canControlMatch"
           @click="goToNextRound"
           class="px-10 min-h-[56px] py-4 bg-plant-green hover:bg-plant-green-dark text-white rounded-xl font-bold text-xl shadow-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
@@ -122,6 +126,7 @@
       <div v-else-if="isGameEnd" class="mt-8 pt-8 border-t border-slate-700/50">
         <p class="text-slate-300 mb-6 font-mono tracking-widest">大局结束</p>
         <button
+          v-if="canControlMatch"
           @click="resetGame"
           class="w-full min-h-[56px] py-4 bg-ban-red hover:bg-ban-red-dark text-white rounded-xl font-bold text-xl shadow-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ban-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
@@ -139,12 +144,14 @@ import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { isGameOver } from '@/utils/validators'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePermission } from '@/composables/usePermission'
 import { Trophy } from 'lucide-vue-next'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
 const { confirm } = useConfirm()
+const { canControlMatch, canSelectSide } = usePermission()
 
 const roundWinner = computed(() => store.roundWinner)
 const player1Score = computed(() => store.player1.score)
@@ -250,14 +257,9 @@ const setWinner = (winner) => {
   store.setRoundWinner(winner)
 }
 
-// 取消完成小局，返回站位阶段（同时作为对话框 Esc 关闭行为）
+// 取消完成小局，返回站位阶段（同时作为对话框 Esc 关闭行为）。权限由 store action 校验。
 const cancelFinishRound = () => {
-  store.gameStatus = 'positioning'
-
-  // 同步状态到其他客户端
-  if (connStore.roomMode !== 'local') {
-    connStore.syncState()
-  }
+  store.returnToPositioning()
 }
 
 // 切换选边方的道路选择（取消/选择）
@@ -273,18 +275,20 @@ const togglePickerRoad = (road) => {
 const confirmRoadSelection = () => {
   if (!pickerRoad.value) return
 
-  // 委托 store 统一处理：先同时更新双方 road 再 startRound（选边卡死修复约束）。
-  store.applyNextRoundSideSelection({
+  // 委托 store 统一处理（含权限校验：先同时更新双方 road 再 startRound）。
+  const r = store.applyNextRoundSideSelection({
     loser: loser.value,
     winner: winner.value,
     pickerRoad: pickerRoad.value
   })
+  if (!r?.ok) return
 
   // 重置临时状态
   pickerRoad.value = null
 }
 
 const goToNextRound = () => {
+  if (!canControlMatch.value) return
   // keep 模式：不换边，委托 store 进入下一小局（统一同步逻辑）
   if (loserPickMode.value === 'keep') {
     store.applyNextRoundSideSelection({
@@ -300,10 +304,8 @@ const goToNextRound = () => {
   store.startRound(nextRound)
   store.saveToLocalStorage()
 
-  // 同步状态到其他客户端
-  if (connStore.roomMode !== 'local') {
-    connStore.syncState()
-  }
+  // 同步状态到其他客户端（local 下 syncState 为 no-op）
+  connStore.syncState()
 }
 
 const resetGame = async () => {
@@ -313,7 +315,8 @@ const resetGame = async () => {
     confirmText: '重新开始',
     variant: 'danger',
   })) {
-    store.resetGame()
+    const r = store.resetGame()
+    if (!r?.ok) return
   }
 }
 </script>

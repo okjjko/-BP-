@@ -430,60 +430,25 @@ BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁�
 - **UI**：`src/views/BanPickView.vue` 底部「撤销」按钮（`v-if="gameStatus==='banning' && canUndo"`，角标显示还可撤销步数 N）；`canUndo` computed 据 `lastActor`/权限判定，权限不满足时隐藏。
 - **持久化/同步**：`undoStack`/`lastActor` 是顶级运行时状态字段，按 `globalBans`/`plantUsage` 同模式加入 save/load/sync 四函数（非 ruleConfig 配置项，不享受整体存取契约）；旧存档/旧 payload 无这两个字段时降级为 `[]`/`null`。回归测试：`src/stores/__tests__/gameStore.undo.spec.js`。
 
-**WebRTC Network Configuration:**
+**按钮级权限（§4.1，2026-07）:**
 
-The project supports both default PeerJS public servers and self-hosted servers for improved connectivity:
+多人对战按钮级权限统一收敛至 `src/composables/usePermission.js`，消除原散落 11+ 处的 `roomMode==='local'||myRole==='host'` 重复判断。返回语义化原语：
+- `isAuthority`：local/host 裁判权威（可做一切裁判操作）。
+- `canBP`：ban/pick 选植物——观众禁、选手仅本人回合（`!isViewOnly && (local||isMyTurn)`）。
+- `canSetPosition(player)`：站位——选手摆自己（`myAssignedPlayer`）、host 可代摆双方。
+- `canControlMatch`：流程控制（完成本小局 / 返回站位 / 选胜者 / 下一小局 / 重置游戏）——仅裁判。
+- `canDrawGlobalBan`：局内抽取永禁——仅裁判。
+- `canManageConfig`：配置/规则编辑——裁判 **且** 仅赛前（`isAuthority && isRuleEditable`）。
+- `canSelectSide`：选路——按 `ruleConfig.sideSelection.loserPickMode` 归属者（败者/胜者）+ host 代操；`keep` 模式无人选（系统自动）。
+- `canUndo`：撤销——沿用 `lastActor` 模型（见上节）。
 
-**Configuration File:** `src/config/webrtc.config.js`
+**双层防御**：UI 层按钮 `v-if`/`:disabled` 接 `usePermission`；裸奔 action（`finishRound`/`setRoundWinner`/`resetGame`/`applyNextRoundSideSelection`/`selectRoad`/`returnToPositioning`）与站位写操作（新增 `setPositionAt`/`clearPositionAt`/`movePosition`，收敛 `PositionSetup` 原直接改 `currentRound.positions` 的操作）内部加权限校验，无权返回 `{ ok:false, reason:'not-allowed' }`、成功返回 `{ ok:true }`（与 `undoLastAction`/`drawRandomGlobalBan` 一致）。调用方（如 `BanPickView.finishRound`）需检查返回值再 `router.push`，避免无权时仍跳路由。
 
-```javascript
-export default {
-  debug: 2,
+**身份模型**（`connectionStore`）：`roomMode`('local'|'host'|'player'|'spectator')、`myRole`、`myAssignedPlayer`('player1'|'player2')、`isViewOnly`（spectator）；`isMyTurn` getter（local/host 永真、spectator 永假、player 按 `currentPlayer===myAssignedPlayer`）。spectator 所有写操作禁用，配置管理/BP规则入口 `v-if="!isViewOnly"` 隐藏。
 
-  // PeerJS 服务器配置（可选，用于自建服务器）
-  peerjs: {
-    host: 'your-domain.com',    // 您的服务器域名或 IP
-    port: 9000,                  // PeerJS 端口
-    path: '/peerjs',
-    secure: true                 // 使用 HTTPS
-  },
+回归测试：`src/composables/__tests__/usePermission.spec.js`（权限矩阵）+ `src/stores/__tests__/gameStore.permissions.spec.js`（action 双层防御）。
 
-  // ICE 服务器配置
-  config: {
-    iceServers: [
-      // 公共 STUN 服务器（免费，用于 NAT 穿透）
-      { urls: 'stun:stun.l.google.com:19302' },
-
-      // 自建 TURN 服务器（可选，用于中继）
-      // {
-      //   urls: 'turn:your-domain.com:3478',
-      //   username: 'your-username',
-      //   credential: 'your-password'
-      // }
-    ]
-  }
-}
-```
-
-**Deployment:**
-
-For production deployment with public internet access, consider deploying self-hosted PeerJS and TURN servers:
-
-- **PeerJS Server**: Replaces public signaling server, improves stability
-- **TURN Server**: Provides relay for restricted networks (enterprise/school)
-- **Estimated Cost**: ~30-50 元/月 for 1核2GB 阿里云 ECS
-
-See `docs/SERVER-SETUP.md` for complete deployment instructions.
-
-**机器特定信息与安全待办**：生产部署的真实 IP/域名/`aa_nginx` 路径等机器特定信息见本地 `CLAUDE.local.md`（已 gitignore，不进仓库）。公开待办（不含敏感值）：① `src/config/webrtc.config.js`、`server/lobby-server.js` 的真实域名与 TURN 凭据需迁到本地加载；② TURN 凭据明文已进入 git 历史，需轮换。详情见 `CLAUDE.local.md`。
-
-**Connection Success Rates:**
-
-| Network Type | Without TURN | With TURN |
-|--------------|-------------|-----------|
-| Local LAN    | 100%        | 100%      |
-| Home Network | 80-90%      | 95%+      |
-| Enterprise   | 40-60%      | 90%+      |
+**机器特定信息**：生产部署的真实 IP/域名、`aa_nginx` 路径等机器特定信息见本地 `CLAUDE.local.md`（已 gitignore，不进仓库）。
 
 ## Rules Implementation
 
@@ -510,6 +475,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ **预设全局永久禁用步骤**（globalBan）：BP 模板步骤 action 可为 `'globalBan'`，流程进行到该步时由系统自动从未禁用池随机抽取 `count` 个植物并入 `globalBans`（跨小局永久生效），无需选手点击；详见下方「全局永久禁用（globalBan）预设步骤」
 - ✅ **局内临时抽取永禁**（手动触发，2026-07）：BP 流程进行中，裁判/host 可点「抽取永禁」按钮从未禁用池随机抽 1 个植物入 `globalBans`；撤销由通用 `undoLastAction` 统一承担（不再有专门的「撤销抽取」）。与预设版互补，详见下方「局内临时抽取永 ban（手动触发）」
 - ✅ **通用撤销 / Undo Stack**（2026-07）：BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁）统一可撤销。采用操作前快照压栈 + 撤销时整体 pop 恢复；权限用 `lastActor` 模型（裁判随时可撤、选手可撤自己刚做的操作）；仅当前小局可撤（startRound 清栈）；撤销不触发自动步骤、不重新随机（多人安全）。详见下方「通用撤销（Undo Stack）」
+- ✅ **按钮级权限管理**（§4.1，2026-07）：抽 `usePermission` composable 收敛散落权限判断（`isAuthority`/`canBP`/`canSetPosition`/`canControlMatch`/`canSelectSide`/`canUndo` 等），UI（v-if/disabled）+ action（finishRound/setRoundWinner/resetGame/站位 action 等无权返回 `{ok:false}`）双层防御；spectator 只读、player 按回合/归属、host 全能。详见下方「按钮级权限（§4.1）」
 
 **Not Yet Implemented:**
 - ⚠️ 巅峰对决 mode (3:3 tiebreaker)

@@ -27,7 +27,8 @@
             @dragover="handleDragOver($event, player, index)"
             @dragleave="handleDragLeave"
             @drop="handleDrop($event, player, index)"
-            :draggable="getPlantAtPosition(player, index) !== null"
+            :draggable="getPlantAtPosition(player, index) !== null && canSetPosition(player)"
+            :disabled="!canSetPosition(player)"
             class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             :class="{
               'border-gray-600 hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
@@ -84,7 +85,7 @@
           <div
             v-for="(plantId, index) in getPicks(player)"
             :key="`${player}-${plantId}-${index}`"
-            draggable="true"
+            :draggable="canSetPosition(player)"
             @dragstart="handleDragStart($event, plantId, player, index)"
             @dragend="handleDragEnd"
             class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border text-sm cursor-grab active:cursor-grabbing transition-all duration-200"
@@ -178,16 +179,16 @@ import { ref } from 'vue'
 import { Trash2, X } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useUIStore } from '@/stores/uiStore'
-import { useConnectionStore } from '@/stores/connectionStore'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
+import { usePermission } from '@/composables/usePermission'
 import { getPlantImage, getPlantName } from '@/data/customPlants'
 
 const store = useGameStore()
-const connStore = useConnectionStore()
 const uiStore = useUIStore()
 const { confirm } = useConfirm()
 const toast = useToast()
+const { canSetPosition } = usePermission()
 
 const showPlantSelector = ref(false)
 const selectingPlayer = ref(null)
@@ -224,6 +225,7 @@ const getPlantAtPosition = (player, position) => {
 }
 
 const openPlantSelector = (player, position) => {
+  if (!canSetPosition(player)) return
   selectingPlayer.value = player
   selectingPosition.value = position
   showPlantSelector.value = true
@@ -236,67 +238,26 @@ const closePlantSelector = () => {
 }
 
 const placePlant = (plantId, sourceIndex = null) => {
-  const player = selectingPlayer.value
-  const position = selectingPosition.value
-
-  if (!store.currentRound.positions[player].plants) {
-    store.currentRound.positions[player].plants = []
+  const r = store.setPositionAt(selectingPlayer.value, selectingPosition.value, { plantId, sourceIndex })
+  if (!r.ok) {
+    if (r.reason === 'no-instance') toast.warning('该植物的所有实例都已布置')
+    return
   }
-
-  const plants = store.currentRound.positions[player].plants
-
-  // 如果未指定sourceIndex，自动选择第一个可用的
-  let finalSourceIndex = sourceIndex
-  if (finalSourceIndex === null) {
-    const availableInstances = store.getAvailablePlantInstances(player, plantId)
-    if (availableInstances.length === 0) {
-      toast.warning('该植物的所有实例都已布置')
-      return
-    }
-    finalSourceIndex = availableInstances[0].sourceIndex
-  }
-
-  // 查找是否已存在该sourceIndex的实例
-  const existingIndex = plants.findIndex(p =>
-    p && p.plantId === plantId && p.sourceIndex === finalSourceIndex
-  )
-
-  if (existingIndex !== -1) {
-    plants[existingIndex] = null
-  }
-
-  // 放置到新位置
-  plants[position - 1] = {
-    plantId: plantId,
-    instanceId: store.generatePlantInstanceId(player, plantId, finalSourceIndex),
-    sourceIndex: finalSourceIndex
-  }
-
   closePlantSelector()
-  store.saveToLocalStorage()
-  connStore.syncState()
 }
 
 const clearPosition = async () => {
-  const player = selectingPlayer.value
-  const position = selectingPosition.value
-
   const ok = await confirm({
     title: '清空站位',
-    message: `确定要清空 ${position} 号位的植物吗？`,
+    message: `确定要清空 ${selectingPosition.value} 号位的植物吗？`,
     confirmText: '清空',
     cancelText: '取消',
     variant: 'danger',
   })
   if (!ok) return
 
-  if (store.currentRound.positions[player].plants) {
-    store.currentRound.positions[player].plants[position - 1] = null
-  }
-
+  store.clearPositionAt(selectingPlayer.value, selectingPosition.value)
   closePlantSelector()
-  store.saveToLocalStorage()
-  connStore.syncState()
 }
 
 // 辅助函数：统计植物出现次数
@@ -325,6 +286,7 @@ const isPositionProtectedByPumpkin = (player, positionIndex) => {
 
 // 从战场位置开始拖拽
 const handleDragStartFromPosition = (event, player, position) => {
+  if (!canSetPosition(player)) return
   const plant = getPlantAtPosition(player, position)
   if (!plant) return
 
@@ -350,6 +312,7 @@ const handleDragStartFromPosition = (event, player, position) => {
 
 // 从可选列表开始拖拽
 const handleDragStart = (event, plantId, player, sourceIndex = null) => {
+  if (!canSetPosition(player)) return
   // 更新全局拖拽状态
   uiStore.setDragState({
     isDragging: true,
@@ -400,7 +363,7 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
   event.preventDefault()
 
   const dragState = uiStore.dragState
-  if (!dragState?.isDragging || !canDropAt(targetPlayer, targetPosition, dragState)) {
+  if (!dragState?.isDragging || !canSetPosition(targetPlayer) || !canDropAt(targetPlayer, targetPosition, dragState)) {
     uiStore.clearDragState()
     dropTarget.value = null
     return
@@ -409,7 +372,7 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
   const plantId = dragState.draggedPlantId
   const sourceIndex = dragState.draggedSourceIndex
 
-  // 根据拖拽源类型执行不同逻辑
+  // 根据拖拽源类型执行不同逻辑（持久化与同步由 store action 内部完成）
   if (dragState.draggedFromType === 'battlefield') {
     // 战场位置间移动
     movePlantBetweenPositions(
@@ -423,61 +386,18 @@ const handleDrop = (event, targetPlayer, targetPosition) => {
     placePlantToPosition(targetPlayer, targetPosition, plantId, sourceIndex)
   }
 
-  store.saveToLocalStorage()
-  connStore.syncState()
   uiStore.clearDragState()
   dropTarget.value = null
 }
 
-// 战场位置间移动植物
+// 战场位置间移动植物（权限与持久化由 store.movePosition 处理）
 const movePlantBetweenPositions = (fromPlayer, fromPosition, toPlayer, toPosition) => {
-  const plants = store.currentRound.positions[fromPlayer].plants
-
-  // 移除原位置（保存整个对象）
-  const plantInstance = plants[fromPosition - 1]
-  plants[fromPosition - 1] = null
-
-  // 放置到新位置
-  plants[toPosition - 1] = plantInstance
-
-  store.saveToLocalStorage()
-  connStore.syncState()
+  store.movePosition(fromPlayer, fromPosition, toPosition)
 }
 
-// 从 PickArea/可选列表放置植物
+// 从 PickArea/可选列表放置植物（权限与持久化由 store.setPositionAt 处理）
 const placePlantToPosition = (player, position, plantId, sourceIndex = null) => {
-  if (!store.currentRound.positions[player].plants) {
-    store.currentRound.positions[player].plants = []
-  }
-
-  const plants = store.currentRound.positions[player].plants
-
-  // 如果未指定sourceIndex，自动选择
-  let finalSourceIndex = sourceIndex
-  if (finalSourceIndex === null) {
-    const availableInstances = store.getAvailablePlantInstances(player, plantId)
-    if (availableInstances.length === 0) return
-    finalSourceIndex = availableInstances[0].sourceIndex
-  }
-
-  // 移除相同sourceIndex的旧位置
-  const existingIndex = plants.findIndex(p =>
-    p && p.plantId === plantId && p.sourceIndex === finalSourceIndex
-  )
-
-  if (existingIndex !== -1) {
-    plants[existingIndex] = null
-  }
-
-  // 放置到新位置
-  plants[position - 1] = {
-    plantId: plantId,
-    instanceId: store.generatePlantInstanceId(player, plantId, finalSourceIndex),
-    sourceIndex: finalSourceIndex
-  }
-
-  store.saveToLocalStorage()
-  connStore.syncState()
+  store.setPositionAt(player, position, { plantId, sourceIndex })
 }
 
 // 验证是否可放置

@@ -261,7 +261,7 @@
         </div>
 
         <!-- 配置管理入口（植物库 / 比赛预设），放在返回角色选择上方 -->
-        <div class="mt-4 flex justify-center gap-3">
+        <div v-if="!connStore.isViewOnly" class="mt-4 flex justify-center gap-3">
           <BaseButton variant="secondary" @click="uiStore.setShowPlantManager(true)">
             <template #icon><Sprout :size="18" /></template>
             配置管理

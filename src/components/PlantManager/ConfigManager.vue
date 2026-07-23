@@ -279,6 +279,7 @@ import {
   duplicateConfig
 } from '@/data/plantConfigs'
 import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { Folder, FolderOpen, Save, Upload, Check, Sprout, Ban, Pencil, SlidersHorizontal, Copy } from 'lucide-vue-next'
@@ -290,6 +291,7 @@ import defaultRules from '@/config/defaultRules'
 
 const emit = defineEmits(['configLoaded'])
 const store = useGameStore()
+const connStore = useConnectionStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -429,6 +431,17 @@ const savePresetEdit = async () => {
     await updateConfigPlants(editingConfigId.value, editingPlants.value, editingHiddenIds.value)
     await updateConfigRuleConfig(editingConfigId.value, editingRuleConfig.value)
     await loadConfigs()
+    // 若编辑的是当前正在应用的预设，同步其规则到当前对局 store.ruleConfig
+    // （预设与 store.ruleConfig 脱钩：加载时复制进 store，之后各自独立；
+    //  此处让"编辑 active 预设并保存"反映到当前对局——bpSequence 因 startRound 已快照而不影响当前小局，
+    //  其余字段即时生效，下一小局起用新 bpSequence）
+    if (editingConfigId.value === activeConfigId.value) {
+      store.applyRuleConfig(editingRuleConfig.value)
+      // 多人：host 广播给其他端；local 模式 syncState 内部 no-op
+      if (connStore.roomMode === 'host') {
+        connStore.syncState()
+      }
+    }
     showPresetEditor.value = false
     toast.success('预设已更新（植物卡组 + BP 流程）')
   } catch (error) {

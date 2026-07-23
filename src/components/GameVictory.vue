@@ -83,6 +83,7 @@
 
       <!-- 操作按钮 -->
       <button
+        v-if="canControlMatch"
         @click="resetGame"
         class="w-full py-5 bg-gradient-to-r from-yellow-600 via-yellow-500 to-orange-500 hover:from-yellow-500 hover:via-yellow-400 hover:to-orange-400 text-white rounded-xl font-bold text-xl shadow-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
       >
@@ -92,6 +93,7 @@
 
       <!-- 返回小局结算（调试用，可选） -->
       <button
+        v-if="canControlMatch"
         @click="backToRoundResult"
         class="w-full mt-3 py-2 text-slate-500 hover:text-slate-300 text-sm underline underline-offset-4 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded"
       >
@@ -106,11 +108,13 @@ import { computed, onMounted, onBeforeUnmount, nextTick, ref } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePermission } from '@/composables/usePermission'
 import { Trophy, RefreshCw } from 'lucide-vue-next'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
 const { confirm } = useConfirm()
+const { canControlMatch } = usePermission()
 
 // 判断胜利者
 const winner = computed(() => {
@@ -173,7 +177,8 @@ const resetGame = async () => {
     confirmText: '重新开始',
     variant: 'danger',
   })) {
-    store.resetGame()
+    const r = store.resetGame()
+    if (!r?.ok) return
   }
 }
 

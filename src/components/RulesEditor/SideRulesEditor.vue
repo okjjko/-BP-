@@ -163,10 +163,12 @@
 import { computed, ref } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
+import { usePermission } from '@/composables/usePermission'
 import { useDetailsAnimation } from '@/composables/useDetailsAnimation'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
+const { canManageConfig } = usePermission()
 
 // details 折叠面板丝滑展开/收起动画（grid 0fr→1fr 在 Chrome 实测不插值，改用 JS+height）
 const detailsRef = ref(null)
@@ -178,9 +180,7 @@ const { isOpen, toggle } = useDetailsAnimation({
 })
 
 // 多人权限（契约2）：单机恒可改；多人仅 host 且赛前可改。
-const canEditRules = computed(() =>
-  (connStore.roomMode === 'local' || connStore.myRole === 'host') && store.isRuleEditable
-)
+const canEditRules = canManageConfig
 
 // 直接引用 ruleConfig 子对象（响应式双向绑定）
 const sideNames = computed(() => store.ruleConfig.sideNames)

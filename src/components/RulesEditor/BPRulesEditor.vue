@@ -248,6 +248,7 @@
 import { computed, ref, watch } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
+import { usePermission } from '@/composables/usePermission'
 import { useConfirm } from '@/composables/useConfirm'
 import { PRESET_TEMPLATES, getDefaultTemplate } from '@/config/rules/bpSequence'
 
@@ -261,6 +262,7 @@ const emit = defineEmits(['update:presetRuleConfig'])
 const store = useGameStore()
 
 const connStore = useConnectionStore()
+const { canManageConfig } = usePermission()
 
 const { confirm } = useConfirm()
 
@@ -279,7 +281,7 @@ const sourceRuleConfig = computed(() => (isPresetMode.value ? editablePreset.val
 
 // 多人权限：预设模式编辑的是快照，恒可改；原模式单机恒可改、多人仅 host 且赛前可改。
 const canEditRules = computed(() =>
-  isPresetMode.value || ((connStore.roomMode === 'local' || connStore.myRole === 'host') && store.isRuleEditable)
+  isPresetMode.value || canManageConfig.value
 )
 
 // 把部分 ruleConfig 字段更新写回当前编辑目标（预设模式写 editablePreset 并 emit；原模式写 store）

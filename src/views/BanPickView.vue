@@ -107,7 +107,7 @@
       </BaseButton>
 
       <BaseButton
-        v-if="gameStatus === 'positioning'"
+        v-if="gameStatus === 'positioning' && canControlMatch"
         variant="primary"
         size="lg"
         @click="finishRound"
@@ -117,6 +117,7 @@
       </BaseButton>
 
       <BaseButton
+        v-if="!connStore.isViewOnly"
         variant="blue"
         size="lg"
         @click="uiStore.setShowPlantManager(true)"
@@ -126,6 +127,7 @@
       </BaseButton>
 
       <BaseButton
+        v-if="canControlMatch"
         variant="secondary"
         size="lg"
         @click="resetGame"
@@ -149,6 +151,7 @@ import { useConnectionStore } from '@/stores/connectionStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
+import { usePermission } from '@/composables/usePermission'
 import { getPlantImage, getPlantName, getPlantByIdSync } from '@/data/customPlants'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import PlayerInfo from '@/components/PlayerInfo.vue'
@@ -166,21 +169,9 @@ const store = useGameStore()
 const connStore = useConnectionStore()
 const uiStore = useUIStore()
 const router = useRouter()
+const { canDrawGlobalBan, canUndo, canControlMatch } = usePermission()
 
 const gameStatus = computed(() => store.gameStatus)
-
-// 局内抽取永禁：仅裁判/host 可操作（单机 local 谁都能点）
-const canDrawGlobalBan = computed(() =>
-  connStore.roomMode === 'local' || connStore.myRole === 'host'
-)
-// 通用撤销权限：观众不可；裁判(local/host)永可；选手仅当 lastActor===自己（撤销自己刚做的操作）
-const canUndo = computed(() => {
-  if (store.gameStatus !== 'banning') return false
-  if (store.undoStack.length === 0) return false
-  if (connStore.isViewOnly) return false
-  if (connStore.roomMode === 'local' || connStore.myRole === 'host') return true
-  return store.lastActor === connStore.myAssignedPlayer
-})
 const undoCount = computed(() => store.undoStack.length)
 
 const drawRandomGlobalBan = () => {
@@ -226,7 +217,8 @@ const isPlantCacheReady = computed(() => {
 })
 
 const finishRound = () => {
-  store.finishRound()
+  const r = store.finishRound()
+  if (!r?.ok) return
   router.push({ name: 'result' })
 }
 
@@ -240,7 +232,8 @@ const resetGame = async () => {
     variant: 'danger',
   })
   if (ok) {
-    store.resetGame()
+    const r = store.resetGame()
+    if (!r?.ok) return
     router.push({ name: 'setup' })
   }
 }

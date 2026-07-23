@@ -691,14 +691,98 @@ export const useGameStore = defineStore('game', {
       this.saveToLocalStorage()
     },
 
+    /**
+     * 站位写操作（§4.1 双层防御）。PositionSetup 的所有站位改动收敛至此，
+     * 替代组件内直接改 currentRound.positions。权限：裁判/单机 或 该位置归属选手。
+     * 返回 { ok, reason }：'not-allowed' 无权 / 'no-instance' 无可用实例。
+     */
+    setPositionAt(player, position, { plantId, sourceIndex = null } = {}) {
+      const conn = useConnectionStore()
+      const isAuthority = conn.roomMode === 'local' || conn.myRole === 'host'
+      if (!isAuthority && conn.myAssignedPlayer !== player) {
+        return { ok: false, reason: 'not-allowed' }
+      }
+      if (!this.currentRound.positions[player].plants) {
+        this.currentRound.positions[player].plants = []
+      }
+      const plants = this.currentRound.positions[player].plants
+      let finalSourceIndex = sourceIndex
+      if (finalSourceIndex === null) {
+        const availableInstances = this.getAvailablePlantInstances(player, plantId)
+        if (availableInstances.length === 0) return { ok: false, reason: 'no-instance' }
+        finalSourceIndex = availableInstances[0].sourceIndex
+      }
+      // 移除同 sourceIndex 旧位置
+      const existingIndex = plants.findIndex(p => p && p.plantId === plantId && p.sourceIndex === finalSourceIndex)
+      if (existingIndex !== -1) plants[existingIndex] = null
+      plants[position - 1] = {
+        plantId,
+        instanceId: this.generatePlantInstanceId(player, plantId, finalSourceIndex),
+        sourceIndex: finalSourceIndex
+      }
+      this.saveToLocalStorage()
+      conn.syncState()
+      return { ok: true }
+    },
+
+    clearPositionAt(player, position) {
+      const conn = useConnectionStore()
+      const isAuthority = conn.roomMode === 'local' || conn.myRole === 'host'
+      if (!isAuthority && conn.myAssignedPlayer !== player) {
+        return { ok: false, reason: 'not-allowed' }
+      }
+      if (this.currentRound.positions[player].plants) {
+        this.currentRound.positions[player].plants[position - 1] = null
+      }
+      this.saveToLocalStorage()
+      conn.syncState()
+      return { ok: true }
+    },
+
+    movePosition(fromPlayer, fromPosition, toPosition) {
+      const conn = useConnectionStore()
+      const isAuthority = conn.roomMode === 'local' || conn.myRole === 'host'
+      // canDropAt 已限制战场间拖拽在同一玩家区域，故 fromPlayer 即权限归属方
+      if (!isAuthority && conn.myAssignedPlayer !== fromPlayer) {
+        return { ok: false, reason: 'not-allowed' }
+      }
+      const plants = this.currentRound.positions[fromPlayer].plants
+      const plantInstance = plants[fromPosition - 1]
+      plants[fromPosition - 1] = null
+      plants[toPosition - 1] = plantInstance
+      this.saveToLocalStorage()
+      conn.syncState()
+      return { ok: true }
+    },
+
     finishRound() {
+      const conn = useConnectionStore()
+      if (!(conn.roomMode === 'local' || conn.myRole === 'host')) {
+        return { ok: false, reason: 'not-allowed' }
+      }
       this.gameStatus = 'result'
       this.roundWinner = null
       this.currentRound.isRoundComplete = true
-      useConnectionStore().syncState()
+      conn.syncState()
+      return { ok: true }
+    },
+
+    // 返回站位阶段（取消完成小局）。仅裁判/单机。
+    returnToPositioning() {
+      const conn = useConnectionStore()
+      if (!(conn.roomMode === 'local' || conn.myRole === 'host')) {
+        return { ok: false, reason: 'not-allowed' }
+      }
+      this.gameStatus = 'positioning'
+      conn.syncState()
+      return { ok: true }
     },
 
     setRoundWinner(winner) {
+      const conn = useConnectionStore()
+      if (!(conn.roomMode === 'local' || conn.myRole === 'host')) {
+        return { ok: false, reason: 'not-allowed' }
+      }
       this.roundWinner = winner
       if (winner === 'player1') this.player1.score++
       else if (winner === 'player2') this.player2.score++
@@ -711,10 +795,15 @@ export const useGameStore = defineStore('game', {
       }
       // 巅峰对决（isGrandFinal）暂未启用：函数保留，但不再在此触发强行结束
 
-      useConnectionStore().syncState()
+      conn.syncState()
+      return { ok: true }
     },
 
     selectRoad(loser, road) {
+      const conn = useConnectionStore()
+      if (!(conn.roomMode === 'local' || conn.myRole === 'host')) {
+        return { ok: false, reason: 'not-allowed' }
+      }
       if (loser === 'player1') this.player1.road = road
       else if (loser === 'player2') this.player2.road = road
 
@@ -722,7 +811,8 @@ export const useGameStore = defineStore('game', {
       this.startRound(nextRound)
       this.saveToLocalStorage()
 
-      useConnectionStore().syncState()
+      conn.syncState()
+      return { ok: true }
     },
 
     /**
@@ -738,7 +828,14 @@ export const useGameStore = defineStore('game', {
      * @param {number} [param.pickerRoad] 选边方所选道路（2 或 4）；loserPickMode='keep' 时忽略
      */
     applyNextRoundSideSelection({ loser, winner, pickerRoad }) {
+      const conn = useConnectionStore()
       const mode = this.ruleConfig.sideSelection.loserPickMode
+      // 权限：裁判/单机永可代操；否则归属者（败者/胜者按 loserPickMode）可操作；keep 模式无人选
+      const isAuthority = conn.roomMode === 'local' || conn.myRole === 'host'
+      const picker = mode === 'winner' ? winner : loser
+      if (!isAuthority && (mode === 'keep' || conn.myAssignedPlayer !== picker)) {
+        return { ok: false, reason: 'not-allowed' }
+      }
 
       if (mode === 'keep') {
         // 不换边：双方 road 保持现状，直接进入下一小局
@@ -845,10 +942,15 @@ export const useGameStore = defineStore('game', {
     },
 
     resetGame() {
+      const conn = useConnectionStore()
+      if (!(conn.roomMode === 'local' || conn.myRole === 'host')) {
+        return { ok: false, reason: 'not-allowed' }
+      }
       this.$reset()
       localStorage.removeItem('bpGameState')
-      useConnectionStore().clearMultiplayerSession()
+      conn.clearMultiplayerSession()
       this.pumpkinUsage = { player1: 0, player2: 0 }
+      return { ok: true }
     },
 
     // ========== 数据迁移 ==========
