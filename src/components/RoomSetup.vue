@@ -150,6 +150,12 @@
             </div>
           </div>
 
+          <!-- host 兼选手：勾选后 host 也参赛（固定 2 路/蓝方，只需 1 名远端选手即可开局） -->
+          <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer mb-4">
+            <input type="checkbox" v-model="participateAsPlayer" class="rounded">
+            <span>我也参赛（固定 {{ store.sideName(2) }}，只需 1 名远端选手即可开局）</span>
+          </label>
+
           <!-- 创建房间（私密，仅邀请码可加入） -->
           <button
             @click="createPrivateRoom"
@@ -464,6 +470,7 @@ const connectedUsers = ref([])
 // 公共房间（lobby）相关
 const isPublicRoom = ref(false)        // 是否公开房间
 const hostName = ref('')               // 房主显示名（lobby 展示用）
+const participateAsPlayer = ref(false) // host 兼选手：勾选后 host 也参赛（= player1，固定 2 路）
 const hostSecret = ref(null)           // lobby 返回的注销/心跳凭证（内存，不持久化）
 const lobbyHeartbeatTimer = ref(null)  // 房主心跳定时器 id
 
@@ -565,19 +572,26 @@ const createRoom = async () => {
     joinError.value = '请输入房主显示名'
     return
   }
+  // host 兼选手：勾选参赛则用房主显示名作为参赛名（= player1，固定 2 路）
+  if (participateAsPlayer.value && !hostName.value.trim()) {
+    joinError.value = '勾选参赛需先填房主显示名（将作为参赛名）'
+    return
+  }
+  const participateName = participateAsPlayer.value ? hostName.value.trim() : null
 
   isCreating.value = true
 
   try {
-    const code = await roomManager.createRoom()
+    const code = await roomManager.createRoom(participateName)
     inviteCode.value = code
     console.log('房间已创建，邀请码:', code)
 
     // 关键修复：主办方也需要设置 roomMode，否则 startStateSync() 会认为这是本地模式
     connStore.setRoomMode('host', code)
 
-    // 关键修复：主办方需要设置身份，否则无法转发状态
-    connStore.setMyIdentity('host', null)
+    // 关键修复：主办方设置身份：参赛名（host 兼选手）或 null（纯裁判）；
+    // myAssignedPlayer 不在此设，由开局 assignPlayerIdentityOnInit / 重连 rederiveMyIdentity 设置
+    connStore.setMyIdentity('host', participateName)
 
     // 主办方也需要开始状态同步，以便接收选手的消息
     connStore.startStateSync()
@@ -901,11 +915,16 @@ const performReconnect = async () => {
       // 恢复"公开房间"状态：createRoom 会用新 inviteCode + 原 hostName 重新登记到 lobby
       isPublicRoom.value = !!session.wasPublicRoom
       hostName.value = session.hostName || ''
+      // 恢复 host 参赛状态：参赛时 session.myPlayerName = hostName（非空）
+      participateAsPlayer.value = !!session.myPlayerName
       await createRoom()
 
       // 房间创建成功后，恢复游戏状态
       if (store.loadFromLocalStorage()) {
         console.log('[RoomSetup] 游戏状态已恢复')
+        // 重建选手 host 身份（createRoom→setMyIdentity 已重置 myAssignedPlayer=null，
+        // 复用 d767172 统一自愈：选手 host→player1，纯裁判→null）
+        connStore.rederiveMyIdentity()
         // 通知选手开始游戏（因为已经开始了）
         emit('startGame', {
           mode: 'multiplayer',

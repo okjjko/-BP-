@@ -202,33 +202,50 @@ export const useGameStore = defineStore('game', {
       this.firstPlayer = firstPlayer
       this.winThreshold = winThreshold
 
-      // 按 ruleConfig.sideSelection.initialMode 分配初始道路（功能3：选边方式自定义）
+      // 延迟导入避免循环依赖（提前到 road 分配前：host 参赛判定需读取连接身份）
+      const connStore = useConnectionStore()
+
+      // 分配初始道路
+      // host 兼选手：固定 host(player1)=2 路、远端(player2)=4 路，忽略 initialMode
+      // （必须在 startRound 生成 BP 序列前确定，否则 road 与序列映射错乱）
+      const hostParticipates = connStore.roomMode === 'host'
+        && !!connStore.myPlayerName && connStore.myPlayerName === player1Id
       const mode = this.ruleConfig.sideSelection.initialMode
-      if (mode === 'random') {
-        // 随机分配：忽略 UI 传入值，系统决定谁 2 路 / 4 路
-        const player1GetsRoad2 = Math.random() < 0.5
-        this.player1.road = player1GetsRoad2 ? 2 : 4
-        this.player2.road = player1GetsRoad2 ? 4 : 2
-      } else if (mode === 'assigned') {
-        // 指定一方选路：initialPicker 选路，对手取相反
-        const picker = this.ruleConfig.sideSelection.initialPicker
-        const pickerRoad = (picker === 'player1' ? player1Road : player2Road) || 2
-        const otherRoad = pickerRoad === 2 ? 4 : 2
-        if (picker === 'player1') {
-          this.player1.road = pickerRoad
-          this.player2.road = otherRoad
+      if (hostParticipates) {
+        // host 兼选手：固定 host(player1)=2 路、远端(player2)=4 路（忽略 initialMode）
+        this.player1.road = 2
+        this.player2.road = 4
+      } else if (connStore.roomMode === 'local') {
+        // 本地模式：按 initialMode（random/assigned/mutual）由本地 UI 决定
+        if (mode === 'random') {
+          // 随机分配：忽略 UI 传入值，系统决定谁 2 路 / 4 路
+          const player1GetsRoad2 = Math.random() < 0.5
+          this.player1.road = player1GetsRoad2 ? 2 : 4
+          this.player2.road = player1GetsRoad2 ? 4 : 2
+        } else if (mode === 'assigned') {
+          // 指定一方选路：initialPicker 选路，对手取相反
+          const picker = this.ruleConfig.sideSelection.initialPicker
+          const pickerRoad = (picker === 'player1' ? player1Road : player2Road) || 2
+          const otherRoad = pickerRoad === 2 ? 4 : 2
+          if (picker === 'player1') {
+            this.player1.road = pickerRoad
+            this.player2.road = otherRoad
+          } else {
+            this.player2.road = pickerRoad
+            this.player1.road = otherRoad
+          }
         } else {
-          this.player2.road = pickerRoad
-          this.player1.road = otherRoad
+          // 'mutual'：使用 UI 传入的双方互斥选路
+          this.player1.road = player1Road || null
+          this.player2.road = player2Road || null
         }
       } else {
-        // 'mutual'：现状逻辑，使用 UI 传入的双方互斥选路
+        // 多人非 host 参赛（3 人 host 不参赛 / 选手 / 观众端）：road 由 host 权威下发（经 gameStart 传入），
+        // 直接用传入值，不本地随机——避免各端 road / BP 序列不一致（含修复既有「多人+random 各端随机」问题）。
+        // host 端 initGame 后 syncState 会把权威状态推给所有人，选手端 applySyncState 覆盖即一致。
         this.player1.road = player1Road || null
         this.player2.road = player2Road || null
       }
-
-      // 延迟导入避免循环依赖
-      const connStore = useConnectionStore()
 
       // 随机禁用植物
       if (connStore.roomMode === 'local' || connStore.roomMode === 'host') {

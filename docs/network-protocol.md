@@ -26,7 +26,7 @@
 
 | type | 触发 | 字段 | 服务器动作 |
 |---|---|---|---|
-| `createRoom` | `roomManager.createRoom()` | `{type, role:'host'}` | 生成 inviteCode + 建房 + 设该连接为 host + 分配 clientId → 回 `roomCreated` |
+| `createRoom` | `roomManager.createRoom(playerName?)` | `{type, role:'host', playerName?}` | 生成 inviteCode + 建房 + 设该连接为 host + 分配 clientId；`playerName`（host 兼选手的参赛名，可选）存入成员并参与 NAME_TAKEN 唯一校验 → 回 `roomCreated` |
 | `joinRoom` | `roomManager.joinRoom(code, role, name)` | `{type, inviteCode, role, playerName}` | 校验房间存在 + 校验同房 playerName 唯一 + 加入成员 + 分配 clientId → 广播 `userJoined` 给同房其他人 → 回 `connected` + 推 `roster` 给新人 |
 | `stateUpdate` | syncState（host 用 broadcastState / client 用 sendStateUpdate） | `{type, senderRole, version, gameState}` | **中心化转发**：补 `senderId=clientId`、`timestamp`，广播给同房**除发送者外**所有成员（含 host） |
 | `gameStart` | `broadcastGameStart(...)` | `{type, player1Name, player2Name, player1Road, player2Road, globalBans, hiddenBuiltinPlants}` | 广播给同房**除 host 外**所有成员（host 已本地应用） |
@@ -85,6 +85,16 @@ host 端 gameStore.initGame()
 - 服务器 `joinRoom` 须校验同房 `playerName` 唯一；冲突返回 `error:{code:'NAME_TAKEN'}`。
 - 定向投递用「同房首个 playerName 匹配」并 log 警告（理论上唯一）。
 
+### host 兼选手（2 人开局）
+
+host 可兼任其中一名选手，使 host + 1 名远端选手即可开局（向后兼容：host 不参赛时仍需 2 名远端选手）。
+
+- **参赛名**：host 在 RoomSetup 勾选「我也参赛」，复用房主显示名作参赛名，经 `createRoom(playerName)` 带入并进 roster。
+- **身份分配（本地优先）**：`assignPlayerIdentityOnInit` 在 host 端**本地**设 `myAssignedPlayer='player1'`（host 固定 player1/2 路），**不为 host 自己发 `identityAssigned`**（避免服务器按 playerName 找到 host 连接后回投）；远端选手 player2 仍走定向单投。
+- **回合制**：`isMyTurn` 用 `myAssignedPlayer` 是否为空区分——选手 host（非空）按 `currentPlayer === myAssignedPlayer` 判定（对手回合不能操作）；纯裁判 host（空）恒 true。裁判元操作（撤销/抽取永禁）用 `myRole==='host'` 判定，不受影响。
+- **道路**：`initGame` 检测到 host 参赛时强制 `player1.road=2 / player2.road=4`（忽略 `sideSelection.initialMode`），在 `startRound` 生成 BP 序列前生效。
+- **重连自愈**：复用 `rederiveMyIdentity`（已扩展支持选手 host）+ `handleRoster`（给远端补发 player2），三条自愈通道全覆盖。
+
 ## 7. 心跳
 
 | 方向 | 间隔 | 超时判定 |
@@ -106,7 +116,7 @@ S2C `error` 的 `error.code`：
 |---|---|---|
 | `ROOM_NOT_FOUND` | joinRoom 房间不存在 | 找不到房间，请检查邀请码 |
 | `ROOM_FULL` | （预留）房间已满 | 房间已满 |
-| `NAME_TAKEN` | 同房 playerName 重复 | 该名字已被使用，请换一个 |
+| `NAME_TAKEN` | 同房 playerName 重复（含 host 参赛名） | 该名字已被使用，请换一个 |
 | `INVALID_PARAMS` | 消息字段非法 | 请求参数错误 |
 | `INTERNAL` | 服务器内部异常 | 服务器异常，请重试 |
 

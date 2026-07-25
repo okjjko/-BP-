@@ -263,21 +263,30 @@ const handleRoomStart = async (data) => {
 
   // 如果是主办方
   if (data.role === 'host') {
-    // 获取已连接的选手名字
-    const playerNames = roomManager.getConnectedPlayerNames()
+    // 获取已连接的远端选手名字（不含 host）
+    const remotePlayerNames = roomManager.getConnectedPlayerNames()
+    // host 兼选手：connStore.myPlayerName 非空表示 host 参赛（= player1，固定 2 路）
+    const hostParticipates = !!connStore.myPlayerName
 
-    if (playerNames.length < 2) {
-      toast.error('需要至少 2 名选手加入才能开始游戏')
+    const need = hostParticipates ? 1 : 2
+    if (remotePlayerNames.length < need) {
+      toast.error(hostParticipates
+        ? '需要至少 1 名选手加入才能开始游戏'
+        : '需要至少 2 名选手加入才能开始游戏')
       showRoomSetup.value = true
       return
     }
 
-    // 自动使用已连接选手的ID开始游戏
-    // 第一个连接的是 player1，第二个是 player2
-    player1Name.value = playerNames[0]
-    player2Name.value = playerNames[1]
+    // 分配选手身份：host 参赛→host(player1/2路) + 远端(player2/4路)；否则两名远端选手
+    if (hostParticipates) {
+      player1Name.value = connStore.myPlayerName
+      player2Name.value = remotePlayerNames[0]
+    } else {
+      player1Name.value = remotePlayerNames[0]
+      player2Name.value = remotePlayerNames[1]
+    }
 
-    // 自动分配道路（第一个选手2路，第二个选手4路）
+    // 自动分配道路（player1 固定 2 路，player2 固定 4 路）
     player1Road.value = 2
     player2Road.value = 4
 
@@ -317,12 +326,12 @@ const handleRoomStart = async (data) => {
     const globalBans = store.globalBans || []
 
     roomManager.broadcastGameStart(
-      playerNames[0],  // player1Name
-      playerNames[1],  // player2Name
-      2,              // player1Road
-      4,              // player2Road
-      globalBans,     // 永久禁用植物列表
-      hiddenBuiltinPlants  // 隐藏的内置植物列表
+      player1Name.value,  // player1Name（host 参赛时为 host 名）
+      player2Name.value,  // player2Name
+      2,                  // player1Road
+      4,                  // player2Road
+      globalBans,         // 永久禁用植物列表
+      hiddenBuiltinPlants // 隐藏的内置植物列表
     )
 
   } else {

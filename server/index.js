@@ -244,11 +244,13 @@ function handleCreateRoom(ws, clientId, msg) {
     createdAt: now,
     lastActivity: now
   }
+  // host 兼选手：可选携带参赛名（= player1 名），进 roster 后受 NAME_TAKEN 唯一性保护
+  const hostPlayerName = String(msg.playerName || '').trim()
   room.members.set(clientId, {
     clientId,
     ws,
     role: 'host',
-    playerName: '',  // host 不强制 playerName
+    playerName: hostPlayerName,
     joinedAt: now,
     isAlive: true
   })

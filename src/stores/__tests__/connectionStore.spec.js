@@ -110,6 +110,33 @@ describe('connectionStore', () => {
       gameStore.currentRound = { currentPlayer: null }
       expect(store.isMyTurn).toBe(false)
     })
+
+    it('选手 host（myAssignedPlayer 非空）自回合 → true（回合制）', () => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      store.isViewOnly = false
+      store.myAssignedPlayer = 'player1'
+      gameStore.currentRound = { currentPlayer: 'player1' }
+      expect(store.isMyTurn).toBe(true)
+    })
+
+    it('选手 host 对回合 → false（回合制，不能替对手点）', () => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      store.isViewOnly = false
+      store.myAssignedPlayer = 'player1'
+      gameStore.currentRound = { currentPlayer: 'player2' }
+      expect(store.isMyTurn).toBe(false)
+    })
+
+    it('选手 host 无 currentPlayer → false', () => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      store.isViewOnly = false
+      store.myAssignedPlayer = 'player1'
+      gameStore.currentRound = { currentPlayer: null }
+      expect(store.isMyTurn).toBe(false)
+    })
   })
 
   describe('handleStateUpdate 版本去重', () => {
@@ -274,7 +301,7 @@ describe('connectionStore', () => {
       expect(store.myAssignedPlayer).toBeNull()
     })
 
-    it('local / spectator / host 不推导', () => {
+    it('local / spectator / 纯裁判 host（无参赛名）不推导', () => {
       store.myPlayerName = 'alice'
       gameStore.player1 = { id: 'alice', score: 0, road: 2 }
       gameStore.player2 = { id: 'bob', score: 0, road: 4 }
@@ -288,9 +315,32 @@ describe('connectionStore', () => {
       store.rederiveMyIdentity()
       expect(store.myAssignedPlayer).toBeNull()
 
+      // 纯裁判 host（无参赛名）不推导 → 保持 isMyTurn 恒 true 的裁判模式
+      store.roomMode = 'host'
       store.myRole = 'host'
+      store.myPlayerName = ''
       store.rederiveMyIdentity()
       expect(store.myAssignedPlayer).toBeNull()
+    })
+
+    it('选手 host（带参赛名）匹配 player1.id → 推导 player1', () => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      store.myPlayerName = 'alice'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBe('player1')
+    })
+
+    it('选手 host 匹配 player2.id → 推导 player2', () => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      store.myPlayerName = 'bob'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBe('player2')
     })
 
     it('端到端：setMyIdentity 重置 null → handleStateUpdate 后身份自愈 → isMyTurn 正确', () => {
@@ -320,6 +370,79 @@ describe('connectionStore', () => {
 
       expect(store.myAssignedPlayer).toBe('player1')
       expect(store.isMyTurn).toBe(true) // 修复后：轮到自己能操作
+    })
+
+    it('端到端（选手 host）：setMyIdentity 重置 → rederive 自愈 player1 → isMyTurn 回合制', () => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      store.myPlayerName = 'alice'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 }
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }
+      gameStore.currentRound = { currentPlayer: 'player1' }
+
+      // 重连：createRoom→setMyIdentity 重置 myAssignedPlayer=null（裁判态，isMyTurn 暂恒 true）
+      store.setMyIdentity('host', 'alice')
+      expect(store.myAssignedPlayer).toBeNull()
+
+      // loadFromLocalStorage/状态恢复后 rederive 自愈 → 选手 host 身份恢复
+      store.rederiveMyIdentity()
+      expect(store.myAssignedPlayer).toBe('player1')
+      expect(store.isMyTurn).toBe(true) // 自回合
+
+      // 切对手回合 → 回合制生效（不能替对手操作）
+      gameStore.currentRound = { currentPlayer: 'player2' }
+      expect(store.isMyTurn).toBe(false)
+    })
+  })
+
+  describe('assignPlayerIdentityOnInit（host 兼选手本地自分配）', () => {
+    beforeEach(() => {
+      store.roomMode = 'host'
+      store.myRole = 'host'
+      vi.clearAllMocks()
+    })
+
+    it('host 参赛（myPlayerName===player1Id）→ 本地自分配 player1，且只投 player2', () => {
+      store.myPlayerName = 'alice'
+      store.assignPlayerIdentityOnInit('alice', 'bob')
+      expect(store.myAssignedPlayer).toBe('player1')
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledTimes(1)
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledWith('bob', 'player2')
+    })
+
+    it('host 未参赛（无 myPlayerName）→ 双投 player1/player2，host 不自分配', () => {
+      store.myPlayerName = ''
+      store.assignPlayerIdentityOnInit('alice', 'bob')
+      expect(store.myAssignedPlayer).toBeNull()
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledTimes(2)
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledWith('alice', 'player1')
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledWith('bob', 'player2')
+    })
+
+    it('player 分支不受影响（匹配 player1Id → player1，不发消息）', () => {
+      store.roomMode = 'player'
+      store.myRole = 'player'
+      store.myPlayerName = 'alice'
+      store.assignPlayerIdentityOnInit('alice', 'bob')
+      expect(store.myAssignedPlayer).toBe('player1')
+      expect(roomManager.sendIdentityAssignment).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('setMyIdentity（身份重置，重连残留回归）', () => {
+    it('host 分支重置 myAssignedPlayer=null', () => {
+      store.myRole = 'host'
+      store.myAssignedPlayer = 'player1' // 模拟上次选手 host 残留
+      store.setMyIdentity('host', 'alice')
+      expect(store.myAssignedPlayer).toBeNull()
+      expect(store.myPlayerName).toBe('alice')
+      expect(store.myPlayerId).toBe('host')
+    })
+
+    it('player 分支重置 myAssignedPlayer=null', () => {
+      store.myAssignedPlayer = 'player1'
+      store.setMyIdentity('player', 'bob')
+      expect(store.myAssignedPlayer).toBeNull()
     })
   })
 
@@ -395,6 +518,26 @@ describe('connectionStore', () => {
       const rosterCall = calls.find((c) => c[0] === 'roster')
       expect(rosterCall).toBeTruthy()
       expect(rosterCall[1]).toBe(store.handleRoster)
+    })
+
+    it('选手 host 场景：只给远端 player(=player2.id) 补发；host 参赛名(=player1.id, role=host) 被过滤不误发', () => {
+      gameStore.gameStatus = 'banning'
+      gameStore.player1 = { id: 'alice', score: 0, road: 2 } // host 参赛名
+      gameStore.player2 = { id: 'bob', score: 0, road: 4 }   // 远端选手
+      vi.spyOn(gameStore, 'getSyncPayload').mockReturnValue({ s: 1 })
+
+      store.handleRoster({
+        members: [
+          { clientId: 'c0', role: 'host', playerName: 'alice', connected: true }, // host 自己（role=host）
+          { clientId: 'c1', role: 'player', playerName: 'bob', connected: true }  // 远端选手
+        ]
+      })
+
+      // 只给远端 bob 补发 player2；不给 host 参赛名 alice 补发 player1（role=host 被过滤）
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledTimes(1)
+      expect(roomManager.sendIdentityAssignment).toHaveBeenCalledWith('bob', 'player2')
+      expect(roomManager.sendIdentityAssignment).not.toHaveBeenCalledWith('alice', 'player1')
+      expect(roomManager.broadcastState).toHaveBeenCalled()
     })
   })
 })

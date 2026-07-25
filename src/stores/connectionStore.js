@@ -41,7 +41,14 @@ export const useConnectionStore = defineStore('connection', {
       const gameStore = useGameStore()
       if (state.roomMode === 'local') return true
       if (state.isViewOnly) return false
-      if (state.myRole === 'host') return true
+      if (state.myRole === 'host') {
+        // 选手 host（兼选手）：按自己选手身份的回合判定；纯裁判 host：恒 true（向后兼容）
+        if (state.myAssignedPlayer) {
+          const cp = gameStore.currentRound?.currentPlayer
+          return !!cp && cp === state.myAssignedPlayer
+        }
+        return true
+      }
 
       if (!gameStore.currentRound?.currentPlayer) return false
       if (!state.myAssignedPlayer) return false
@@ -53,7 +60,8 @@ export const useConnectionStore = defineStore('connection', {
       const gameStore = useGameStore()
       if (state.roomMode === 'local') return ''
       if (state.isViewOnly) return '观众模式'
-      if (state.myRole === 'host') return '主办方'
+      // 纯裁判 host 显示「主办方」；选手 host（myAssignedPlayer 非空）走下方回合文案
+      if (state.myRole === 'host' && !state.myAssignedPlayer) return '主办方'
 
       const currentPlayer = gameStore.currentRound?.currentPlayer
       if (!currentPlayer) return '等待开始'
@@ -74,12 +82,15 @@ export const useConnectionStore = defineStore('connection', {
     setMyIdentity(role, playerName) {
       this.myRole = role
       this.myPlayerName = playerName || ''
+      // 统一重置 myAssignedPlayer：setMyIdentity 在创建/重连时会先执行，清掉残留身份，
+      // 再由 assignPlayerIdentityOnInit（开局）或 rederiveMyIdentity（重连）重新设置。
+      // 避免选手 host 重连后残留 'player1'，使「不参赛 host」误走回合制。
+      this.myAssignedPlayer = null
 
       if (role === 'host') {
         this.myPlayerId = 'host'
       } else {
         this.myPlayerId = null
-        this.myAssignedPlayer = null
       }
 
       this.saveMultiplayerSession()
@@ -95,8 +106,12 @@ export const useConnectionStore = defineStore('connection', {
       }
 
       if (this.roomMode === 'host') {
-        this._sendIdentityAssignment(player1Id, 'player1')
+        // 选手 host（兼选手）：本地自分配 player1，且不为 host 自己发 identityAssigned
+        // （避免服务器按 playerName 在 roster 找到 host 连接后回投）；player2 仍定向单投远端
+        const hostIsPlayer1 = !!(this.myPlayerName && this.myPlayerName === player1Id)
+        if (hostIsPlayer1) this.myAssignedPlayer = 'player1'
         this._sendIdentityAssignment(player2Id, 'player2')
+        if (!hostIsPlayer1) this._sendIdentityAssignment(player1Id, 'player1')
       }
     },
 
@@ -247,8 +262,11 @@ export const useConnectionStore = defineStore('connection', {
     // 修复重连后 isMyTurn / 撤销权（lastActor===myAssignedPlayer）失效问题。
     rederiveMyIdentity() {
       if (this.roomMode === 'local') return
-      if (this.myRole !== 'player') return
       if (this.myAssignedPlayer) return
+      // player 或选手 host（host 带参赛名）可本地推导；纯裁判 host（无参赛名）跳过
+      const isPlayerLike = this.myRole === 'player'
+        || (this.myRole === 'host' && !!this.myPlayerName)
+      if (!isPlayerLike) return
       const gameStore = useGameStore()
       if (gameStore.player1?.id && gameStore.player1.id === this.myPlayerName) {
         this.myAssignedPlayer = 'player1'

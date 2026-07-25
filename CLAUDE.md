@@ -36,7 +36,7 @@ npm run test:unit:run      # 单次运行（CI）
 ```
 
 - `src/utils/__tests__/roomManager.spec.js` - WebSocket roomManager：createRoom/joinRoom 成员同步、stateUpdate 转发（不回声发送者）、identityAssigned 定向、版本号/序列化鲁棒性、断线重连
-- `src/stores/__tests__/connectionStore.spec.js` - isMyTurn 权限（host/player/spectator）、版本号去重、远端状态 apply
+- `src/stores/__tests__/connectionStore.spec.js` - isMyTurn 权限（含 host 兼选手回合制 / host / player / spectator）、assignPlayerIdentityOnInit、rederiveMyIdentity 身份自愈、版本号去重、远端状态 apply
 - `src/stores/__tests__/gameStore.pumpkin.spec.js` - 南瓜头 pick 索引同步回归（连续选 2/3 南瓜、保护关系绑定、pending 清空、protection key 与 picks 索引对齐）；守住"连续选多个南瓜头时 splice 索引失效导致植物误删/南瓜残留"bug
 - `src/utils/devTransport.js` - 内存 FakeHub（单元测试与 dev 面板共用）；dev 多客户端模拟面板在 `src/components/dev/MultiClientSimulator.vue`（路由 `/dev/sim`，`import.meta.env.DEV` 守卫，不进生产构建）
 - 真实 server 协议端到端：本地 `node server/index.js` + ws 客户端联调（契约见 `docs/network-protocol.md`）；Playwright E2E 见下方 `agents/tests/multiplayer-ws.spec.js`（本地 ws server，不依赖外网）
@@ -247,6 +247,13 @@ This is a **Vue 3 + Pinia** web application for managing a Ban/Pick (BP) battle 
   - **host 补发 `connectionStore.handleRoster(message)`**：host 收到 roster 且 `gameStatus!=='setup'`（对局中）时，对每个 connected 的 player 成员按 `playerName` 重发 `identityAssigned`（服务器定向单投，幂等）并 `syncState()` 推一次当前状态——覆盖「host 刷新重连（新邀请码）→ 选手重新加入」等无 `gameStart` 场景。
   - **重新加入自动进入对局**：选手/观众重新加入（无 `gameStart`）时，`RoomSetup` 监听 `stateUpdate`，收到 `gameStatus!=='setup'` 的状态自动 `emit('startGame')` 进入对局路由（组件随后卸载，天然防重）。
   - 回归测试：`src/stores/__tests__/connectionStore.spec.js`（rederive 矩阵 + handleRoster 补发 + 端到端自愈）、`src/utils/__tests__/roomManager.spec.js`（roster emit）。
+
+- **host 兼选手（2 人开局，2026-07）**：host 可兼任其中一名选手，host + 1 名远端选手即可开局（向后兼容：host 不勾参赛时仍需 2 名远端选手）。用 `myAssignedPlayer` 是否为空区分两种 host：
+  - **参赛入口**：RoomSetup 勾选「我也参赛」，复用房主显示名 `hostName` 作参赛名 → `createRoom(playerName)` 带名进 roster（受 NAME_TAKEN 保护）→ `setMyIdentity('host', participateName)`。
+  - **固定身份/道路**：host 参赛即固定 player1（2 路/蓝方/先手 ban），远端选手固定 player2（4 路）。`assignPlayerIdentityOnInit` host 端**本地**自分配 `myAssignedPlayer='player1'` 且不为 host 自己发 `identityAssigned`（player2 仍定向单投）；`initGame` 强制 `player1.road=2/player2.road=4`（忽略 `sideSelection.initialMode`，在 BP 序列生成前生效）。
+  - **回合制**：`isMyTurn` host 分支——选手 host（`myAssignedPlayer` 非空）按 `currentPlayer === myAssignedPlayer` 判定（对手回合不能操作）；纯裁判 host（空）恒 true。裁判元操作（撤销/抽取永禁/规则编辑/自动步骤/随机禁用）用 `myRole==='host'` 判定，**不依赖 isMyTurn**，host 兼选手后天然仍可用。
+  - **身份重置**：`setMyIdentity` 统一重置 `myAssignedPlayer=null`（重连时清残留，由 `assignPlayerIdentityOnInit`/`rederiveMyIdentity` 重设）；`rederiveMyIdentity` 扩展支持选手 host（`myRole==='host' && myPlayerName`）；`performReconnect` host 分支复用 `rederiveMyIdentity` 自愈。
+  - 回归测试：`src/stores/__tests__/connectionStore.spec.js`（isMyTurn/assignPlayerIdentityOnInit/rederiveMyIdentity/setMyIdentity 选手 host 矩阵 + 重连端到端 + handleRoster 兼容）、`src/stores/__tests__/gameStore.hostParticipates.spec.js`（initGame 强制 road，R3）。
 
 - **连接地址**：dev `ws://localhost:3000/ws`（vite proxy，需配 `{target:'http://localhost:8080', ws:true}`）；prod `wss://okjjko.top/ws`（nginx 终止 TLS 并反代到 Node :8080，需 `Upgrade`/`Connection:upgrade` 头与 `proxy_read_timeout 3600s`）。
 
@@ -518,6 +525,7 @@ See `docs/SERVER-SETUP.md` for complete deployment instructions.
 - ✅ **预设全局永久禁用步骤**（globalBan）：BP 模板步骤 action 可为 `'globalBan'`，流程进行到该步时由系统自动从未禁用池随机抽取 `count` 个植物并入 `globalBans`（跨小局永久生效），无需选手点击；详见下方「全局永久禁用（globalBan）预设步骤」
 - ✅ **局内临时抽取永禁**（手动触发，2026-07）：BP 流程进行中，裁判/host 可点「抽取永禁」按钮从未禁用池随机抽 1 个植物入 `globalBans`；撤销由通用 `undoLastAction` 统一承担（不再有专门的「撤销抽取」）。与预设版互补，详见下方「局内临时抽取永 ban（手动触发）」
 - ✅ **通用撤销 / Undo Stack**（2026-07）：BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁）统一可撤销。采用操作前快照压栈 + 撤销时整体 pop 恢复；权限用 `lastActor` 模型（裁判随时可撤、选手可撤自己刚做的操作）；仅当前小局可撤（startRound 清栈）；撤销不触发自动步骤、不重新随机（多人安全）。详见下方「通用撤销（Undo Stack）」
+- ✅ **host 兼选手（2 人开局，2026-07）**：host 可兼任其中一名选手，host + 1 名远端选手即可开局（向后兼容）。选手 host 固定 player1/2 路、走回合制（对手回合不能操作）；裁判元操作（撤销/抽取永禁等）不受影响。详见上方「Multiplayer Networking → host 兼选手」
 
 **Not Yet Implemented:**
 - ⚠️ 巅峰对决 mode (3:3 tiebreaker)

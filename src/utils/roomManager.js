@@ -336,10 +336,13 @@ class RoomManager {
 
   // ==================== 核心：创建/加入房间 ====================
 
-  async createRoom() {
+  async createRoom(playerName = null) {
     this.role = 'host'
     await this._ensureConnected()
-    this._send({ type: 'createRoom', role: 'host' })
+    // host 兼选手：可选携带参赛名（= player1 名）进 roster，受 NAME_TAKEN 唯一性保护
+    const payload = { type: 'createRoom', role: 'host' }
+    if (playerName) payload.playerName = playerName
+    this._send(payload)
     // 等待 roomCreated
     return new Promise((resolve, reject) => {
       const onCreated = (data) => {
