@@ -1,5 +1,43 @@
 <template>
-  <div class="glass-panel rounded-xl p-4 min-w-[300px] shadow-lg border-t border-white/10" role="region" aria-label="当前游戏阶段">
+  <!-- 手机端紧凑版（md 以下）：融入顶部状态条中央，仅保留阶段名/进度/当前操作 -->
+  <div class="md:hidden flex flex-col items-center min-w-0 flex-1 px-1" role="region" aria-label="当前游戏阶段">
+    <!-- 多人模式：角色 / 回合 极简徽章 -->
+    <div v-if="roomMode !== 'local'" class="flex items-center justify-center gap-1 mb-0.5 min-w-0 flex-wrap">
+      <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap border" :class="roleBadgeClass">
+        {{ getRoleLabel() }}
+      </span>
+      <span
+        v-if="myTurnDescription"
+        class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full truncate max-w-[80px] border"
+        :class="isMyTurn ? 'bg-green-500/20 border-green-500/40 text-green-300' : 'bg-red-500/20 border-red-500/40 text-red-300'"
+      >
+        {{ myTurnDescription }}
+      </span>
+    </div>
+
+    <!-- 阶段名 -->
+    <div class="flex items-baseline gap-1 min-w-0 justify-center">
+      <span class="text-[9px] text-gray-500 whitespace-nowrap">R{{ roundNumber }}</span>
+      <span class="text-xs font-black truncate max-w-[96px]" :class="stageClass">{{ stageName }}</span>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="w-full max-w-[130px] h-1.5 bg-gray-800/70 rounded-full my-1 overflow-hidden border border-gray-700/50" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
+      <div class="h-full rounded-full transition-all duration-500" :class="progressBarClass" :style="{ width: `${((step + 1) / totalSteps) * 100}%` }"></div>
+    </div>
+
+    <!-- 当前操作胶囊 -->
+    <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold shadow" :class="actionClass">
+      <span class="inline-block w-1.5 h-1.5 rounded-full bg-white animate-pulse" aria-hidden="true"></span>
+      <span class="max-w-[72px] truncate">{{ currentPlayerName }}</span>
+      <span class="opacity-80 text-[9px] uppercase">{{ actionText }}</span>
+    </div>
+
+    <span class="text-[9px] text-gray-500 mt-0.5">{{ step + 1 }}/{{ totalSteps }}</span>
+  </div>
+
+  <!-- 桌面端完整版（md 以上，原样） -->
+  <div class="hidden md:block glass-panel rounded-xl p-3 lg:p-4 min-w-0 lg:min-w-[300px] shadow-lg border-t border-white/10" role="region" aria-label="当前游戏阶段">
     <div class="text-center">
       <!-- 多人模式：角色徽章和回合提示 -->
       <div v-if="roomMode !== 'local'" class="flex items-center justify-center gap-2 mb-2">
@@ -21,13 +59,13 @@
       </div>
 
       <h3 class="text-sm font-bold mb-1 text-gray-400 uppercase tracking-widest">ROUND {{ roundNumber }}</h3>
-      <div class="text-3xl font-black mb-4 tracking-wide" :class="stageClass">
+      <div class="text-xl lg:text-3xl font-black mb-4 tracking-wide" :class="stageClass">
         {{ stageName }}
       </div>
 
       <!-- 进度条 -->
       <div class="mb-4 relative">
-        <div class="w-full bg-gray-800/50 rounded-full h-3 border border-gray-700" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
+        <div class="w-full bg-gray-800/50 rounded-full h-2.5 lg:h-3 border border-gray-700" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
           <div
             class="h-full rounded-full transition-all duration-500 relative overflow-hidden"
             :class="progressBarClass"
@@ -124,6 +162,16 @@ const roleIcon = computed(() => {
     case 'player': return Gamepad2
     case 'spectator': return Eye
     default: return null
+  }
+})
+
+// 手机端角色徽章配色（host=紫 / player=蓝 / spectator=灰）
+const roleBadgeClass = computed(() => {
+  switch (myRole.value) {
+    case 'host': return 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+    case 'player': return 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+    case 'spectator': return 'bg-slate-500/20 border-slate-500/40 text-slate-300'
+    default: return 'bg-slate-500/20 border-slate-500/40 text-slate-300'
   }
 })
 

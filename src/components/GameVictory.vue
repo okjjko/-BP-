@@ -28,7 +28,7 @@
     <div
       ref="rootRef"
       tabindex="-1"
-      class="relative z-10 glass-card rounded-3xl p-10 sm:p-12 max-w-2xl w-full mx-4 shadow-2xl border border-yellow-500/30 animate-slide-up"
+      class="relative z-10 glass-card rounded-3xl p-4 sm:p-10 max-w-2xl w-full mx-4 shadow-2xl border border-yellow-500/30 animate-slide-up"
     >
       <!-- 顶部光效线 -->
       <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-yellow-400/50 to-transparent" aria-hidden="true"></div>
@@ -36,7 +36,7 @@
       <!-- 胜利标题 -->
       <div class="text-center mb-10">
         <Trophy :size="96" class="mx-auto mb-6 text-amber-400" />
-        <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-500 mb-4">
+        <h1 class="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-500 mb-4">
           胜利!
         </h1>
         <p class="text-xl text-slate-300 font-light tracking-widest">VICTORY</p>
@@ -52,7 +52,7 @@
           <div class="flex items-center justify-center gap-8">
             <div class="text-center">
               <p class="text-slate-400 text-xs mb-1">{{ player1Name }}</p>
-              <p class="text-5xl font-black font-mono tabular-nums" :class="winner === 'player1' ? 'text-amber-400' : 'text-slate-500'">
+              <p class="text-3xl sm:text-5xl font-black font-mono tabular-nums" :class="winner === 'player1' ? 'text-amber-400' : 'text-slate-500'">
                 {{ player1Score }}
               </p>
             </div>
@@ -61,7 +61,7 @@
 
             <div class="text-center">
               <p class="text-slate-400 text-xs mb-1">{{ player2Name }}</p>
-              <p class="text-5xl font-black font-mono tabular-nums" :class="winner === 'player2' ? 'text-amber-400' : 'text-slate-500'">
+              <p class="text-3xl sm:text-5xl font-black font-mono tabular-nums" :class="winner === 'player2' ? 'text-amber-400' : 'text-slate-500'">
                 {{ player2Score }}
               </p>
             </div>
@@ -84,7 +84,7 @@
       <!-- 操作按钮 -->
       <button
         @click="resetGame"
-        class="w-full py-5 bg-gradient-to-r from-yellow-600 via-yellow-500 to-orange-500 hover:from-yellow-500 hover:via-yellow-400 hover:to-orange-400 text-white rounded-xl font-bold text-xl shadow-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+        class="w-full py-4 sm:py-5 bg-gradient-to-r from-yellow-600 via-yellow-500 to-orange-500 hover:from-yellow-500 hover:via-yellow-400 hover:to-orange-400 text-white rounded-xl font-bold text-lg sm:text-xl shadow-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
       >
         <RefreshCw :size="24" />
         <span>重新开始</span>

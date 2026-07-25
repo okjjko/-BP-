@@ -1,8 +1,36 @@
 <template>
-  <div class="flex items-center gap-4 bg-black/30 rounded-full pr-6 pl-2 py-2 border border-gray-700/50 backdrop-blur-sm shadow-sm transition-all duration-300 hover:bg-black/40 hover:border-gray-600">
+  <!-- 手机端紧凑内联版（md 以下）：小路标圆点 + 名字 + 数字比分 -->
+  <div
+    class="md:hidden inline-flex items-center gap-1.5 min-w-0"
+    :title="`${playerName} · 得分 ${score}/${store.winThreshold}`"
+  >
+    <div
+      class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border shadow-inner flex-shrink-0"
+      :class="isPlayer1
+        ? 'bg-gradient-to-br from-pick-blue-dark to-pick-blue border-pick-blue text-white'
+        : 'bg-gradient-to-br from-ban-red-dark to-ban-red border-ban-red text-white'"
+      aria-hidden="true"
+    >
+      {{ roadText }}
+    </div>
+    <div class="flex flex-col min-w-0 leading-tight">
+      <span class="text-xs font-bold text-white truncate max-w-[56px]">{{ playerName }}</span>
+      <div class="flex items-baseline gap-0.5">
+        <span
+          class="text-xs font-black tabular-nums"
+          :class="isPlayer1 ? 'text-pick-blue' : 'text-ban-red'"
+          aria-hidden="true"
+        >{{ score }}</span>
+        <span class="text-[9px] text-gray-500">/{{ store.winThreshold }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 桌面端完整版（md 以上，原样） -->
+  <div class="hidden md:flex items-center gap-3 lg:gap-4 bg-black/30 rounded-full pr-4 pl-1.5 py-1.5 lg:pr-6 lg:pl-2 lg:py-2 border border-gray-700/50 backdrop-blur-sm shadow-sm transition-all duration-300 lg:hover:bg-black/40 lg:hover:border-gray-600">
     <!-- 头像/Road 图标 -->
     <div
-      class="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold border-2 shadow-inner proportional-nums tabular-nums relative overflow-hidden group"
+      class="w-10 h-10 lg:w-12 lg:h-12 rounded-full flex items-center justify-center text-xl font-bold border-2 shadow-inner proportional-nums tabular-nums relative overflow-hidden group"
       :class="isPlayer1
         ? 'bg-gradient-to-br from-pick-blue-dark to-pick-blue border-pick-blue text-white'
         : 'bg-gradient-to-br from-ban-red-dark to-ban-red border-ban-red text-white'"
@@ -13,7 +41,7 @@
 
     <div class="flex flex-col">
       <!-- 名字 -->
-      <span class="font-bold text-lg leading-tight tracking-wide text-white">
+      <span class="font-bold text-base lg:text-lg leading-tight tracking-wide text-white">
         {{ playerName }}
       </span>
       <!-- 分数 -->

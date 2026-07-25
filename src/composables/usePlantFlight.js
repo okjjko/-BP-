@@ -24,9 +24,22 @@ export function usePlantFlight() {
     // 系统级降级：开启「减少动态效果」则不飞、不延迟
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    const startEl = document.querySelector(`[data-plant-id="${plantId}"]`)
+    // 响应式布局下同一锚点可能有多份 DOM 副本（手机紧凑版 / 桌面完整版同时存在于 DOM，
+    // 靠 md:hidden 互斥显示）。querySelector 的首匹配会命中 display:none 的副本——
+    // 其 getBoundingClientRect 全为 0，会让飞行落到视口左上角。改为遍历所有候选，
+    // 取首个「可见」者（offsetParent===null 表示元素或祖先 display:none）。
+    // 单布局场景（仅一份锚点）行为与原 querySelector 完全一致。
+    const pickVisibleAnchor = (selector) => {
+      const candidates = document.querySelectorAll(selector)
+      for (const el of candidates) {
+        if (el.offsetParent !== null) return el
+      }
+      return null
+    }
+
+    const startEl = pickVisibleAnchor(`[data-plant-id="${plantId}"]`)
     const slotAttr = action === 'ban' ? 'data-ban-slot' : 'data-pick-slot'
-    const endEl = document.querySelector(`[${slotAttr}="${player}"]`)
+    const endEl = pickVisibleAnchor(`[${slotAttr}="${player}"]`)
 
     // 起点或终点缺失（布局未就绪）→ 降级为纯进入动画，不报错
     if (!startEl || !endEl) return

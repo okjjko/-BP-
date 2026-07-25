@@ -5,7 +5,7 @@
         v-if="show"
         ref="rootRef"
         tabindex="-1"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4"
         role="dialog"
         aria-modal="true"
         aria-label="配置管理"
@@ -17,9 +17,9 @@
         ></div>
 
         <!-- 主容器（焦点陷阱作用域） -->
-        <div class="relative glass-card rounded-2xl w-full max-w-7xl h-[85vh] flex flex-col overflow-hidden animate-slide-up">
+        <div class="relative glass-card rounded-none sm:rounded-2xl w-full h-[100dvh] sm:h-[85vh] sm:max-w-7xl flex flex-col overflow-hidden animate-slide-up">
           <!-- 标题栏 -->
-          <div class="flex items-center justify-between p-6 border-b border-gray-700/50">
+          <div class="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700/50">
             <h2 class="text-2xl font-bold flex items-center gap-2">
               <Sprout :size="24" class="text-purple-400" /> 配置管理
             </h2>
@@ -35,7 +35,7 @@
           <!-- 主内容区域 -->
           <div class="flex-1 flex flex-col overflow-hidden">
             <!-- 标签页切换 -->
-            <div class="flex items-center gap-2 px-6 py-4 border-b border-gray-700/50" role="tablist">
+            <div class="flex items-center gap-2 px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-700/50" role="tablist">
               <button
                 @click="currentTab = 'plants'"
                 role="tab"

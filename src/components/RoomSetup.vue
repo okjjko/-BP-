@@ -1481,4 +1481,18 @@ button:not(:disabled) {
     transform: translateY(0);
   }
 }
+
+/* ===== 手机端 (<640px) 覆盖：紧凑 padding、按钮解除固定宽、邀请码缩小 ===== */
+@media (max-width: 639px) {
+  .room-setup {
+    padding: 12px;
+  }
+  .role-btn {
+    min-width: 0;
+  }
+  .invite-code-text {
+    font-size: 32px;
+    letter-spacing: 4px;
+  }
+}
 </style>

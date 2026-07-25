@@ -31,7 +31,7 @@
               :value="maxPlantUsage"
               :disabled="!canEditRules"
               @input="onMaxUsageInput"
-              class="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
+              class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
             />
             <span class="text-xs text-gray-500">次（1~5）</span>
           </div>
@@ -92,7 +92,7 @@
                 :value="randomBanCount"
                 :disabled="!canEditRules"
                 @input="onRandomBanCountInput"
-                class="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white text-center focus:outline-none focus:ring-1 focus:ring-ban-red"
+                class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-center focus:outline-none focus:ring-1 focus:ring-ban-red"
               />
               <span class="text-xs text-gray-500">个（1~20，池不足抽满）</span>
             </div>
@@ -133,7 +133,7 @@
         </div>
 
         <!-- 阶段列表编辑器：阶段多时内部滚动，避免撑高对话框/页面溢出屏幕 -->
-        <div class="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+        <div class="space-y-2 max-h-[60vh] sm:max-h-[50vh] overflow-y-auto pr-1">
           <div
             v-for="(stage, stageIdx) in localSequence"
             :key="stageIdx"
@@ -208,7 +208,7 @@
                     v-model.number="step.count"
                     :disabled="!canEditRules"
                     @change="commit"
-                    class="w-12 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
+                    class="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
                   />
                 </label>
 

@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div
-      class="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-[min(92vw,360px)]"
+      class="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-[min(92vw,360px)] safe-pt safe-px"
       role="region"
       aria-label="通知"
     >

@@ -10,7 +10,8 @@
   -->
   <BaseDialog
     :model-value="show"
-    panel-class="max-w-4xl h-[85vh]"
+    panel-class="sm:max-w-4xl sm:h-[85vh]"
+    mobile-fullscreen
     body-flex
     aria-label="BP 流程与规则"
     @update:model-value="$emit('update:show', $event)"
@@ -28,7 +29,7 @@
       </div>
     </template>
 
-    <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+    <div class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
       <BPRulesEditor />
     </div>
   </BaseDialog>

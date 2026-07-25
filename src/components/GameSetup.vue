@@ -30,7 +30,7 @@
         </svg>
       </div>
 
-      <h1 class="text-5xl font-extrabold text-center mb-10 text-transparent bg-clip-text bg-gradient-to-r from-plant-green to-pick-blue tracking-wider">
+      <h1 class="text-3xl sm:text-5xl font-extrabold text-center mb-10 text-transparent bg-clip-text bg-gradient-to-r from-plant-green to-pick-blue tracking-wider">
         PvZ B/P 对战
       </h1>
 

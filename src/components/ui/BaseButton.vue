@@ -39,16 +39,16 @@ const VARIANTS = {
 }
 
 const SIZES = {
-  sm: 'text-sm px-3 py-2 gap-1.5',
-  md: 'text-base px-5 py-2.5 gap-2',
-  lg: 'text-lg px-7 py-3.5 gap-2.5',
+  sm: 'text-sm px-3 py-2 gap-1.5 min-h-[40px]',
+  md: 'text-base px-5 py-2.5 gap-2 min-h-[44px]',
+  lg: 'text-lg px-7 py-3.5 gap-2.5 min-h-[48px]',
 }
 
 const isDisabled = computed(() => props.disabled || props.loading)
 const iconSize = computed(() => (props.size === 'lg' ? 20 : props.size === 'sm' ? 16 : 18))
 
 const classes = computed(() => [
-  'inline-flex items-center justify-center font-semibold rounded-lg transition-colors duration-200',
+  'inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 active:scale-[0.97]',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
   VARIANTS[props.variant] || VARIANTS.secondary,
   SIZES[props.size] || SIZES.md,

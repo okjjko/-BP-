@@ -3,7 +3,7 @@
     <div
       v-for="player in ['player1', 'player2']"
       :key="player"
-      class="glass-panel rounded-xl p-6 transition-all duration-300 hover:bg-white/5"
+      class="glass-panel rounded-xl p-4 lg:p-6 transition-all duration-300 lg:hover:bg-white/5"
     >
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold flex items-center gap-2 text-white">
@@ -18,7 +18,7 @@
       <!-- 植物站位 -->
       <fieldset class="mb-6">
         <legend class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">战场位置 (1-5)</legend>
-        <div class="flex flex-wrap gap-4" role="list">
+        <div class="flex flex-wrap gap-3 sm:gap-4" role="list">
           <button
             v-for="index in 5"
             :key="index"
@@ -28,9 +28,9 @@
             @dragleave="handleDragLeave"
             @drop="handleDrop($event, player, index)"
             :draggable="getPlantAtPosition(player, index) !== null"
-            class="relative w-20 h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="relative w-16 h-16 sm:w-20 sm:h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             :class="{
-              'border-gray-600 hover:border-plant-green-neon hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
+              'border-gray-600 lg:hover:border-plant-green-neon lg:hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] lg:hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
               'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index) && (!dropTarget || dropTarget.position !== index),
               'border-plant-green-neon shadow-[0_0_20px_rgba(76,175,80,0.6)] bg-plant-green/10 scale-105 dropzone-active': dropTarget && dropTarget.player === player && dropTarget.position === index,
               'dragging-from': uiStore.dragState?.draggedFromType === 'battlefield' &&
@@ -39,7 +39,7 @@
             }"
           >
             <!-- 序号标记 -->
-            <div class="absolute -top-2 -left-2 w-6 h-6 bg-gray-700 text-gray-300 rounded-full text-xs flex items-center justify-center font-bold border border-gray-500 z-10 group-hover:bg-plant-green group-hover:text-white transition-colors">
+            <div class="absolute -top-2 -left-2 w-6 h-6 bg-gray-700 text-gray-300 rounded-full text-xs flex items-center justify-center font-bold border border-gray-500 z-10 lg:group-hover:bg-plant-green lg:group-hover:text-white transition-colors">
               {{ index }}
             </div>
 
@@ -63,7 +63,7 @@
               </div>
             </template>
             <template v-else>
-              <span class="text-gray-600 text-2xl group-hover:text-plant-green-neon transition-colors">+</span>
+              <span class="text-gray-600 text-2xl lg:group-hover:text-plant-green-neon transition-colors">+</span>
             </template>
 
             <!-- 拖拽悬停提示层 -->
@@ -78,7 +78,7 @@
       </fieldset>
 
       <!-- 当前已选植物列表 (备选池) -->
-      <div class="bg-black/20 rounded-lg p-4 border border-white/5">
+      <div class="bg-black/20 rounded-lg p-3 lg:p-4 border border-white/5">
         <div class="text-xs text-gray-400 mb-3 uppercase tracking-wider">可选植物</div>
         <div class="flex flex-wrap gap-2">
           <div
@@ -89,7 +89,7 @@
             @dragend="handleDragEnd"
             class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border text-sm cursor-grab active:cursor-grabbing transition-all duration-200"
             :class="{
-              'border-gray-700 hover:border-gray-500': !uiStore.dragState?.isDragging || uiStore.dragState?.draggedPlantId !== plantId,
+              'border-gray-700 lg:hover:border-gray-500': !uiStore.dragState?.isDragging || uiStore.dragState?.draggedPlantId !== plantId,
               'opacity-50 scale-95 border-plant-green-neon shadow-[0_0_15px_rgba(76,175,80,0.5)]': uiStore.dragState?.isDragging && uiStore.dragState?.draggedPlantId === plantId
             }"
           >
@@ -116,7 +116,7 @@
         class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
         @click.self="closePlantSelector"
       >
-        <div class="glass-card bg-gray-900 rounded-2xl p-6 max-w-2xl w-full shadow-2xl border border-gray-700 animate-slide-up">
+        <div class="glass-card bg-gray-900 rounded-2xl p-4 sm:p-6 max-w-2xl w-full shadow-2xl border border-gray-700 animate-slide-up">
           <div class="flex justify-between items-center mb-6">
             <h3 class="text-2xl font-bold text-white flex items-center gap-2">
               <span class="text-plant-green-neon">配置</span> {{ selectingPosition }} 号位
@@ -126,7 +126,7 @@
             </button>
           </div>
           
-          <div class="grid grid-cols-5 sm:grid-cols-6 gap-3 max-h-[400px] overflow-y-auto mb-6 custom-scrollbar pr-2">
+          <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2 sm:gap-3 max-h-[60dvh] overflow-y-auto mb-6 custom-scrollbar pr-2">
             <button
               v-for="(plantId, index) in getPicks(selectingPlayer)"
               :key="`${selectingPlayer}-${plantId}-${index}`"

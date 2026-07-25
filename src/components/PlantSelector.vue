@@ -1,7 +1,7 @@
 <template>
-  <div class="glass-panel rounded-xl p-5 flex flex-col h-full">
+  <div class="glass-panel rounded-xl p-2 md:p-5 flex flex-col h-full">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-2xl font-bold flex items-center gap-2">
+      <h2 class="text-base md:text-2xl font-bold flex items-center gap-2">
         <component
           :is="isBan ? Ban : CheckCircle"
           :size="26"
@@ -21,13 +21,13 @@
         @click="confirmSelection"
       >
         {{ turnText || (isBan ? '确认禁用' : '确认选择') }}
-        <span v-if="selectedPlantInfo" class="ml-1 text-xs opacity-80 bg-black/20 px-1.5 py-0.5 rounded">{{ selectedPlantInfo.name }}</span>
+        <span v-if="selectedPlantInfo" class="hidden md:inline-block ml-1 text-xs opacity-80 bg-black/20 px-1.5 py-0.5 rounded">{{ selectedPlantInfo.name }}</span>
       </BaseButton>
     </div>
 
     <!-- 植物网格 - 自适应填充剩余空间 -->
     <div
-      class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-9 gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-2 content-start"
+      class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-9 gap-2 sm:gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-2 content-start"
       role="listbox"
       :aria-label="isBan ? '可禁用植物列表' : '可选植物列表'"
     >
@@ -39,7 +39,8 @@
         :aria-selected="isSelected(plant.id) ? 'true' : 'false'"
         :aria-disabled="(!canSelect(plant.id) || !hasBPPermission) ? 'true' : 'false'"
         @click="selectPlant(plant.id)"
-        class="relative group aspect-square transition-all duration-300 rounded-xl overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-white"
+        @contextmenu.prevent
+        class="relative group aspect-square transition-all duration-300 rounded-xl overflow-hidden select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-white"
         :class="{
           'ring-2 ring-white scale-105 z-10 shadow-lg': isSelected(plant.id),
           'opacity-40 grayscale cursor-not-allowed': !canSelect(plant.id) || !hasBPPermission,
@@ -49,21 +50,22 @@
           'plant-pick-flash': lastOperatedId === plant.id && lastOperatedAction === 'pick'
         }"
       >
-        <!-- 植物图片 -->
+        <!-- 植物图片：draggable=false + pointer-events-none 防止手机长按触发系统保存菜单/图片拖拽导致交互卡住 -->
         <img
           :src="getPlantImageUrl(plant)"
           :alt="plant.name"
-          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          draggable="false"
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none select-none"
         />
 
         <!-- 边框装饰 -->
         <div class="absolute inset-0 border-2 rounded-xl pointer-events-none transition-colors duration-300"
-          :class="isBan ? 'border-ban-red/30 group-hover:border-ban-red' : 'border-pick-blue/30 group-hover:border-pick-blue'"
+          :class="isBan ? 'border-ban-red/30 lg:group-hover:border-ban-red' : 'border-pick-blue/30 lg:group-hover:border-pick-blue'"
         ></div>
 
-        <!-- 悬停/选中时的遮罩信息 -->
-        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-1">
-          <span class="text-[10px] text-center text-white font-bold truncate w-full shadow-black drop-shadow-md">{{ plant.name }}</span>
+        <!-- 植物名：手机常显（替代失效的 hover）；桌面保留 hover 渐显 -->
+        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-1">
+          <span class="text-[11px] md:text-[10px] lg:text-[11px] text-center text-white font-bold truncate w-full drop-shadow-md">{{ plant.name }}</span>
         </div>
 
         <!-- 使用次数标记 -->
@@ -73,25 +75,25 @@
       </button>
     </div>
 
-    <!-- 选中预览/提示信息 -->
-    <div class="mt-4 h-16 glass-card rounded-lg p-2 flex items-center justify-between px-4">
-      <div v-if="selectedPlantInfo" class="flex items-center gap-3 animate-fade-in w-full">
+    <!-- 选中预览/提示信息（手机端紧凑：仅图+名+用量；桌面端完整含类型/描述） -->
+    <div class="mt-3 md:mt-4 h-12 md:h-16 glass-card rounded-lg p-2 flex items-center justify-between md:px-4">
+      <div v-if="selectedPlantInfo" class="flex items-center gap-2 md:gap-3 animate-fade-in w-full">
          <img
           :src="getPlantImageUrl(selectedPlantInfo)"
-          class="w-12 h-12 rounded border border-gray-500/50"
+          class="w-9 h-9 md:w-12 md:h-12 rounded border border-gray-500/50 flex-shrink-0"
         />
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <h3 class="font-bold text-lg text-white">{{ selectedPlantInfo.name }}</h3>
-            <span class="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{{ selectedPlantInfo.type }}</span>
+            <h3 class="font-bold text-sm md:text-lg text-white truncate">{{ selectedPlantInfo.name }}</h3>
+            <span class="hidden md:inline-block text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{{ selectedPlantInfo.type }}</span>
           </div>
-          <p class="text-sm text-gray-400 truncate">{{ selectedPlantInfo.description }}</p>
+          <p class="hidden md:block text-sm text-gray-400 truncate">{{ selectedPlantInfo.description }}</p>
         </div>
-        <div class="text-right text-xs text-gray-500">
-          已使用: <span class="text-white font-bold">{{ usageCount }}/{{ store.maxPlantUsage }}</span>
+        <div class="text-right text-[11px] md:text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
+          <span class="md:hidden">已用 </span><span class="hidden md:inline">已使用: </span><span class="text-white font-bold">{{ usageCount }}/{{ store.maxPlantUsage }}</span>
         </div>
       </div>
-      <div v-else class="w-full text-center text-gray-500 italic text-sm">
+      <div v-else class="w-full text-center text-gray-500 italic text-xs md:text-sm">
         {{ isBan ? '请选择一个要禁用的植物...' : '请选择一个要出战的植物...' }}
       </div>
     </div>

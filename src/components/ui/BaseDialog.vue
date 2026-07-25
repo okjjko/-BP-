@@ -3,7 +3,8 @@
     <Transition name="dialog-fade">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[90] flex items-center justify-center p-4"
+        class="fixed inset-0 z-[90] flex items-center justify-center"
+        :class="mobileFullscreen ? 'p-0 sm:p-4' : 'p-4'"
         role="dialog"
         aria-modal="true"
         :aria-label="ariaLabel || title || undefined"
@@ -15,8 +16,14 @@
         <div
           ref="panelRef"
           tabindex="-1"
-          class="relative z-10 w-full outline-none"
-          :class="[panelClass, { 'flex flex-col': bodyFlex }]"
+          class="relative z-10 outline-none"
+          :class="[
+            mobileFullscreen
+              ? 'w-full max-w-full h-[100dvh] sm:w-auto sm:max-w-lg sm:h-auto sm:max-h-[90dvh]'
+              : 'w-full',
+            panelClass,
+            { 'flex flex-col': bodyFlex }
+          ]"
         >
           <div
             class="glass-panel rounded-2xl shadow-2xl"
@@ -81,6 +88,8 @@ const props = defineProps({
   closable: { type: Boolean, default: true },
   // 内容区是否 flex 撑满（用于嵌入需自身滚动的面板，如 PlantLibrary）；需配合 panelClass 设固定高度
   bodyFlex: { type: Boolean, default: false },
+  // 手机端近全屏（贴边、100dvh）；sm+ 回退为居中卡片。用于大型模态（配置管理 / BP 规则编辑器）
+  mobileFullscreen: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue', 'close'])
 
@@ -125,6 +134,10 @@ function onKeydown(e) {
 function open() {
   previouslyFocused = document.activeElement
   document.addEventListener('keydown', onKeydown)
+  // 滚动锁 + inert：模态打开时冻结背景（不可滚、不可 Tab、对读屏隐藏）
+  document.body.style.overflow = 'hidden'
+  const appRoot = document.getElementById('app')
+  if (appRoot && 'inert' in appRoot) appRoot.inert = true
   nextTick(() => {
     const f = getFocusable()
     if (f.length > 0) f[0].focus()
@@ -134,6 +147,9 @@ function open() {
 
 function teardown() {
   document.removeEventListener('keydown', onKeydown)
+  document.body.style.overflow = ''
+  const appRoot = document.getElementById('app')
+  if (appRoot) appRoot.inert = false
   if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
     previouslyFocused.focus()
   }

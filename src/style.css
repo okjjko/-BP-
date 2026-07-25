@@ -59,12 +59,56 @@ body {
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.glass-card:hover {
-  background: rgba(31, 41, 55, 0.75);
-  border-color: rgba(255, 255, 255, 0.12);
+@media (hover: hover) {
+  .glass-card:hover {
+    background: rgba(31, 41, 55, 0.75);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
 }
 
 .text-shadow-glow {
   text-shadow: 0 0 10px currentColor;
+}
+
+/* ===== 手机适配全局基建 ===== */
+/* 移动端 100dvh：解决 iOS 地址栏伸缩导致的 100vh 内容被裁（@supports 旧浏览器回退到上方 #app 的 100vh） */
+@supports (height: 100dvh) {
+  #app { min-height: 100dvh; }
+}
+
+/* 去除移动端点击灰高亮 */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 触摸优化：消除 300ms 双击缩放延迟；拖拽容器例外（避免误触发滚动） */
+button, a, [role="button"], select, summary {
+  touch-action: manipulation;
+}
+[draggable="true"] {
+  touch-action: none;
+}
+
+/* iOS Safari 聚焦输入框自动放大防护（input font-size < 16px 会触发页面缩放） */
+input, select, textarea {
+  font-size: 16px;
+}
+
+/* Safe-area 工具类：刘海屏 / 灵动岛 / 底部 Home Indicator 避让（需配合 viewport-fit=cover） */
+.safe-pt { padding-top: env(safe-area-inset-top); }
+.safe-pb { padding-bottom: env(safe-area-inset-bottom); }
+.safe-px { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* 图片：禁原生拖拽 / 长按选择（植物图标等纯展示图，避免手机长按触发系统保存菜单或图片拖拽导致交互「卡住」）。
+   不影响 PickArea 的 HTML5 拖拽（那作用在外层 div，非 img 原生拖拽）。 */
+img {
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* hover 守卫：纯装饰元素在无 hover 设备（触屏）隐藏 */
+@media (hover: none) {
+  .hover-only { display: none; }
 }
 

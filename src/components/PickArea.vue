@@ -1,5 +1,48 @@
 <template>
-  <div class="glass-panel rounded-xl p-4 h-full flex flex-col" role="region" :aria-label="`${playerName}选择的植物`">
+  <!-- 手机端紧凑图标行（md 以下）：禁用拖拽，仅显示已选植物图标 -->
+  <div
+    class="md:hidden glass-panel rounded-xl p-2"
+    :class="highlighted ? 'ring-2 ring-plant-green-neon/50' : ''"
+    role="region"
+    :aria-label="`${playerName}阵容（${picks.length}）`"
+  >
+    <div class="flex items-center gap-1.5 min-w-0">
+      <span class="text-[10px] font-bold text-pick-blue-neon whitespace-nowrap flex-shrink-0 flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-pick-blue" aria-hidden="true"></span>
+        {{ playerName }}
+        <span class="text-gray-500 font-normal">({{ picks.length }})</span>
+      </span>
+      <div class="flex flex-wrap items-center gap-1 min-w-0">
+        <span v-if="picks.length === 0" class="text-gray-600 text-[10px] italic">等待选择...</span>
+        <div
+          v-for="(plantId, index) in picks"
+          :key="`m-${player}-${plantId}-${index}`"
+          class="relative w-9 h-9 flex-shrink-0"
+          role="listitem"
+          :aria-label="pickItemLabel(plantId)"
+        >
+          <img
+            :src="getPlantImage(plantId)"
+            :alt="getPlantName(plantId)"
+            class="w-full h-full object-cover rounded border border-gray-600"
+          />
+          <!-- 使用次数标记 (>1) -->
+          <div v-if="getUsageCount(plantId) > 1" class="absolute -top-1 -left-1 bg-yellow-600 text-white text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full border border-gray-800">
+            {{ getUsageCount(plantId) }}
+          </div>
+          <!-- 南瓜保护标记 -->
+          <div v-if="isProtectedByPumpkin(index)" class="absolute -top-1 -right-1 bg-orange-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full border border-orange-300" role="img" aria-label="被南瓜头保护">
+            南
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 飞行终点锚点（零宽可见，承接 pick 飞行） -->
+    <div :data-pick-slot="player" class="h-0 w-0" aria-hidden="true" />
+  </div>
+
+  <!-- 桌面端完整版（md 以上，原样） -->
+  <div class="hidden md:flex glass-panel rounded-xl p-3 lg:p-4 h-full flex-col" :class="highlighted ? 'ring-2 ring-plant-green-neon/50 lg:ring-0' : ''" role="region" :aria-label="`${playerName}选择的植物`">
     <h3 class="text-lg font-bold mb-1 text-pick-blue-neon flex items-center gap-2 uppercase tracking-wider border-b border-gray-700/50 pb-2">
       <span class="w-2 h-2 rounded-full bg-pick-blue" aria-hidden="true"></span>
       {{ playerName }} 阵容
@@ -10,7 +53,7 @@
       等待选择...
     </div>
 
-    <div class="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
+    <div class="space-y-2 lg:space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
       <transition-group name="list">
         <div
           v-for="(plantId, index) in picks"
@@ -19,7 +62,7 @@
           @dragstart="handleDragStart($event, plantId, index)"
           @dragend="handleDragEnd"
           :class="{ 'dragging': isCurrentDragging(plantId) }"
-          class="group flex items-center gap-3 bg-gray-800/40 p-2 rounded-lg border border-gray-700 hover:border-pick-blue/50 hover:bg-gray-800/80 transition-all duration-300"
+          class="group flex items-center gap-2 p-1.5 lg:gap-3 lg:p-2 rounded-lg border border-gray-700 lg:hover:border-pick-blue/50 lg:hover:bg-gray-800/80 active:scale-[0.98] transition-all duration-300"
           role="listitem"
           aria-roledescription="可拖拽项"
           :aria-label="dragItemLabel(plantId)"
@@ -30,11 +73,11 @@
                 class="text-xs text-pick-blue ml-1">
             ({{ index + 1 }})
           </span>
-          <div class="relative w-12 h-12 flex-shrink-0">
+          <div class="relative w-10 h-10 lg:w-12 lg:h-12 flex-shrink-0">
             <img
               :src="getPlantImage(plantId)"
               :alt="getPlantName(plantId)"
-              class="w-full h-full object-cover rounded border border-gray-600 group-hover:border-pick-blue-neon transition-colors"
+              class="w-full h-full object-cover rounded border border-gray-600 lg:group-hover:border-pick-blue-neon transition-colors"
             />
             <!-- 使用次数标记 (如果>1) - 左上角 -->
              <div v-if="getUsageCount(plantId) > 1" class="absolute -top-1 -left-1 bg-yellow-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full border border-gray-800 shadow">
@@ -48,7 +91,7 @@
             </div>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="font-bold text-gray-200 group-hover:text-pick-blue-neon transition-colors truncate">{{ getPlantName(plantId) }}</div>
+            <div class="font-bold text-gray-200 lg:group-hover:text-pick-blue-neon transition-colors truncate">{{ getPlantName(plantId) }}</div>
             <div class="text-[10px] text-gray-500 truncate">{{ getPlantDesc(plantId) }}</div>
           </div>
         </div>
@@ -86,6 +129,11 @@ const props = defineProps({
   player: {
     type: String, // 'player1' or 'player2'
     required: true
+  },
+  // 高亮当前选手阵容（多人模式自分身份时）；桌面端 lg 起由 lg:ring-0 移除
+  highlighted: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -160,6 +208,14 @@ const dragItemLabel = (plantId) => {
   const usage = getUsageCount(plantId)
   const usageText = usage > 1 ? `，已使用${usage}次` : ''
   return `${name}${usageText}，可拖拽到战场站位`
+}
+
+// 手机端紧凑项的可读标签（无拖拽语义）
+const pickItemLabel = (plantId) => {
+  const name = getPlantName(plantId)
+  const usage = getUsageCount(plantId)
+  const usageText = usage > 1 ? `，已使用${usage}次` : ''
+  return `${name}${usageText}`
 }
 
 // 检查植物是否被南瓜保护（新增）

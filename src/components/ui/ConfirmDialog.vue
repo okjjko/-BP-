@@ -4,7 +4,7 @@
     :title="state.title"
     :closable="false"
     :close-on-backdrop="false"
-    panel-class="max-w-md"
+    panel-class="sm:max-w-md"
     aria-label="确认操作"
     @update:model-value="onUpdate"
   >
