@@ -44,11 +44,11 @@
     </div>
 
     <!-- 全局状态栏：永久禁用 + 已使用植物（手机端隐藏历史 UsedPlants，改走「历史」按钮） -->
-    <div class="glass-panel rounded-xl p-2 lg:p-3 mb-3 lg:mb-6 flex items-center justify-center gap-2 md:gap-3 lg:gap-6 animate-slide-up order-2 lg:order-none" style="animation-delay: 0.1s;">
+    <div class="glass-panel rounded-xl p-2 lg:p-3 mb-3 lg:mb-6 flex items-center justify-center gap-2 md:gap-3 lg:gap-6 animate-slide-up order-2 lg:order-none" :class="{ 'hidden md:flex': globalBans.length === 0 }" style="animation-delay: 0.1s;">
       <UsedPlants player="player1" class="hidden md:block" />
 
       <!-- 本局永久禁用植物 -->
-      <div v-if="isPlantCacheReady" role="group" aria-label="本局永久禁用植物" class="bg-black/40 rounded-lg px-2 py-1.5 md:px-4 md:py-2 border border-ban-red/30 flex-shrink-0">
+      <div v-if="isPlantCacheReady" role="group" aria-label="本局永久禁用植物" class="bg-black/40 rounded-lg px-2 py-1.5 md:px-4 md:py-2 border border-ban-red/30 flex-shrink-0" :class="{ 'hidden md:block': globalBans.length === 0 }">
         <h3 class="text-[10px] md:text-xs font-bold mb-1 md:mb-2 text-center text-ban-red uppercase tracking-wider flex items-center justify-center gap-1 md:gap-2">
           <span class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-ban-red" aria-hidden="true"></span>
           永久禁用

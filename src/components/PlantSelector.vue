@@ -27,7 +27,7 @@
 
     <!-- 植物网格 - 自适应填充剩余空间 -->
     <div
-      class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-9 gap-2 sm:gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-2 content-start"
+      class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-9 gap-2 sm:gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-2 content-start max-h-[320px] md:max-h-none"
       role="listbox"
       :aria-label="isBan ? '可禁用植物列表' : '可选植物列表'"
     >
