@@ -109,8 +109,14 @@ main() {
     # 3. 快进合并远端新提交（--ff-only 拒绝 merge commit，保证历史线性）
     if [ "$BEFORE_FETCH" != "$(git rev-parse origin/master)" ]; then
         log "远端有新提交，快进合并..."
+        # 清理已知会被 npm install / setup-hooks 修改的副作用文件，避免阻挡 ff merge：
+        # - package-lock.json：npm install 会把 version 字段同步成 package.json 的，每次 bump version 就产生本地改动
+        # - .githooks/pre-commit：setup-hooks（prepare 钩子）每次给它加可执行位（100644→100755）
+        # 本机是生产服务器，工作区不应有手改；这些副作用无价值，丢弃后 merge 用远程最新版覆盖。
+        git checkout -- package-lock.json .githooks/pre-commit 2>/dev/null || true
         if ! git merge --ff-only origin/master 2>&1 | tee -a "$LOG_FILE"; then
-            error "git merge --ff-only 失败（工作区可能有未提交改动或已分叉）"
+            error "git merge --ff-only 失败（工作区可能有其他未提交改动阻挡）"
+            git status -sb 2>&1 | tee -a "$LOG_FILE"
             exit 1
         fi
     fi
