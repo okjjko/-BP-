@@ -57,6 +57,7 @@ const usedPlants = computed(() => {
   const _v = store._plantCacheVersion
   const plantUsage = store.plantUsage || {}
   const pumpkinUsage = store.pumpkinUsage || {}
+  const currentRound = store.currentRound || {} // 本小局 picks：用于非南瓜植物的实时合并
   const used = []
 
   // 遍历所有可能的植物（内置+自定义+已隐藏）
@@ -87,13 +88,16 @@ const usedPlants = computed(() => {
 
     let count = 0
 
-    // 南瓜头特殊处理：使用 pumpkinUsage
+    // 南瓜头：pumpkinUsage 在 pick 时即累计（_handlePumpkinPick gameStore.js:393），已含本小局，
+    // 直接读取即实时，无需再叠加 pumpkinUsedThisRound（否则会重复计数）。
     if (store.isPumpkinPlant(plant.id)) {
       count = pumpkinUsage[props.player] || 0
     } else {
-      // 其他植物：使用 plantUsage
-      const key = `${props.player}_${plant.id}`
-      count = plantUsage[key] || 0
+      // 其他植物：plantUsage 仅在小局结算（setRoundWinner→updatePlantUsage）时累计，不含本小局；
+      // 故需把本小局 picks 实时合并，与 availablePlants getter 的 ownPickCount + historicalUsage 同口径。
+      const historical = plantUsage[`${props.player}_${plant.id}`] || 0
+      const thisRound = (currentRound.picks?.[props.player] || []).filter(id => id === plant.id).length
+      count = historical + thisRound
     }
 
     if (count > 0) {
