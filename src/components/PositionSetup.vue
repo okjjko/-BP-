@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-2 md:space-y-6">
     <div
       v-for="player in ['player1', 'player2']"
       :key="player"
@@ -17,8 +17,7 @@
 
       <!-- 植物站位 -->
       <fieldset class="mb-6">
-        <legend class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">战场位置 (1-5)</legend>
-        <div class="flex flex-wrap gap-3 sm:gap-4" role="list">
+        <div class="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap sm:gap-4" role="list">
           <button
             v-for="index in 5"
             :key="index"
@@ -28,7 +27,7 @@
             @dragleave="handleDragLeave"
             @drop="handleDrop($event, player, index)"
             :draggable="getPlantAtPosition(player, index) !== null"
-            class="relative w-16 h-16 sm:w-20 sm:h-20 bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="relative aspect-square w-full sm:w-20 sm:h-20 sm:aspect-auto bg-gray-800/50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             :class="{
               'border-gray-600 lg:hover:border-plant-green-neon lg:hover:shadow-[0_0_15px_rgba(76,175,80,0.3)] lg:hover:scale-105 active:scale-95': !dropTarget || dropTarget.player !== player || dropTarget.position !== index,
               'border-solid border-gray-500 bg-gray-800': getPlantAtPosition(player, index) && (!dropTarget || dropTarget.position !== index),
@@ -78,35 +77,7 @@
       </fieldset>
 
       <!-- 当前已选植物列表 (备选池) -->
-      <div class="bg-black/20 rounded-lg p-3 lg:p-4 border border-white/5">
-        <div class="text-xs text-gray-400 mb-3 uppercase tracking-wider">可选植物</div>
-        <div class="flex flex-wrap gap-2">
-          <div
-            v-for="(plantId, index) in getPicks(player)"
-            :key="`${player}-${plantId}-${index}`"
-            draggable="true"
-            @dragstart="handleDragStart($event, plantId, player, index)"
-            @dragend="handleDragEnd"
-            class="flex items-center gap-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border text-sm cursor-grab active:cursor-grabbing transition-all duration-200"
-            :class="{
-              'border-gray-700 lg:hover:border-gray-500': !uiStore.dragState?.isDragging || uiStore.dragState?.draggedPlantId !== plantId,
-              'opacity-50 scale-95 border-plant-green-neon shadow-[0_0_15px_rgba(76,175,80,0.5)]': uiStore.dragState?.isDragging && uiStore.dragState?.draggedPlantId === plantId
-            }"
-          >
-            <img
-              :src="getPlantImage(plantId)"
-              class="w-6 h-6 rounded border border-gray-600 pointer-events-none"
-            />
-            <span class="text-gray-300 font-medium pointer-events-none">
-              {{ getPlantName(plantId) }}
-              <!-- 如果有重复，显示序号 -->
-              <span v-if="countPlantOccurrences(player, plantId) > 1" class="text-xs text-gray-500">
-                (#{{ index + 1 }})
-              </span>
-            </span>
-          </div>
-        </div>
-      </div>
+
     </div>
 
     <!-- 植物选择模态框 -->

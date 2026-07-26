@@ -22,22 +22,17 @@
     </div>
 
     <!-- 进度条 -->
-    <div class="w-full max-w-[130px] h-1.5 bg-gray-800/70 rounded-full my-1 overflow-hidden border border-gray-700/50" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
+    <div class="w-full max-w-[130px] h-3.5 bg-gray-800/70 rounded-full my-1 overflow-hidden border border-gray-700/50 relative" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
       <div class="h-full rounded-full transition-all duration-500" :class="progressBarClass" :style="{ width: `${((step + 1) / totalSteps) * 100}%` }"></div>
+      <!-- 当前进度文字叠在进度条中央 -->
+      <span class="absolute inset-0 flex items-center justify-center text-[9px] text-white font-mono font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none">
+        {{ step + 1 }}<span class="text-white/60 mx-0.5">/</span>{{ totalSteps }}
+      </span>
     </div>
-
-    <!-- 当前操作胶囊 -->
-    <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold shadow" :class="actionClass">
-      <span class="inline-block w-1.5 h-1.5 rounded-full bg-white animate-pulse" aria-hidden="true"></span>
-      <span class="max-w-[72px] truncate">{{ currentPlayerName }}</span>
-      <span class="opacity-80 text-[9px] uppercase">{{ actionText }}</span>
-    </div>
-
-    <span class="text-[9px] text-gray-500 mt-0.5">{{ step + 1 }}/{{ totalSteps }}</span>
   </div>
 
   <!-- 桌面端完整版（md 以上，原样） -->
-  <div class="hidden md:block glass-panel rounded-xl p-3 lg:p-4 min-w-0 lg:min-w-[300px] shadow-lg border-t border-white/10" role="region" aria-label="当前游戏阶段">
+  <div class="hidden md:block glass-panel rounded-xl p-2 lg:p-3 min-w-0 lg:min-w-[300px] shadow-lg border-t border-white/10" role="region" aria-label="当前游戏阶段">
     <div class="text-center">
       <!-- 多人模式：角色徽章和回合提示 -->
       <div v-if="roomMode !== 'local'" class="flex items-center justify-center gap-2 mb-2">
@@ -59,46 +54,34 @@
       </div>
 
       <h3 class="text-sm font-bold mb-1 text-gray-400 uppercase tracking-widest">ROUND {{ roundNumber }}</h3>
-      <div class="text-xl lg:text-3xl font-black mb-4 tracking-wide" :class="stageClass">
+      <div class="text-xl lg:text-3xl font-black mb-2 tracking-wide" :class="stageClass">
         {{ stageName }}
       </div>
 
       <!-- 进度条 -->
-      <div class="mb-4 relative">
-        <div class="w-full bg-gray-800/50 rounded-full h-2.5 lg:h-3 border border-gray-700" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
+      <div class="mb-2 relative">
+        <div class="w-full bg-gray-800/50 rounded-full h-4 lg:h-5 border border-gray-700 relative overflow-hidden" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
           <div
-            class="h-full rounded-full transition-all duration-500 relative overflow-hidden"
+            class="h-full rounded-full transition-all duration-500"
             :class="progressBarClass"
             :style="{ width: `${((step + 1) / totalSteps) * 100}%` }"
           >
           </div>
+          <!-- 当前进度文字叠在进度条中央 -->
+          <span class="absolute inset-0 flex items-center justify-center text-[10px] lg:text-xs text-white font-mono font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none">
+            {{ step + 1 }}<span class="text-white/60 mx-0.5">/</span>{{ totalSteps }}
+          </span>
         </div>
         <div class="flex justify-between items-center mt-1.5 px-1">
           <span class="text-[10px] text-gray-500">开始</span>
-          <span class="text-xs text-gray-300 font-mono font-bold">{{ step + 1 }} <span class="text-gray-600">/</span> {{ totalSteps }}</span>
           <span class="text-[10px] text-gray-500">结束</span>
-        </div>
-      </div>
-
-      <!-- 当前操作 -->
-      <div class="mt-2">
-        <div
-          class="inline-flex items-center gap-3 px-6 py-2 rounded-lg text-lg font-bold shadow-lg transition-colors duration-300 border border-white/5"
-          :class="actionClass"
-        >
-          <span class="inline-flex relative flex h-3 w-3">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-          </span>
-          <span>{{ currentPlayerName }}</span>
-          <span class="opacity-80 text-sm uppercase bg-black/20 px-2 py-0.5 rounded">{{ actionText }}</span>
         </div>
       </div>
 
       <!-- 南瓜保护提示 -->
       <transition name="fade">
         <div v-if="hasPumpkinProtection"
-             class="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/50 flex items-center gap-2">
+             class="mt-2 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/50 flex items-center gap-2">
           <span class="text-lg">南</span>
           <span class="text-sm font-bold text-orange-300">南瓜保护已激活！下一个植物将获得保护</span>
         </div>
@@ -194,7 +177,6 @@ const roundNumber = computed(() => {
 })
 const stage = computed(() => store.currentRound?.stage || 1)
 const step = computed(() => store.currentRound?.step || 0)
-const currentPlayer = computed(() => store.currentRound?.currentPlayer || '')
 const action = computed(() => store.currentRound?.action || '')
 // 阶段数与阶段名不再硬编码 4，依据当前生效模板动态生成
 const bpSequence = computed(() => store.currentRound?.bpSequence || [])
@@ -206,23 +188,6 @@ const totalSteps = computed(() => {
   return bpSequence.value.reduce((total, stage) => total + stage.length, 0)
 })
 
-const currentPlayerName = computed(() => {
-  if (currentPlayer.value === 'system') return '系统'
-  if (currentPlayer.value === 'player1') {
-    return store.player1.id || '蓝方'
-  } else if (currentPlayer.value === 'player2') {
-    return store.player2.id || '红方'
-  }
-  return ''
-})
-
-const actionText = computed(() => {
-  if (action.value === 'ban') return '禁用'
-  if (action.value === 'pick') return '选择'
-  if (action.value === 'globalBan') return '全局禁用'
-  return ''
-})
-
 // globalBan 与 ban 共用 ban-red 色系
 const isBanLike = (a) => a === 'ban' || a === 'globalBan'
 
@@ -230,13 +195,6 @@ const stageClass = computed(() => {
   if (isBanLike(action.value)) return 'text-ban-red'
   if (action.value === 'pick') return 'text-pick-blue'
   return 'text-gray-400'
-})
-
-// 当前操作条 = 全场唯一发光焦点（单层 glow + 单处 ping）
-const actionClass = computed(() => {
-  if (isBanLike(action.value)) return 'bg-ban-red text-white shadow-[0_0_18px_rgba(239,68,68,0.45)]'
-  if (action.value === 'pick') return 'bg-pick-blue text-white shadow-[0_0_18px_rgba(59,130,246,0.45)]'
-  return 'bg-gray-600 text-white'
 })
 
 const progressBarClass = computed(() => {

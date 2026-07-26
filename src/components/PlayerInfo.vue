@@ -14,7 +14,16 @@
       {{ roadText }}
     </div>
     <div class="flex flex-col min-w-0 leading-tight">
-      <span class="text-xs font-bold text-white truncate max-w-[56px]">{{ playerName }}</span>
+      <div class="flex items-center gap-1 min-w-0">
+        <span class="text-xs font-bold text-white truncate max-w-[56px]">{{ playerName }}</span>
+        <span v-if="isCurrentPlayer && currentActionInfo" class="inline-flex items-center gap-0.5 flex-shrink-0">
+          <span class="relative flex h-1.5 w-1.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+          </span>
+          <span class="text-[9px] font-bold" :class="currentActionInfo.class">{{ currentActionInfo.text }}</span>
+        </span>
+      </div>
       <div class="flex items-baseline gap-0.5">
         <span
           class="text-xs font-black tabular-nums"
@@ -40,10 +49,19 @@
     </div>
 
     <div class="flex flex-col">
-      <!-- 名字 -->
-      <span class="font-bold text-base lg:text-lg leading-tight tracking-wide text-white">
-        {{ playerName }}
-      </span>
+      <!-- 名字 + 当前操作标识 -->
+      <div class="flex items-center gap-1.5">
+        <span class="font-bold text-base lg:text-lg leading-tight tracking-wide text-white">
+          {{ playerName }}
+        </span>
+        <span v-if="isCurrentPlayer && currentActionInfo" class="inline-flex items-center gap-1 flex-shrink-0" :title="`当前操作：${currentActionInfo.text}`">
+          <span class="relative flex h-2 w-2 lg:h-2.5 lg:w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 lg:h-2.5 lg:w-2.5 bg-white"></span>
+          </span>
+          <span class="text-[10px] lg:text-xs font-bold" :class="currentActionInfo.class">{{ currentActionInfo.text }}</span>
+        </span>
+      </div>
       <!-- 分数 -->
       <div class="flex items-center gap-1 mt-0.5">
         <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">得分</div>
@@ -98,5 +116,14 @@ const isPlayer1 = computed(() => props.player === 'player1')
 const roadText = computed(() => {
   // 功能1：阵营显示名来自 ruleConfig.sideNames（默认「二路/四路」）
   return currentRoad.value ? store.sideName(currentRoad.value) : '?'
+})
+
+// 当前回合轮到本选手时，名字右侧显示跳动点 + 操作类型（禁用/选择）
+const isCurrentPlayer = computed(() => store.currentRound?.currentPlayer === props.player)
+const currentActionInfo = computed(() => {
+  const action = store.currentRound?.action
+  if (action === 'ban') return { text: '禁用', class: 'text-ban-red' }
+  if (action === 'pick') return { text: '选择', class: 'text-pick-blue' }
+  return null // globalBan(系统步骤) 或无动作时不显示
 })
 </script>

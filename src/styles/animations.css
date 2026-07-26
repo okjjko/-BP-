@@ -214,7 +214,7 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 .ban-enter-active { animation: banStamp .3s ease-out; }
-.ban-leave-active { transition: opacity .2s ease; }
+.ban-leave-active { transition: opacity .2s ease; position: absolute; pointer-events: none; }
 .ban-leave-to     { opacity: 0; }
 
 /* 飞行克隆体淡出（与真实项 enter 末段重叠） */

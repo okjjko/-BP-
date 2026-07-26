@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import vueDevtools from 'vite-plugin-vue-devtools'
 import path from 'path'
 import { readFileSync } from 'fs'
 import { execSync } from 'child_process'
@@ -18,7 +19,7 @@ try {
 }
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(),vueDevtools()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_GIT_HASH__: JSON.stringify(gitHash),

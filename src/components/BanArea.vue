@@ -27,7 +27,7 @@
   </div>
 
   <!-- 桌面端完整版（md 以上，原样） -->
-  <div class="hidden md:block glass-panel rounded-xl p-2 sm:p-3 w-fit transition-all duration-300 lg:hover:bg-white/5" role="region" :aria-label="`${playerName}禁用的植物`">
+  <div class="hidden md:block glass-panel rounded-xl p-2 sm:p-3 w-fit transition-[background-color] duration-300 lg:hover:bg-white/5" role="region" :aria-label="`${playerName}禁用的植物`">
     <h3 class="text-sm font-bold mb-2 text-ban-red-neon flex items-center gap-2 uppercase tracking-wider">
       <span class="w-2 h-2 rounded-full bg-ban-red" aria-hidden="true"></span>
       {{ playerName }} 禁用
@@ -38,7 +38,7 @@
       <div v-if="roundBans.length === 0" class="text-gray-500 text-xs italic py-2 text-center">
         等待禁用...
       </div>
-      <TransitionGroup name="ban" tag="div" class="grid grid-cols-5 gap-1 sm:gap-1.5">
+      <TransitionGroup name="ban" tag="div" class="relative grid grid-cols-5 gap-1 sm:gap-1.5">
         <div
           v-for="plantId in roundBans"
           :key="plantId"

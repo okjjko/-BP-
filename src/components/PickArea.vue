@@ -98,23 +98,9 @@
         <!-- 飞行终点锚点：零宽零高，定位在列表末尾，供飞行 overlay 读取落点坐标 -->
         <div :key="`pick-slot-${player}`" :data-pick-slot="player" class="h-0 w-0" aria-hidden="true" />
       </transition-group>
-    </div>
 
-    <!-- 底部状态 -->
-    <div class="mt-4 pt-3 border-t border-gray-700/50 flex justify-between items-end">
-      <div class="text-xs text-gray-400">
-        已选: <span class="text-white font-bold">{{ picks.length }}</span>
-      </div>
-      <div class="flex gap-1" role="img" :aria-label="`已选 ${picks.length} / 10`">
-        <!-- 小点指示器 -->
-        <span
-          v-for="i in 10"
-          :key="i"
-          class="w-1.5 h-1.5 rounded-full transition-colors"
-          :class="i <= picks.length ? 'bg-pick-blue-neon' : 'bg-gray-700'"
-          aria-hidden="true"
-        ></span>
-      </div>
+      <!-- 历史使用植物：紧跟最后一个被选植物下方，随阵容列表一起滚动 -->
+      <UsedPlants :player="player" />
     </div>
   </div>
 </template>
@@ -124,6 +110,7 @@ import { computed, ref } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useUIStore } from '@/stores/uiStore'
 import { getPlantImage, getPlantName, getPlantDesc } from '@/data/customPlants'
+import UsedPlants from '@/components/UsedPlants.vue'
 
 const props = defineProps({
   player: {

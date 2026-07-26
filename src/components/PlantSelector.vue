@@ -1,7 +1,7 @@
 <template>
   <div class="glass-panel rounded-xl p-2 md:p-5 flex flex-col h-full">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-base md:text-2xl font-bold flex items-center gap-2">
+    <div class="flex items-center justify-between gap-2 mb-3">
+      <h2 class="text-base md:text-2xl font-bold flex items-center gap-2 flex-shrink-0">
         <component
           :is="isBan ? Ban : CheckCircle"
           :size="26"
@@ -9,19 +9,34 @@
           :class="isBan ? 'text-ban-red' : 'text-pick-blue'"
         />
         <span :class="isBan ? 'text-ban-red' : 'text-pick-blue'">
-          {{ isBan ? '禁用阶段' : '选择阶段' }}
+          {{ isBan ? '禁用' : '选择' }}
         </span>
       </h2>
-      
+
+      <!-- 选中预览/提示信息（嵌入头部，紧凑高密度） -->
+      <div class="flex-1 min-w-0 flex items-center justify-center gap-2 md:gap-3">
+        <template v-if="selectedPlantInfo">
+          <img
+            :src="getPlantImageUrl(selectedPlantInfo)"
+            class="w-8 h-8 md:w-10 md:h-10 rounded border border-gray-500/50 flex-shrink-0"
+          />
+          <h3 class="font-bold text-sm md:text-base text-white truncate min-w-0">{{ selectedPlantInfo.name }}</h3>
+          <span class="hidden md:inline-block text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 flex-shrink-0">{{ selectedPlantInfo.type }}</span>
+          <span class="text-[11px] md:text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">已用 <span class="text-white font-bold">{{ usageCount }}/{{ store.maxPlantUsage }}</span></span>
+        </template>
+        <span v-else class="text-gray-500 italic text-xs md:text-sm truncate">
+          {{ isBan ? '请选择一个要禁用的植物...' : '请选择一个要出战的植物...' }}
+        </span>
+      </div>
+
       <!-- 确认按钮 -->
       <BaseButton
         :variant="isBan ? 'danger' : 'blue'"
-        size="lg"
+        :size="btnSize"
         :disabled="!hasSelectedPlant || !hasBPPermission"
         @click="confirmSelection"
       >
-        {{ turnText || (isBan ? '确认禁用' : '确认选择') }}
-        <span v-if="selectedPlantInfo" class="hidden md:inline-block ml-1 text-xs opacity-80 bg-black/20 px-1.5 py-0.5 rounded">{{ selectedPlantInfo.name }}</span>
+        {{ turnText || '确认' }}
       </BaseButton>
     </div>
 
@@ -74,29 +89,6 @@
         </div>
       </button>
     </div>
-
-    <!-- 选中预览/提示信息（手机端紧凑：仅图+名+用量；桌面端完整含类型/描述） -->
-    <div class="mt-3 md:mt-4 h-12 md:h-16 glass-card rounded-lg p-2 flex items-center justify-between md:px-4">
-      <div v-if="selectedPlantInfo" class="flex items-center gap-2 md:gap-3 animate-fade-in w-full">
-         <img
-          :src="getPlantImageUrl(selectedPlantInfo)"
-          class="w-9 h-9 md:w-12 md:h-12 rounded border border-gray-500/50 flex-shrink-0"
-        />
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <h3 class="font-bold text-sm md:text-lg text-white truncate">{{ selectedPlantInfo.name }}</h3>
-            <span class="hidden md:inline-block text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{{ selectedPlantInfo.type }}</span>
-          </div>
-          <p class="hidden md:block text-sm text-gray-400 truncate">{{ selectedPlantInfo.description }}</p>
-        </div>
-        <div class="text-right text-[11px] md:text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
-          <span class="md:hidden">已用 </span><span class="hidden md:inline">已使用: </span><span class="text-white font-bold">{{ usageCount }}/{{ store.maxPlantUsage }}</span>
-        </div>
-      </div>
-      <div v-else class="w-full text-center text-gray-500 italic text-xs md:text-sm">
-        {{ isBan ? '请选择一个要禁用的植物...' : '请选择一个要出战的植物...' }}
-      </div>
-    </div>
   </div>
 </template>
 
@@ -108,6 +100,7 @@ import { useConnectionStore } from '@/stores/connectionStore'
 import { getPlantByIdSync, getPlantImage } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
 import { useToast } from '@/composables/useToast'
+import { useIsMobile } from '@/composables/useBreakpoint.js'
 import { usePlantFlight } from '@/composables/usePlantFlight'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
@@ -115,6 +108,10 @@ const store = useGameStore()
 const connStore = useConnectionStore()
 const toast = useToast()
 const { flyToResult } = usePlantFlight()
+
+// 响应式：手机端按钮 sm / 桌面端 md（BaseButton 的 size 是 prop，需在 JS 侧按断点切换）
+const isMobile = useIsMobile()
+const btnSize = computed(() => (isMobile.value ? 'sm' : 'md'))
 
 // 上一次被操作的植物 ID + 动作类型，用于在被操作那一帧挂一次性 flash 色边（~300ms 后清除）
 const lastOperatedId = ref(null)
@@ -136,7 +133,7 @@ const hasBPPermission = computed(() => {
 // 回合提示文本
 const turnText = computed(() => {
   if (connStore.roomMode === 'local') return ''
-  if (connStore.isMyTurn) return '确认' + (isBan.value ? '禁用' : '选择')
+  if (connStore.isMyTurn) return '确认'
   return connStore.myTurnDescription
 })
 

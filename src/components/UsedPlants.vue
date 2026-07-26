@@ -3,7 +3,7 @@
     <div class="flex items-center mb-2">
       <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
         <span class="w-1.5 h-1.5 rounded-full" :class="player === 'player1' ? 'bg-pick-blue' : 'bg-ban-red'" aria-hidden="true"></span>
-        {{ playerName }} 历史
+         历史
       </h3>
     </div>
 
