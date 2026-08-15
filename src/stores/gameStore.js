@@ -9,6 +9,7 @@ import { defineStore } from 'pinia'
 import { getAllPlantsSync } from '@/data/customPlants'
 import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
 import { canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
+import { shuffle } from '@/utils/shuffle'
 import { useConnectionStore } from './connectionStore'
 import { useToast } from '@/composables/useToast'
 import defaultRules from '@/config/defaultRules'
@@ -270,7 +271,7 @@ export const useGameStore = defineStore('game', {
       const raw = Number(cfg.count)                                // 仅 NaN/缺省兜底 5（0 是合法值：抽 0 个）
       const count = Math.max(0, Number.isNaN(raw) ? 5 : raw)
       const allPlants = getAllPlantsSync()
-      const shuffled = [...allPlants].sort(() => Math.random() - 0.5)
+      const shuffled = shuffle(allPlants)
       this.globalBans = shuffled.slice(0, count).map(p => p.id)   // 池不足时 slice 自动抽满
     },
 
@@ -548,7 +549,7 @@ export const useGameStore = defineStore('game', {
         ...this.currentRound.bans.player2
       ]
       const pool = getAllPlantsSync().filter(p => !allBans.includes(p.id))
-      const shuffled = [...pool].sort(() => Math.random() - 0.5)
+      const shuffled = shuffle(pool)
       const drawn = shuffled.slice(0, Math.min(count, pool.length)).map(p => p.id)
       this.globalBans = [...this.globalBans, ...drawn]
       return drawn

@@ -202,6 +202,7 @@ import { getPlantImage, getPlantName, getAllPlantsSync, getHiddenPlants, blobToB
 import RoomSetup from '@/components/RoomSetup.vue'
 import roomManager from '@/utils/roomManager'
 import SideRulesEditor from '@/components/RulesEditor/SideRulesEditor.vue'
+import { shuffle } from '@/utils/shuffle'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
@@ -440,7 +441,7 @@ onMounted(() => {
   const rb = store.ruleConfig?.randomBan ?? {}
   const raw = Number(rb.count)
   const count = rb.enabled === false ? 0 : Math.max(0, Number.isNaN(raw) ? 5 : raw)
-  const shuffled = [...PLANTS].sort(() => Math.random() - 0.5)
+  const shuffled = shuffle(PLANTS)
   globalBans.value = shuffled.slice(0, count).map(p => p.id)
 })
 </script>
