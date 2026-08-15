@@ -106,10 +106,9 @@ test.describe('多人对战同步功能测试', () => {
       expect(inviteCode).toHaveLength(6);
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}04-room-created.png` });
 
-      // 验证主办方的控制台日志
+      // 验证主办方已进入等待面板（原断言依赖的 '[gameStore] 开始状态同步' 控制台日志
+      // 已随重构移除；改用 UI 可观测状态：房间面板展示邀请码即代表 host 侧同步机制就绪）
       await hostPage.waitForTimeout(1000);
-      const hasHostSyncLog = hostLogs.some(log => log.includes('[gameStore] 开始状态同步') && log.includes('host'));
-      expect(hasHostSyncLog, '主办方应该开始状态同步').toBeTruthy();
 
       // ========================================
       // 步骤 2: 选手1加入房间
@@ -209,15 +208,17 @@ test.describe('多人对战同步功能测试', () => {
       console.log('选手1日志数量:', player1Logs.length);
       console.log('选手2日志数量:', player2Logs.length);
 
-      // 检查关键的同步日志
-      const hostHasSync = hostLogs.some(log => log.includes('[gameStore] 开始状态同步'));
-      const player1HasSync = player1Logs.some(log => log.includes('[gameStore] 开始状态同步'));
-      const player2HasSync = player2Logs.some(log => log.includes('[gameStore] 开始状态同步'));
+      // 检查同步通道就绪（原 '[gameStore] 开始状态同步' 日志已随重构移除；
+      // 以 UI 可观测状态代替：host 成员列表显示两名选手 = roster 广播全通）
+      const hostUsersFinal = await hostPage.locator('.users-list').textContent();
+      const hostHasSync = hostUsersFinal.includes('选手');
+      const player1HasSync = player1ConnectedText.includes('已连接');
+      const player2HasSync = player2ConnectedText.includes('已连接');
 
       console.log('\n同步机制验证:');
-      console.log('  ✓ 主办方启动同步:', hostHasSync);
-      console.log('  ✓ 选手1启动同步:', player1HasSync);
-      console.log('  ✓ 选手2启动同步:', player2HasSync);
+      console.log('  ✓ 主办方成员列表已同步:', hostHasSync);
+      console.log('  ✓ 选手1已连接:', player1HasSync);
+      console.log('  ✓ 选手2已连接:', player2HasSync);
 
       // 最终截图
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}final-host.png` });
@@ -235,10 +236,10 @@ test.describe('多人对战同步功能测试', () => {
       expect(player1ConnectedText, '选手1应该已连接').toContain('已连接');
       expect(player2ConnectedText, '选手2应该已连接').toContain('已连接');
 
-      // 断言3: 状态同步机制正常工作
-      expect(hostHasSync, '主办方应该启动状态同步').toBeTruthy();
-      expect(player1HasSync, '选手1应该启动状态同步').toBeTruthy();
-      expect(player2HasSync, '选手2应该启动状态同步').toBeTruthy();
+      // 断言3: 状态同步机制正常工作（roster 已同步到 host）
+      expect(hostHasSync, '主办方成员列表应显示已加入的选手').toBeTruthy();
+      expect(player1HasSync, '选手1应该已连接').toBeTruthy();
+      expect(player2HasSync, '选手2应该已连接').toBeTruthy();
 
       console.log('\n✅ 多人对战同步机制测试完成！');
       console.log('✅ 验证了：WebRTC连接、状态同步启动');
@@ -342,17 +343,19 @@ test.describe('多人对战同步功能测试', () => {
       await playerPage.click('button:has-text("加入房间")');
       await playerPage.waitForTimeout(3000);
 
-      // 验证状态同步已启动
+      // 验证状态同步已启动（原 '[gameStore] 开始状态同步' 日志已随重构移除；
+      // 改用 UI 可观测状态：选手加入后 host 的成员列表同步显示，即 roster/stateUpdate 通道就绪）
       await playerPage.waitForTimeout(2000);
+      await hostPage.waitForTimeout(500);
 
-      const hasSyncStarted = playerLogs.some(log =>
-        log.includes('[gameStore] 开始状态同步')
-      );
-
-      console.log('选手日志:', playerLogs);
-
-      expect(hasSyncStarted, '选手应该启动状态同步').toBeTruthy();
-      console.log('✅ 状态同步启动验证通过');
+      const hostUsersText = await hostPage.locator('.users-list').textContent().catch(() => '');
+      const playerConnected = await playerPage
+        .locator('.waiting-section .success-text')
+        .textContent()
+        .catch(() => '');
+      expect(playerConnected, '选手应显示已连接').toContain('已连接');
+      expect(hostUsersText, '主办方成员列表应显示已加入的选手').toContain('选手');
+      console.log('✅ 状态同步通道就绪（roster 已同步）');
       console.log('📝 身份分配消息需要完整的游戏初始化流程，待完善');
 
     } finally {
@@ -505,9 +508,9 @@ test.describe('多人对战同步功能测试', () => {
       await player2Page.waitForTimeout(3000);
 
       // 验证所有客户端都显示了阶段指示器
-      const hostStageVisible = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').isVisible();
-      const player1StageVisible = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').isVisible();
-      const player2StageVisible = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').isVisible();
+      const hostStageVisible = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').first().isVisible();
+      const player1StageVisible = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().isVisible();
+      const player2StageVisible = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().isVisible();
 
       console.log('阶段指示器可见性:');
       console.log('  主办方:', hostStageVisible);
@@ -515,9 +518,9 @@ test.describe('多人对战同步功能测试', () => {
       console.log('  选手2:', player2StageVisible);
 
       // 获取所有客户端的阶段文本
-      const hostStageText = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-      const player1StageText = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-      const player2StageText = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
+      const hostStageText = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+      const player1StageText = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+      const player2StageText = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
 
       console.log('\n当前阶段文本:');
       console.log('  主办方:', hostStageText?.trim());
@@ -599,6 +602,48 @@ test.describe('多人对战同步功能测试', () => {
       expect(hostBanCountAfter, '主办方和选手1的Ban数量应该一致').toBe(player1BanCountAfter);
       expect(hostBanCountAfter, '主办方和选手2的Ban数量应该一致').toBe(player2BanCountAfter);
 
+      // ===== 内容级断言（A-2 加强）：三端可选植物池的 data-plant-id 完全一致 =====
+      // 数量一致无法发现「各端禁用了不同植物」的分叉——这才是同步测试真正要抓的 bug。
+      const getSelectableIds = async (page) => {
+        return await page.locator('div[role="listbox"] button').evaluateAll(
+          (btns) => btns.map((b) => b.getAttribute('data-plant-id'))
+        )
+      }
+      const hostIds = await getSelectableIds(hostPage);
+      const player1Ids = await getSelectableIds(player1Page);
+      const player2Ids = await getSelectableIds(player2Page);
+      expect(new Set([...hostIds, ...player1Ids]).size, '主办方与选手1的可选植物集合应完全一致（防状态分叉）').toBe(hostIds.length);
+      expect(new Set([...hostIds, ...player2Ids]).size, '主办方与选手2的可选植物集合应完全一致（防状态分叉）').toBe(hostIds.length);
+
+      // ===== 权限断言（A-2 加强）：非回合方点确认应被拒，且不产生任何状态变化 =====
+      // BP 是交替回合（road2→road4→…）：actingPlayer 操作完，此刻轮到的是对手，
+      // 故「非回合方」恰是刚操作完的 actingPlayer 本人——由他再点一次确认，应被拒。
+      const bystanderPage = actingPage;
+      const bystanderName = actingName;
+      const bystanderBanCountBefore = await bystanderPage.locator('[role="region"][aria-label*="禁用"] img').count();
+      // 非回合方的植物网格应整体置灰（aria-disabled）——UI 层权限守卫生效的可观测证据；
+      // 若仍有可点按钮（判定边界情况），则点选并确认，断言状态不变
+      const bystanderFirstPlant = bystanderPage.locator('div[role="listbox"] button').first();
+      if (await bystanderFirstPlant.isVisible({ timeout: 1000 }).catch(() => false)) {
+        const ariaDisabled = await bystanderFirstPlant.getAttribute('aria-disabled');
+        if (ariaDisabled === 'true') {
+          console.log(`✅ ${bystanderName} 非回合方植物网格已禁用（UI 权限守卫生效）`);
+        } else {
+          await bystanderFirstPlant.click();
+          await bystanderPage.waitForTimeout(300);
+          const bystanderConfirm = bystanderPage.locator('button:has-text("确认禁用"), button:has-text("确认")').first();
+          if (await bystanderConfirm.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await bystanderConfirm.click();
+            await hostPage.waitForTimeout(1500);
+            const bystanderBanCountAfter = await bystanderPage.locator('[role="region"][aria-label*="禁用"] img').count();
+            expect(bystanderBanCountAfter, `${bystanderName} 操作后已轮到对手，其再次确认应被拒绝且不改变任何端状态`).toBe(bystanderBanCountBefore);
+            console.log(`✅ ${bystanderName} 非回合操作被正确拒绝（状态未变化）`);
+          } else {
+            console.log(`✓ ${bystanderName} 确认按钮不可见（权限守卫已生效）`);
+          }
+        }
+      }
+
       console.log('✅ Ban操作同步验证通过！');
 
       // 截图
@@ -610,25 +655,29 @@ test.describe('多人对战同步功能测试', () => {
       console.log('\n--- 步骤4：测试阶段切换同步 ---');
 
       // 记录当前阶段
-      const hostStageBefore = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-      const player1StageBefore = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-      const player2StageBefore = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
+      const hostStageBefore = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+      const player1StageBefore = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+      const player2StageBefore = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
 
       console.log('阶段切换前:');
       console.log('  主办方:', hostStageBefore?.trim());
       console.log('  选手1:', player1StageBefore?.trim());
       console.log('  选手2:', player2StageBefore?.trim());
 
-      // 如果可以继续操作，再执行一次操作触发阶段切换
-      const canActAgain = await actingPage.locator('div[role="listbox"] button:not([disabled])').count();
+      // 如果可以继续操作，再执行一次操作触发阶段切换。
+      // 交替回合：actingPlayer 操作完轮到对手——第二次操作由对手页执行；
+      // 可点判定用 aria-disabled（本项目禁用态是 aria 属性，非 HTML disabled）
+      const nextActingPage = actingPlayer === 'player1' ? player2Page : player1Page;
+      const nextActingName = actingPlayer === 'player1' ? '选手2' : '选手1';
+      const canActAgain = await nextActingPage.locator('div[role="listbox"] button[aria-disabled="false"]').count();
       if (canActAgain > 0) {
-        await actingPage.locator('div[role="listbox"] button').first().click();
-        await actingPage.waitForTimeout(500);
+        await nextActingPage.locator('div[role="listbox"] button[aria-disabled="false"]').first().click();
+        await nextActingPage.waitForTimeout(500);
 
-        const confirmButton2 = actingPage.locator('button:has-text("确认禁用"), button:has-text("确认")').first();
+        const confirmButton2 = nextActingPage.locator('button:has-text("确认禁用"), button:has-text("确认")').first();
         if (await confirmButton2.isVisible({ timeout: 1000 })) {
           await confirmButton2.click();
-          console.log(`✓ ${actingName} 执行了第二次操作`);
+          console.log(`✓ ${nextActingName} 执行了第二次操作`);
         }
 
         // 等待阶段切换同步
@@ -637,18 +686,21 @@ test.describe('多人对战同步功能测试', () => {
         await player2Page.waitForTimeout(2000);
 
         // 验证阶段切换
-        const hostStageAfter = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-        const player1StageAfter = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-        const player2StageAfter = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
+        const hostStageAfter = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+        const player1StageAfter = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+        const player2StageAfter = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
 
         console.log('\n阶段切换后:');
         console.log('  主办方:', hostStageAfter?.trim());
         console.log('  选手1:', player1StageAfter?.trim());
         console.log('  选手2:', player2StageAfter?.trim());
 
-        // 验证阶段是否一致
-        expect(hostStageAfter, '主办方和选手1的阶段应该一致').toBe(player1StageAfter);
-        expect(hostStageAfter, '主办方和选手2的阶段应该一致').toBe(player2StageAfter);
+        // 验证阶段是否一致——只比较「R轮次+阶段名+步数进度」核心部分：
+        // 三端的角色徽章/回合提示文案天然不同（主办方可操作、选手显示"对方回合"），
+        // 整段 textContent 全等比较永假（既有测试缺陷，修正为剥离角色文案）
+        const coreStage = (text) => (text || '').replace(/主办方|选手[A-Z0-9]*|观众|当前回合：[^R]*|对方回合：[^R]*/g, '').trim();
+        expect(coreStage(hostStageAfter), '主办方和选手1的阶段应该一致').toBe(coreStage(player1StageAfter));
+        expect(coreStage(hostStageAfter), '主办方和选手2的阶段应该一致').toBe(coreStage(player2StageAfter));
 
         console.log('✅ 阶段切换同步验证通过！');
       }
@@ -784,29 +836,23 @@ test.describe('多人对战同步功能测试', () => {
       // ========== 步骤2：开始游戏 ==========
       console.log('\n--- 步骤2：开始游戏，进入BP阶段 ---');
 
-      await hostPage.waitForTimeout(2000);
+      // 显式等待按钮可点（替代固定 sleep，抗时序抖动）：成员到齐才启用
       const startButton = hostPage.locator('button:has-text("开始对战")').first();
+      await startButton.waitFor({ state: 'visible', timeout: 10000 });
+      await expect(startButton).toBeEnabled({ timeout: 10000 });
       await startButton.click();
       console.log('✓ 主办方已点击开始对战按钮');
 
-      // 等待所有客户端进入BP阶段
-      await hostPage.waitForTimeout(3000);
-      await player1Page.waitForTimeout(3000);
-      await player2Page.waitForTimeout(3000);
+      // 轮询等待三端进入 BP 阶段，替代固定 sleep。等待「植物选择网格」出现——
+      // 它是 BP 页实质内容且无手机/桌面双版本歧义（阶段指示器双版在 Transition 渲染期
+      // 会出现 waitFor 可见性误判）
+      await hostPage.locator('div[role="listbox"]').first().waitFor({ state: 'visible', timeout: 15000 });
+      await player1Page.locator('div[role="listbox"]').first().waitFor({ state: 'visible', timeout: 15000 });
+      await player2Page.locator('div[role="listbox"]').first().waitFor({ state: 'visible', timeout: 15000 });
 
-      // 验证所有客户端都显示了阶段指示器
-      const hostStageVisible = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').isVisible();
-      const player1StageVisible = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').isVisible();
-      const player2StageVisible = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').isVisible();
-
-      console.log('阶段指示器可见性:');
-      console.log('  主办方:', hostStageVisible);
-      console.log('  选手1:', player1StageVisible);
-      console.log('  选手2:', player2StageVisible);
-
-      expect(hostStageVisible).toBeTruthy();
-      expect(player1StageVisible).toBeTruthy();
-      expect(player2StageVisible).toBeTruthy();
+      // 三端进入 BP 阶段的验证已由上方 listbox waitFor 承担（等待成功即代表
+      // 植物选择网格已可见）。阶段指示器是手机/桌面双版本（其一恒 hidden），
+      // isVisible 瞬时快照在 Transition 渲染期不可靠，不再作断言依据。
 
       // 初始截图
       await hostPage.screenshot({ path: `${SCREENSHOT_DIR}complete-bp-00-initial.png` });
@@ -827,18 +873,18 @@ test.describe('多人对战同步功能测试', () => {
         await player2Page.waitForTimeout(500);
 
         // 获取当前阶段和操作选手
-        const hostStageText = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-        const player1StageText = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-        const player2StageText = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
+        const hostStageText = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+        const player1StageText = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+        const player2StageText = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
 
         console.log('主办方阶段:', hostStageText?.trim());
         console.log('选手1阶段:', player1StageText?.trim());
         console.log('选手2阶段:', player2StageText?.trim());
 
-        // 提取核心阶段信息（去除前缀，保留"ROUND X阶段X：XX开始N / 20结束XX"部分）
+        // 提取核心阶段信息：UI 改版后为「R1阶段一：禁用1/20」（无 ROUND 字样），
+        // 从轮次标记 R<数字> 起截取；三端角色/回合徽章文案不同，只比较此后部分
         const extractStageInfo = (text) => {
-          // 从"ROUND"开始匹配到结尾
-          const match = text?.match(/ROUND.+/);
+          const match = text?.match(/R\d+.+/);
           return match ? match[0] : text;
         };
 
@@ -850,21 +896,24 @@ test.describe('多人对战同步功能测试', () => {
         expect(hostStageInfo, '主办方和选手1的核心阶段信息应该一致').toBe(player1StageInfo);
         expect(hostStageInfo, '主办方和选手2的核心阶段信息应该一致').toBe(player2StageInfo);
 
-        // 确定当前应该操作的选手
+        // 确定当前应该操作的选手：看选手页自己的回合徽章——
+        // 「当前回合」在谁的页面上显示，谁就是当前操作者（host 页恒显示"主办方"不可判）
+        const p1IsMyTurn = player1StageText?.includes('当前回合');
+        const p2IsMyTurn = player2StageText?.includes('当前回合');
         let actingPage, actingName, actingRole;
-        if (hostStageText?.includes('选手A') || hostStageText?.includes('甲')) {
+        if (p1IsMyTurn) {
           actingPage = player1Page;
           actingName = '选手1';
           actingRole = 'player1';
-        } else if (hostStageText?.includes('选手B') || hostStageText?.includes('乙')) {
+        } else if (p2IsMyTurn) {
           actingPage = player2Page;
           actingName = '选手2';
           actingRole = 'player2';
         } else {
-          // 默认使用选手1
-          actingPage = player1Page;
-          actingName = '选手1';
-          actingRole = 'player1';
+          // 兜底：按标准模板交替（二路=选手A 先手）
+          actingPage = (step % 2 === 1) ? player1Page : player2Page;
+          actingName = (step % 2 === 1) ? '选手1' : '选手2';
+          actingRole = (step % 2 === 1) ? 'player1' : 'player2';
         }
 
         console.log(`✓ ${actingName} 执行操作`);
@@ -950,19 +999,18 @@ test.describe('多人对战同步功能测试', () => {
       await player2Page.waitForTimeout(3000);
 
       // 获取最终阶段
-      const finalHostStageText = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-      const finalPlayer1StageText = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
-      const finalPlayer2StageText = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').textContent();
+      const finalHostStageText = await hostPage.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+      const finalPlayer1StageText = await player1Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
+      const finalPlayer2StageText = await player2Page.locator('[role="region"][aria-label="当前游戏阶段"]').first().textContent();
 
       console.log('最终阶段文本:');
       console.log('  主办方:', finalHostStageText?.trim());
       console.log('  选手1:', finalPlayer1StageText?.trim());
       console.log('  选手2:', finalPlayer2StageText?.trim());
 
-      // 提取核心阶段信息并验证一致
+      // 提取核心阶段信息并验证一致（UI 改版后轮次标记为「R1」而非「ROUND」）
       const extractStageInfo = (text) => {
-        // 从"ROUND"开始匹配到结尾
-        const match = text?.match(/ROUND.+/);
+        const match = text?.match(/R\d+.+/);
         return match ? match[0] : text;
       };
 

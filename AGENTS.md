@@ -51,7 +51,7 @@ npm run test:multiplayer:headed   # Playwright 多人同步 E2E（有头）
 
 **E2E（Playwright）**
 
-真实 server 协议端到端：本地 `node server/index.js` + ws 客户端联调，契约见 `docs/network-protocol.md`。多端同步测试在 `agents/tests/multiplayer-sync-test.spec.js`（本地 ws server，不依赖外网），自动模拟三端（host + 2 选手），验证房间创建/加入、身份分配、Ban/Pick 实时同步。测试报告与截图分别落 `agents/test-reports/`、`agents/screenshots/`，详见 `agents/README.md`。
+真实 server 协议端到端：本地 `node server/index.js` + ws 客户端联调，契约见 `docs/network-protocol.md`。多端同步测试在 `agents/tests/multiplayer-sync-test.spec.js`（本地 ws server，不依赖外网），自动模拟三端（host + 2 选手），验证房间创建/加入、身份分配、Ban/Pick 实时同步、**完整 20 步 BP 流程三端一致性**、非回合方操作被拒。断言为内容级（植物 id 集合对比，非仅数量）。`playwright.config.js` 在仓库根（testDir 指 agents/tests；勿放回 agents/tests/，否则从根跑会扫到 .claude/worktrees 副本）。测试报告与截图分别落 `agents/test-reports/`、`agents/screenshots/`，详见 `agents/README.md`。
 
 ---
 
