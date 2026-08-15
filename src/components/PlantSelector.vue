@@ -112,6 +112,7 @@ import { getPlantByIdSync, getPlantImage } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePermission } from '@/composables/usePermission'
 import { useIsMobile } from '@/composables/useBreakpoint.js'
 import { usePlantFlight } from '@/composables/usePlantFlight'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -131,17 +132,8 @@ const lastOperatedId = ref(null)
 const lastOperatedAction = ref(null)
 let flashTimer = null
 
-// BP 权限检查：观众只读，多人模式下检查回合制权限
-const hasBPPermission = computed(() => {
-  // 观众：不能操作
-  if (connStore.isViewOnly) return false
-
-  // 本地模式：可以操作
-  if (connStore.roomMode === 'local') return true
-
-  // 多人模式：检查是否为当前回合
-  return connStore.isMyTurn
-})
+// BP 权限检查：观众只读，多人模式下检查回合制权限（统一走 usePermission）
+const { isActor: hasBPPermission } = usePermission()
 
 // 回合提示文本
 const turnText = computed(() => {

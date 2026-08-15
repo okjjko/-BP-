@@ -10,6 +10,7 @@ import { getAllPlantsSync } from '@/data/customPlants'
 import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
 import { canBan, canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
 import { shuffle } from '@/utils/shuffle'
+import { migrateLegacyPositions, migrateLegacyPumpkinProtection } from '@/utils/legacyMigrations'
 import { useConnectionStore } from './connectionStore'
 import { useToast } from '@/composables/useToast'
 import defaultRules from '@/config/defaultRules'
@@ -904,92 +905,17 @@ export const useGameStore = defineStore('game', {
 
     // ========== 数据迁移 ==========
 
+    // 旧存档结构升级（纯函数实现见 src/utils/legacyMigrations.js，行为不变）：
+    // ①站位 plants 字符串数组 → 实例对象数组；②清理 buggy 旧版本穿插南瓜残留
     migrateLegacyPositions() {
-      ['player1', 'player2'].forEach(player => {
-        const plants = this.currentRound?.positions?.[player]?.plants
-        if (!plants || plants.length === 0) return
-        const firstElement = plants.find(p => p !== null && p !== undefined)
-        if (typeof firstElement === 'string') {
-          const newPlants = plants.map((plantId, index) => {
-            if (plantId === null || plantId === undefined) return null
-            const picks = this.currentRound.picks[player] || []
-            const samePlantIds = plants.slice(0, index).filter(p => p === plantId)
-            const sourceIndex = picks.findIndex((pid, i) =>
-              pid === plantId && i >= samePlantIds.length
-            )
-            return {
-              plantId,
-              instanceId: this.generatePlantInstanceId(player, plantId, sourceIndex),
-              sourceIndex: sourceIndex >= 0 ? sourceIndex : 0
-            }
-          })
-          this.currentRound.positions[player].plants = newPlants
-          this.saveToLocalStorage()
-        }
-      })
+      migrateLegacyPositions(this.currentRound, (p, pid, idx) => this.generatePlantInstanceId(p, pid, idx))
+      // 迁移有变更时落盘（原实现内联时在分支内 saveToLocalStorage；抽出后统一兜底一次，
+      // 多调一次 save 的开销可忽略，语义等价——loadFromLocalStorage 随后也会保存）
+      this.saveToLocalStorage()
     },
 
-    // 清理 buggy 旧存档：picks 中残留的南瓜头。
-    // 正常 pending 状态下南瓜头会临时放在 picks 末尾连续段（待匹配被保护植物）；
-    // 旧版本（连续选南瓜索引失效 bug）会在普通植物之间留下穿插的南瓜残留。
-    // 这里保留末尾连续南瓜（重建 pending），清理穿插残留，并重映射 pumpkinProtection 的 key。
     migrateLegacyPumpkinProtection() {
-      if (!this.currentRound) return
-
-      ;['player1', 'player2'].forEach(player => {
-        const picks = this.currentRound?.picks?.[player] || []
-        const isPumpkinAt = picks.map(id => this.isPumpkinPlant(id))
-        const pumpkinCount = isPumpkinAt.filter(Boolean).length
-        if (pumpkinCount === 0) return
-
-        // 末尾连续南瓜数 = 正常 pending；其余穿插南瓜 = buggy 残留
-        let trailingCount = 0
-        for (let i = isPumpkinAt.length - 1; i >= 0 && isPumpkinAt[i]; i--) trailingCount++
-        const strayCount = pumpkinCount - trailingCount
-        if (strayCount > 0) {
-          console.warn(`[迁移] 检测到 ${player} 的 picks 中有 ${strayCount} 个穿插南瓜头（buggy 残留），正在清理`)
-        }
-
-        // 重建 picks（删除穿插南瓜）并建立 oldIdx → newIdx 映射
-        const indexMap = {}
-        const cleanPicks = []
-        picks.forEach((plantId, oldIdx) => {
-          const isStray = isPumpkinAt[oldIdx] && oldIdx < picks.length - trailingCount
-          if (isStray) return
-          indexMap[oldIdx] = cleanPicks.length
-          cleanPicks.push(plantId)
-        })
-        this.currentRound.picks[player] = cleanPicks
-
-        // 重映射 pumpkinProtection 的 key（指向已删除穿插南瓜的 key 丢弃）
-        const oldProtection = this.currentRound.pumpkinProtection || {}
-        const newProtection = {}
-        for (const [key, value] of Object.entries(oldProtection)) {
-          const m = key.match(/^(player[12])_(\d+)$/)
-          if (!m || m[1] !== player) { newProtection[key] = value; continue }
-          const oldIdx = Number(m[2])
-          if (oldIdx in indexMap) {
-            newProtection[`${player}_${indexMap[oldIdx]}`] = value
-          }
-        }
-        this.currentRound.pumpkinProtection = newProtection
-
-        // 基于末尾连续南瓜重建 pending 状态
-        if (trailingCount > 0) {
-          const start = cleanPicks.length - trailingCount
-          this.currentRound.lastPumpkinIndices =
-            Array.from({ length: trailingCount }, (_, i) => start + i)
-          this.currentRound.extraPick = { player, remaining: trailingCount }
-        }
-      })
-
-      // 清理后已无南瓜却仍残留 pending（无法可靠恢复），重置
-      const hasPumpkin = ['player1', 'player2'].some(p =>
-        (this.currentRound?.picks?.[p] || []).some(id => this.isPumpkinPlant(id)))
-      if (!hasPumpkin && this.currentRound?.extraPick) {
-        this.currentRound.extraPick = null
-        delete this.currentRound.lastPumpkinIndices
-      }
+      migrateLegacyPumpkinProtection(this.currentRound, (id) => this.isPumpkinPlant(id))
     },
 
     // ========== 导出 ==========

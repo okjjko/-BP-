@@ -87,6 +87,8 @@ Vue 3 + Pinia 应用，管理 PvZ 改版 BP 对战，处理动态选手-道路�
 - `src/utils/bpRules.js` — BP 顺序模板与动态序列生成（`STAGE_NAMES`、`getBPSequence`）
 - `src/utils/validators.js` — 规则校验（`canBan` / `canPick` / `isPumpkin` / `validatePosition` 等）。**`canPick`/`canBan` 是「可否选择」的单一事实来源**（含南瓜互斥/南瓜跨小局上限），`availablePlants` getter 与 `confirmSelection` 均委托，勿在他处重复实现判定逻辑。
 - `src/utils/bpFlowRender.js` — BP 流程渲染映射
+- `src/utils/shuffle.js` — Fisher-Yates 均匀洗牌（开局禁用/globalBan 抽取等统一入口；勿用 `sort(random)` 洗牌，分布有偏）
+- `src/utils/legacyMigrations.js` — 旧存档数据迁移纯函数（站位字符串数组→实例对象、清理 buggy 穿插南瓜残留；由 `loadFromLocalStorage` 调用）
 
 **状态层**
 
@@ -103,7 +105,7 @@ Vue 3 + Pinia 应用，管理 PvZ 改版 BP 对战，处理动态选手-道路�
 
 **UI 层**
 
-- `src/components/ui/` — 共享基座：`BaseButton`（variant/size/loading）、`BaseDialog`（v-model + 焦点陷阱 + Esc/backdrop）、`ToastContainer` + `useToast`、`ConfirmDialog` + `useConfirm`
+- `src/components/ui/` — 共享基座：`BaseButton`（variant/size/loading）、`BaseDialog`（v-model + 焦点陷阱 + Esc/backdrop）、`ToastContainer` + `useToast`、`ConfirmDialog` + `useConfirm`、composables 层的 `usePermission`（`isReferee`/`isActor`/`isViewer`/`canUndo`，按钮级权限统一判定，替代各组件手写 host 判定）
 - `src/components/GameSetup.vue`、`RoomSetup.vue`、`PlantSelector.vue`、`BanArea.vue`、`PickArea.vue`、`StageIndicator.vue`、`PlayerInfo.vue`、`RoundResult.vue`、`PositionSetup.vue`
 - `src/components/PlantManager/` — 配置管理弹窗（`index.vue` + `PlantLibrary` + `ConfigManager` + `PlantForm` + `ImageUploader` + `ImportExport` + `PlantCard`）
 - `src/components/RulesEditor/` — `SideRulesEditor`（阵营名/选边）、`BPRulesEditor` + `BPRulesDialog`（BP 流程/上限）、`RulesSummary`、`BPFlowPreview`

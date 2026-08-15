@@ -193,6 +193,7 @@ import { Swords, RotateCcw, Dices, Undo2, History, RotateCw } from 'lucide-vue-n
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePermission } from '@/composables/usePermission'
 import { useToast } from '@/composables/useToast'
 import { useIsMobile } from '@/composables/useBreakpoint.js'
 import { getPlantImage, getPlantName, getPlantByIdSync } from '@/data/customPlants'
@@ -225,21 +226,9 @@ const iconSize = computed(() => (isMobile.value ? 16 : 20))
 const showHistory = ref(false)
 
 // 局内抽取永禁：仅裁判/host 可操作（单机 local 谁都能点）
-const canDrawGlobalBan = computed(() =>
-  connStore.roomMode === 'local' || connStore.myRole === 'host'
-)
+const { isReferee: canDrawGlobalBan, canUndo } = usePermission()
 // 重置本小局：同裁判权限（涉及重抽自动步骤，遵循权威方单点）
-const canResetRound = computed(() =>
-  connStore.roomMode === 'local' || connStore.myRole === 'host'
-)
-// 通用撤销权限：观众不可；裁判(local/host)永可；选手仅当 lastActor===自己（撤销自己刚做的操作）
-const canUndo = computed(() => {
-  if (store.gameStatus !== 'banning') return false
-  if (store.undoStack.length === 0) return false
-  if (connStore.isViewOnly) return false
-  if (connStore.roomMode === 'local' || connStore.myRole === 'host') return true
-  return store.lastActor === connStore.myAssignedPlayer
-})
+const canResetRound = canDrawGlobalBan
 const undoCount = computed(() => store.undoStack.length)
 
 const drawRandomGlobalBan = () => {
