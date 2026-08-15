@@ -33,7 +33,12 @@ const DIST_DIR = path.resolve(__dirname, '..', 'dist')
 const WS_PATH = '/ws'
 
 // Webhook 配置
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'change-me-in-production'
+// fail-safe：未配置 WEBHOOK_SECRET 时不再回落到公开默认值（该值已在 git 历史/文档中
+// 泄露，任何人可伪造签名触发部署）——改为使用一次性随机密钥，签名校验必然失败（401），
+// webhook 攻击面完全关闭；ws/lobby/静态托管不受影响。启动时醒目告警提示配置方法。
+const RAW_WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || ''
+const WEBHOOK_SECRET_MISSING = !RAW_WEBHOOK_SECRET
+const WEBHOOK_SECRET = WEBHOOK_SECRET_MISSING ? crypto.randomBytes(32).toString('hex') : RAW_WEBHOOK_SECRET
 const WEBHOOK_PATH = '/webhook/deploy'
 const DEPLOY_SCRIPT = path.resolve(__dirname, '..', 'scripts', 'auto-deploy.sh')
 
@@ -620,6 +625,13 @@ async function handleWebhook(req, res) {
     return res.end(JSON.stringify({ ok: false, error: 'METHOD_NOT_ALLOWED' }))
   }
 
+  // fail-safe：未配置密钥时显式拒绝（503），与随机密钥双保险，日志可区分「未配置」与「签名错误」
+  if (WEBHOOK_SECRET_MISSING) {
+    console.warn('[webhook] 拒绝请求：服务器未配置 WEBHOOK_SECRET（自动部署已禁用）')
+    res.writeHead(503, { 'Content-Type': 'application/json' })
+    return res.end(JSON.stringify({ ok: false, error: 'WEBHOOK_DISABLED' }))
+  }
+
   // 读取请求体（限制 2MB，防止恶意大 payload 耗尽内存）
   const chunks = []
   let bodySize = 0
@@ -750,8 +762,13 @@ server.listen(PORT, () => {
   console.log(`[server]   ws     : ws://localhost:${PORT}${WS_PATH}`)
   console.log(`[server]   lobby  : http://localhost:${PORT}/lobby/rooms`)
   console.log(`[server]   health : http://localhost:${PORT}/health`)
-  console.log(`[server]   webhook: http://localhost:${PORT}${WEBHOOK_PATH}`)
+  console.log(`[server]   webhook: ${WEBHOOK_SECRET_MISSING ? '!! 已禁用（未配置 WEBHOOK_SECRET，所有 webhook 请求将被拒绝）' : `http://localhost:${PORT}${WEBHOOK_PATH}`}`)
   console.log(`[server]   static : ${DIST_EXISTS ? DIST_DIR : '(dist/ 未构建，SPA fallback 返回占位)'}`)
+  if (WEBHOOK_SECRET_MISSING) {
+    console.warn('[server] ⚠  WEBHOOK_SECRET 未配置：webhook 自动部署已禁用（签名校验必然失败）。')
+    console.warn('[server] ⚠  启用方法：生成随机密钥（openssl rand -hex 32）后写入 PM2 环境变量并重启，')
+    console.warn('[server] ⚠  且密钥须与 GitHub/GitLab webhook 配置中的 Secret 一致。详见 docs/AUTO-DEPLOY.md')
+  }
 })
 
 process.on('SIGINT', () => { console.log('[server] 收到 SIGINT，退出'); process.exit(0) })

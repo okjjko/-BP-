@@ -1,7 +1,9 @@
 /**
  * 验证逻辑
- * 用于检查BP操作是否符合规则
+ * 用于检查BP操作是否符合规则（canPick/canBan 是「可否选择」的单一事实来源，
+ * gameStore.availablePlants getter 与 confirmSelection 均委托此处，勿在别处重复实现）
  */
+import { getAllPlantsSync } from '@/data/customPlants'
 
 /**
  * 检查植物是否被禁用（永久禁用或临时禁用）
@@ -130,10 +132,13 @@ export const canBan = (plantId, gameState) => {
 
 /**
  * 综合验证：检查是否可以进行pick操作
- * 改进：允许选手在同一小局中选择同一植物多次（最多2次）
+ * 允许选手在同一小局中选择同一植物多次（默认上限2，可配）；含南瓜头特殊规则。
+ * 南瓜判定原只在 gameStore.availablePlants getter 中实现（与本校验两处分叉），
+ * 现收敛至此作为单一事实来源，getter 委托本校验。
  * @param {string} plantId - 植物ID
  * @param {string} playerId - 选手ID
- * @param {Object} gameState - 游戏状态
+ * @param {Object} gameState - 游戏状态（store.$state：含 currentRound/plantUsage/
+ *   pumpkinUsage/ruleConfig）
  */
 export const canPick = (plantId, playerId, gameState) => {
   const {
@@ -166,7 +171,7 @@ export const canPick = (plantId, playerId, gameState) => {
   // 检查自己本局已选次数 + 历史使用次数
   const ownPicks = picks[playerId] || []
   const ownPickCount = ownPicks.filter(id => id === plantId).length
-  const historicalUsage = plantUsage[`${playerId}_${plantId}`] || 0
+  const historicalUsage = plantUsage?.[`${playerId}_${plantId}`] || 0
   const totalUsage = ownPickCount + historicalUsage
 
   // 上限值可配（功能4），默认 2，向后兼容
@@ -176,6 +181,27 @@ export const canPick = (plantId, playerId, gameState) => {
     return {
       valid: false,
       reason: `该植物已使用${totalUsage}次，达到上限（${maxPlantUsage}次）`
+    }
+  }
+
+  // 南瓜头特殊规则（开关开启时；关闭时南瓜当普通植物，仅受上方通用上限约束）
+  const pumpkinEnabled = gameState?.ruleConfig?.pumpkinRule?.enabled ?? true
+  if (pumpkinEnabled && isPumpkin(plantId, getAllPlantsSync())) {
+    // 对手已在本轮使用过南瓜，不可选（空值安全：旧存档/缺省字段）
+    const usedMap = currentRound.pumpkinUsedThisRound || {}
+    if (usedMap[opponent]) {
+      return {
+        valid: false,
+        reason: '对手本轮已使用过南瓜头'
+      }
+    }
+    // 自己的南瓜使用次数上限（跨小局累计，沿用可配上限值）
+    const ownPumpkinUsage = gameState.pumpkinUsage?.[playerId] || 0
+    if (ownPumpkinUsage >= maxPlantUsage) {
+      return {
+        valid: false,
+        reason: `南瓜头已使用${ownPumpkinUsage}次，达到上限（${maxPlantUsage}次）`
+      }
     }
   }
 

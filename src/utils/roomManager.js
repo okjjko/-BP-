@@ -361,15 +361,8 @@ class RoomManager {
     })
   }
 
-  generateInviteCode() {
-    // 保留公共方法（兼容旧调用）。WS 版下 inviteCode 由服务器生成，此方法仅用于本地兜底/测试。
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    let code = ''
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return code
-  }
+  // generateInviteCode 已删除：WS 中心化版邀请码由服务器 crypto.randomBytes 生成
+  // （server/index.js generateInviteCode），客户端不再本地生成。
 
   async joinRoom(inviteCode, role = 'player', playerName = null) {
     this.role = role

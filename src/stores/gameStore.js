@@ -8,7 +8,7 @@
 import { defineStore } from 'pinia'
 import { getAllPlantsSync } from '@/data/customPlants'
 import { getBPSequence, STAGE_NAMES } from '@/utils/bpRules'
-import { canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
+import { canBan, canPick, validatePosition, isGameOver, isGrandFinal, isPumpkin } from '@/utils/validators'
 import { shuffle } from '@/utils/shuffle'
 import { useConnectionStore } from './connectionStore'
 import { useToast } from '@/composables/useToast'
@@ -96,12 +96,8 @@ export const useGameStore = defineStore('game', {
 
     availablePlants: (state) => {
       const _cacheVersion = state._plantCacheVersion
-      const { currentRound, globalBans, plantUsage, pumpkinUsage } = state
-      const { bans, picks, currentPlayer, action, extraPick, pumpkinUsedThisRound } = currentRound
-      // 植物使用上限可配（功能4），默认 2
-      const maxUsage = state.ruleConfig?.limits?.maxPlantUsage ?? 2
-      // 南瓜特殊规则开关（默认开启）
-      const pumpkinEnabled = state.ruleConfig?.pumpkinRule?.enabled ?? true
+      const { currentRound, globalBans } = state
+      const { bans, currentPlayer, action } = currentRound
 
       const allBans = [...globalBans, ...bans.player1, ...bans.player2]
 
@@ -111,36 +107,12 @@ export const useGameStore = defineStore('game', {
       }
 
       if (action === 'ban') {
-        return getAllPlantsSync().filter(plant => !allBans.includes(plant.id))
+        // 唯一限制：植物不能已被禁用（委托 canBan，与 confirmSelection 同源）
+        return getAllPlantsSync().filter(plant => canBan(plant.id, state).valid)
       }
 
-      const opponent = currentPlayer === 'player1' ? 'player2' : 'player1'
-      const opponentPicks = [...picks[opponent]]
-      const ownPicks = [...picks[currentPlayer]]
-
-      return getAllPlantsSync().filter(plant => {
-        const plantId = plant.id
-        if (allBans.includes(plantId)) return false
-        if (opponentPicks.includes(plantId)) return false
-
-        const ownPickCount = ownPicks.filter(id => id === plantId).length
-        if (ownPickCount >= maxUsage) return false
-
-        const historicalUsage = plantUsage[`${currentPlayer}_${plantId}`] || 0
-        if (ownPickCount + historicalUsage >= maxUsage) return false
-
-        // 南瓜头特殊规则（开关关闭时回落到上方通用上限检查，南瓜当普通植物）
-        if (pumpkinEnabled && isPumpkin(plantId, getAllPlantsSync())) {
-          // 对手已在本轮使用过南瓜，不可选（空值安全）
-          const usedMap = pumpkinUsedThisRound || {}
-          if (usedMap[opponent]) return false
-          // 自己的南瓜使用次数上限（跨小局累计，沿用可配上限值）
-          const ownPumpkinUsage = pumpkinUsage[currentPlayer] || 0
-          if (ownPumpkinUsage >= maxUsage) return false
-        }
-
-        return true
-      })
+      // pick：委托 canPick（含使用上限/对手互斥/南瓜互斥与南瓜上限，单一事实来源）
+      return getAllPlantsSync().filter(plant => canPick(plant.id, currentPlayer, state).valid)
     },
 
     currentStageName: (state) => STAGE_NAMES[state.currentRound.stage],

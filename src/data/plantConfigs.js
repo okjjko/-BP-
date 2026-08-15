@@ -70,9 +70,20 @@ export async function duplicateConfig(configId) {
 }
 
 /**
+ * 最近一次 getConfigsData 读取是否失败（供 UI 层提示「预设可能加载不全」）。
+ * 数据层不反向依赖 UI：由 ConfigManager 等消费方在挂载时检查并 toast。
+ */
+let _configsReadFailed = false
+
+export function wasConfigsReadFailed() {
+  return _configsReadFailed
+}
+
+/**
  * 从 localStorage 获取所有配置数据
  */
 function getConfigsData() {
+  _configsReadFailed = false
   try {
     const data = localStorage.getItem(CONFIGS_KEY)
     if (!data) {
@@ -81,6 +92,7 @@ function getConfigsData() {
     return JSON.parse(data)
   } catch (error) {
     console.error('读取配置失败:', error)
+    _configsReadFailed = true
     return { configs: [], activeConfigId: null }
   }
 }

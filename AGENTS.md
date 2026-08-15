@@ -85,7 +85,7 @@ Vue 3 + Pinia 应用，管理 PvZ 改版 BP 对战，处理动态选手-道路�
 - `src/data/customPlants.js` — 自定义植物（IndexedDB，Blob 存图，`getAllPlantsSync()` 内存缓存同步访问，JSON 导入导出）
 - `src/data/plantConfigs.js` — 比赛预设（植物卡组 + 规则），localStorage 存预设列表与 `activeConfigId`
 - `src/utils/bpRules.js` — BP 顺序模板与动态序列生成（`STAGE_NAMES`、`getBPSequence`）
-- `src/utils/validators.js` — 规则校验（`canBan` / `canPick` / `isPumpkin` / `validatePosition` 等）
+- `src/utils/validators.js` — 规则校验（`canBan` / `canPick` / `isPumpkin` / `validatePosition` 等）。**`canPick`/`canBan` 是「可否选择」的单一事实来源**（含南瓜互斥/南瓜跨小局上限），`availablePlants` getter 与 `confirmSelection` 均委托，勿在他处重复实现判定逻辑。
 - `src/utils/bpFlowRender.js` — BP 流程渲染映射
 
 **状态层**
@@ -184,7 +184,7 @@ host 可兼任其中一名选手，host + 1 名远端选手即可开局（向后
 ### 服务端注意事项
 
 - **静态文件路径必须先 `decodeURIComponent`**：`URL.pathname` 保留 percent 编码，中文文件名（如 `/plants/胆.png` 被编码成 `%E8%83%86.png`）若不解码，`fs.stat` 按字面量找文件 → 中文资源全 404（nginx 直托时自动解码未暴露，改 Node 托管后须在 createServer 入口显式解码）。
-- webhook 密钥取 `WEBHOOK_SECRET` 环境变量（**勿加 `VITE_` 前缀**，否则打进前端 bundle 泄露）。
+- webhook 密钥取 `WEBHOOK_SECRET` 环境变量（**勿加 `VITE_` 前缀**，否则打进前端 bundle 泄露）。**fail-safe**：未配置时不回落公开默认值——改用一次性随机密钥（校验必然 401）+ 显式 503 拒绝 + 启动告警，自动部署整体禁用但 ws/lobby/静态不受影响；密钥须与 GitHub/GitLab webhook Secret 一致（见 `docs/AUTO-DEPLOY.md`）。
 - host 断开当前简化为整房清理（无 host 迁移）。成员端由 `App.vue` **全局**监听 `connectionStatus: host-left` 弹单按钮告知框（RoomSetup 的连接监听只覆盖其挂载期，对局中 BanPickView 无人处理）；确认后 `roomManager.disconnect()`（停对已删房间的徒劳重连）+ `clearMultiplayerSession()`（清 24h 死会话，防刷新后被引导重连），但不改 roomMode/身份，维持选手端只读态。
 
 ---
@@ -268,4 +268,4 @@ BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁�
 
 ## 安全与机器特定信息
 
-生产部署的真实 IP/域名/路径/密钥等机器特定信息见本地 `*.local.md`（已 gitignore，不进仓库）。公开安全待办：webhook `WEBHOOK_SECRET` 生产环境务必配置（默认值 `'change-me-in-production'`，未配置则签名校验失效）。
+生产部署的真实 IP/域名/路径/密钥等机器特定信息见本地 `*.local.md`（已 gitignore，不进仓库）。安全基线：webhook `WEBHOOK_SECRET` 未配置时自动部署整体禁用（fail-safe，见「服务端注意事项」），生产要启用 webhook 须配置该环境变量。

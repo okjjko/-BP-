@@ -48,7 +48,7 @@ const getBuckets = new Map()
 
 // ==================== 工具函数 ====================
 
-// 6 位大写字母或 2-9（宽松覆盖 roomManager.generateInviteCode 的字符集，不误拒合法码）
+// 6 位大写字母或 2-9（无易混淆 0/O/1/I；与 server/index.js generateInviteCode 的 CODE_CHARS 对齐，宽松不误拒）
 const CODE_RE = /^[A-Z2-9]{6}$/
 
 function isValidCode(code) {

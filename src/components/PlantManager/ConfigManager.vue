@@ -276,7 +276,8 @@ import {
   updateConfigRuleConfig,
   updateConfigPlants,
   ensureDefaultPreset,
-  duplicateConfig
+  duplicateConfig,
+  wasConfigsReadFailed
 } from '@/data/plantConfigs'
 import { useGameStore } from '@/stores/gameStore'
 import { useToast } from '@/composables/useToast'
@@ -512,6 +513,11 @@ const handleImport = async (event) => {
 onMounted(async () => {
   await ensureDefaultPreset()
   await loadConfigs()
+  // localStorage 读失败（JSON 损坏/隐私模式等）：数据层降级为空列表，这里给出可感知提示，
+  // 避免用户误以为预设全丢了（数据仍在 localStorage，通常可修复）
+  if (wasConfigsReadFailed()) {
+    toast.warning('预设列表读取失败，可能显示不全。本地数据未必丢失，请勿重复创建同名预设；可尝试刷新或导出备份。')
+  }
 })
 </script>
 
