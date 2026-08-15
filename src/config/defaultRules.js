@@ -13,6 +13,7 @@ import bpSequence from './rules/bpSequence'
 import limits from './rules/limits'
 import pumpkinRule from './rules/pumpkinRule'
 import randomBan from './rules/randomBan'
+import timer from './rules/timer'
 
 export default {
   sideNames,
@@ -20,5 +21,6 @@ export default {
   bpSequence,
   limits,
   pumpkinRule,
-  randomBan
+  randomBan,
+  timer
 }

@@ -70,6 +70,11 @@ export const useGameStore = defineStore('game', {
     // 集中存放，整体持久化与多人同步；默认值见 src/config/defaultRules.js。
     ruleConfig: JSON.parse(JSON.stringify(defaultRules)),
 
+    // 每步思考倒计时（ruleConfig.timer 控制）：当前步开始时间戳（ms，Date.now()）。
+    // 随状态同步广播，player/spectator 端据此纯显示倒计时（不设本地定时器）；
+    // 权威方（local/host）另设定时器，超时从可选池随机 ban/pick（权威方单点，防各端随机分叉）。
+    stepStartedAt: null,
+
     // 植物缓存版本号（用于触发响应式更新）
     _plantCacheVersion: 0,
   }),
@@ -310,6 +315,90 @@ export const useGameStore = defineStore('game', {
       } else {
         this.gameStatus = 'positioning'
       }
+
+      // 倒计时：手动步骤切换时重置起点（自动步骤 globalBan 无选手操作，不计时；
+      // positioning 阶段同样不计时——站位无步骤推进）。仅权威方设真实定时器。
+      this._restartStepTimer()
+    },
+
+    /**
+     * 每步思考倒计时：权威方定时器管理。
+     * - 开关/时长读 ruleConfig.timer；仅 local/host 启动真实定时器。
+     * - 超时动作（_onStepTimeout）从当前可选池随机选一个 ban/pick，遵循 canBan/canPick。
+     * - player/spectator 端不设定时器，靠同步来的 stepStartedAt 纯显示。
+     * - 撤销/resetCurrentRound 会整体恢复/重建状态，同样经 updateCurrentStep 走到这里重启。
+     */
+    _restartStepTimer() {
+      this._clearStepTimer()
+      const t = this.ruleConfig?.timer
+      if (!t || t.enabled !== true) return
+      if (this.gameStatus !== 'banning') return
+      // globalBan 自动步与 pending 南瓜 extraPick 状态不计时（后者流程未推进但操作合法）
+      if (this.currentRound.action === 'globalBan') return
+      if (this.currentRound.extraPick) return
+
+      const connStore = useConnectionStore()
+      const isAuthority = connStore.roomMode === 'local' || connStore.roomMode === 'host'
+      if (!isAuthority) return
+
+      this.stepStartedAt = Date.now()
+      this._stepTimer = setTimeout(() => this._onStepTimeout(), (t.secondsPerStep || 90) * 1000)
+    },
+
+    _clearStepTimer() {
+      if (this._stepTimer) {
+        clearTimeout(this._stepTimer)
+        this._stepTimer = null
+      }
+    },
+
+    /**
+     * 倒计时超时：从当前可选池随机执行一个合法操作（ban 步 ban / pick 步 pick）。
+     *
+     * 刻意不走 confirmSelection：其一它会二次压栈；其二 isMyTurn 守卫会挡掉
+     * 「host 参赛模式下替对方选手执行超时」的权威方场景。本方法自身完成
+     * 压栈/校验/推进/同步，等价于一次标准手动操作。
+     *
+     * 候选池排除南瓜（南瓜触发 pending extraPick 链式匹配，不适合无人值守随机）；
+     * 池空则 ban 步按空 ban 跳过、pick 步防御性推进（正常不发生）。可撤销。
+     */
+    _onStepTimeout() {
+      this._stepTimer = null
+      if (this.gameStatus !== 'banning' || this.currentRound.action === 'globalBan') return
+
+      const player = this.currentRound.currentPlayer
+      const action = this.currentRound.action
+      const connStore = useConnectionStore()
+
+      const pool = this.availablePlants.filter(p => !this.isPumpkinPlant(p.id))
+      if (pool.length === 0) {
+        if (action === 'ban') {
+          this.skipBanStep()
+        } else {
+          this.moveToNextStep()
+          this.saveToLocalStorage()
+          connStore.syncState()
+        }
+        return
+      }
+
+      const target = shuffle(pool)[0]
+      this._pushUndoSnapshot()
+      this.lastActor = player
+
+      if (action === 'ban') {
+        this.currentRound.bans[player].push(target.id)
+        this.currentRound.selectedPlant = null
+        this.moveToNextStep()
+        this.saveToLocalStorage()
+        connStore.syncState()
+      } else {
+        // pick：复用普通 pick 的状态维护（含南瓜保护匹配——池已排除南瓜，
+        // 此处仅是普通植物；extraPick pending 时 timer 不启动，不会走到这）
+        this.currentRound.selectedPlant = target.id
+        this._handleNormalPick(player, target.id)
+      }
+      useToast().info(`思考超时，已随机${action === 'ban' ? '禁用' : '选择'}：${target.name || target.id}`)
     },
 
     confirmSelection() {
@@ -892,6 +981,7 @@ export const useGameStore = defineStore('game', {
       const keepRuleConfig = this.ruleConfig
         ? JSON.parse(JSON.stringify(this.ruleConfig))
         : null
+      this._clearStepTimer()  // 倒计时定时器句柄随对局一起清理
       this.$reset()
       useConnectionStore().clearMultiplayerSession()
       this.pumpkinUsage = { player1: 0, player2: 0 }
@@ -968,6 +1058,9 @@ export const useGameStore = defineStore('game', {
       this.roundWinner = gameState.roundWinner
       this.winThreshold = gameState.winThreshold || 4
       this.ruleConfig = { ...defaultRules, ...(gameState.ruleConfig || {}) }
+      // 倒计时起点随状态同步（显示端据此算剩余时间）；不持久化到 localStorage——
+      // 刷新后时间已流逝无意义，权威方会经 updateCurrentStep→_restartStepTimer 重设
+      this.stepStartedAt = gameState.stepStartedAt ?? null
     },
 
     getSyncPayload() {
@@ -985,7 +1078,8 @@ export const useGameStore = defineStore('game', {
         gameStatus: this.gameStatus,
         roundWinner: this.roundWinner,
         winThreshold: this.winThreshold,
-        ruleConfig: this.ruleConfig
+        ruleConfig: this.ruleConfig,
+        stepStartedAt: this.stepStartedAt
       }
     },
 

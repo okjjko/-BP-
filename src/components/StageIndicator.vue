@@ -19,6 +19,13 @@
     <div class="flex items-baseline gap-1 min-w-0 justify-center">
       <span class="text-[9px] text-gray-500 whitespace-nowrap">R{{ roundNumber }}</span>
       <span class="text-xs font-black truncate max-w-[96px]" :class="stageClass">{{ stageName }}</span>
+      <span
+        v-if="timerEnabled && remainingSeconds !== null"
+        class="text-[10px] font-mono font-bold tabular-nums px-1 rounded"
+        :class="remainingSeconds <= 10 ? 'text-red-300 animate-pulse' : 'text-gray-300'"
+        role="timer"
+        aria-label="本步剩余思考时间"
+      >{{ remainingSeconds }}s</span>
     </div>
 
     <!-- 进度条 -->
@@ -54,8 +61,16 @@
       </div>
 
       <h3 class="text-sm font-bold mb-1 text-gray-400 uppercase tracking-widest">ROUND {{ roundNumber }}</h3>
-      <div class="text-xl lg:text-3xl font-black mb-2 tracking-wide" :class="stageClass">
+      <div class="text-xl lg:text-3xl font-black mb-2 tracking-wide flex items-center justify-center gap-2" :class="stageClass">
         {{ stageName }}
+        <!-- 每步思考倒计时（ruleConfig.timer 开启时显示；<10s 变红） -->
+        <span
+          v-if="timerEnabled && remainingSeconds !== null"
+          class="align-middle px-2 py-0.5 rounded-md text-sm lg:text-base font-mono font-bold tabular-nums border"
+          :class="remainingSeconds <= 10 ? 'bg-red-500/20 border-red-500/50 text-red-300 animate-pulse' : 'bg-gray-800/70 border-gray-600 text-gray-200'"
+          role="timer"
+          aria-label="本步剩余思考时间"
+        >{{ Math.floor(remainingSeconds / 60) }}:{{ String(remainingSeconds % 60).padStart(2, '0') }}</span>
       </div>
 
       <!-- 进度条 -->
@@ -91,7 +106,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { Crown, Gamepad2, Eye, RefreshCw, TriangleAlert, Check } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
@@ -99,6 +114,26 @@ import { getStageNames } from '@/utils/bpRules'
 
 const store = useGameStore()
 const connStore = useConnectionStore()
+
+// ===== 每步思考倒计时显示 =====
+// 各端（含 player/spectator）纯显示：用同步来的 stepStartedAt + 本地 ticker 算剩余秒数。
+// 只有权威方跑真实定时器并执行超时动作（见 gameStore._restartStepTimer）。
+const timerEnabled = computed(() => store.ruleConfig?.timer?.enabled === true)
+const now = ref(Date.now())
+let ticker = null
+onMounted(() => {
+  ticker = setInterval(() => { now.value = Date.now() }, 1000)
+})
+onBeforeUnmount(() => { if (ticker) clearInterval(ticker) })
+
+const remainingSeconds = computed(() => {
+  if (!timerEnabled.value || store.gameStatus !== 'banning') return null
+  if (store.currentRound?.action === 'globalBan' || store.currentRound?.extraPick) return null
+  if (!store.stepStartedAt) return null
+  const total = store.ruleConfig?.timer?.secondsPerStep || 90
+  const elapsed = Math.floor((now.value - store.stepStartedAt) / 1000)
+  return Math.max(0, total - elapsed)
+})
 
 // 多人模式相关
 const roomMode = computed(() => connStore.roomMode)

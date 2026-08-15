@@ -100,6 +100,43 @@
         </div>
       </section>
 
+      <!-- 每步思考倒计时：开关 + 秒数（超时由系统从可选池随机 ban/pick） -->
+      <section class="rounded-lg bg-black/20 border border-white/5 p-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div class="min-w-0 flex flex-col gap-2">
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" :class="{ 'cursor-not-allowed opacity-60': !canEditRules }">
+                <input
+                  type="checkbox"
+                  :checked="timerEnabled"
+                  :disabled="!canEditRules"
+                  @change="toggleTimer"
+                  class="sr-only peer"
+                />
+                <div class="w-9 h-5 bg-gray-600 peer-checked:bg-plant-green rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+              </label>
+              <div class="min-w-0">
+                <span class="text-xs font-semibold text-gray-300 block">每步思考倒计时</span>
+                <p class="text-[10px] text-gray-600 mt-0.5">
+                  开启：每步限时思考，超时后系统从当前可选植物中随机禁用/选择；关闭：不限时。
+                </p>
+              </div>
+            </div>
+            <div v-if="timerEnabled" class="flex items-center gap-2 pl-12">
+              <span class="text-xs text-gray-400">每步时长</span>
+              <select
+                :value="timerSeconds"
+                :disabled="!canEditRules"
+                @change="onTimerSecondsChange"
+                class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-plant-green"
+              >
+                <option v-for="s in TIMER_PRESETS" :key="s" :value="s">{{ s >= 60 ? `${Math.floor(s / 60)} 分钟` : `${s} 秒` }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- 功能2：BP 顺序模板 -->
       <section class="rounded-lg bg-black/20 border border-white/5 p-3 space-y-3">
         <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -334,6 +371,25 @@ const randomBanCount = computed(() => sourceRuleConfig.value?.randomBan?.count ?
 const toggleRandomBan = () => {
   writeRuleConfig({ randomBan: { enabled: !randomBanEnabled.value, count: randomBanCount.value } })
   syncRuleConfig()
+}
+
+// 每步思考倒计时：开关 + 秒数（默认关；超时权威方从可选池随机 ban/pick）
+const TIMER_PRESETS = [30, 45, 60, 90, 120, 180, 300]
+const timerEnabled = computed(() => sourceRuleConfig.value?.timer?.enabled ?? false)
+const timerSeconds = computed(() => {
+  const s = sourceRuleConfig.value?.timer?.secondsPerStep ?? 90
+  return TIMER_PRESETS.includes(s) ? s : 90
+})
+const toggleTimer = () => {
+  writeRuleConfig({ timer: { enabled: !timerEnabled.value, secondsPerStep: timerSeconds.value } })
+  syncRuleConfig()
+}
+const onTimerSecondsChange = (e) => {
+  const val = parseInt(e.target.value, 10)
+  if (TIMER_PRESETS.includes(val)) {
+    writeRuleConfig({ timer: { enabled: true, secondsPerStep: val } })
+    syncRuleConfig()
+  }
 }
 const onRandomBanCountInput = (e) => {
   let val = parseInt(e.target.value, 10)

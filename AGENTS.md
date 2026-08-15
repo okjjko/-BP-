@@ -123,7 +123,7 @@ Vue 3 + Pinia 应用，管理 PvZ 改版 BP 对战，处理动态选手-道路�
 
 开局可自定义的比赛规则（阵营名 / 选边方式 / BP 顺序模板 / 使用上限 / 南瓜 / 随机禁用）集中存于 `gameStore.state.ruleConfig` 单一对象。
 
-1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits,pumpkinRule,randomBan}.js`。聚合器定型不再改，各功能默认值在各自子文件维护。
+1. **默认值单一事实来源**：`src/config/defaultRules.js` 聚合 `src/config/rules/{sideNames,sideSelection,bpSequence,limits,pumpkinRule,randomBan,timer}.js`。聚合器定型不再改，各功能默认值在各自子文件维护。
 2. **序列化整体处理**：`saveToLocalStorage` / `loadFromLocalStorage` / `getSyncPayload` / `applySyncState` 对 `ruleConfig` 整体存取（`{ ...defaultRules, ...(state.ruleConfig||{}) }` 深合并默认值，向后兼容）。**新增配置项禁止在这四个函数逐字段列举——只改对应 `rules/` 子文件即自动获得持久化 + 多人同步。**
 3. **解耦**：`bpSequence` 模板始终用 `road2`/`road4` 占位符；`sideNames` 仅影响显示文案；两者通过 road 数值（2/4）桥接。
 4. `gameStore.js` getters 区有 `// A-ANCHOR`（maxPlantUsage）与 `// B-ANCHOR`（sideName）占位注释，多人协作时在各自锚点下新增 getter 避免冲突。
@@ -253,6 +253,7 @@ BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁�
 - ✅ 通用撤销栈（`lastActor` 权限模型）
 - ✅ 空 ban（`skipBanStep`：仅 ban 步、仅回合方，消耗步骤不禁任何植物，可撤销）
 - ✅ 重置本小局（`resetCurrentRound`：仅裁判，清本局回起点；比分/历史使用/已抽永久禁用保留，UI ConfirmDialog 二次确认）
+- ✅ 每步思考倒计时（`ruleConfig.timer`，默认关）：权威方（local/host）单点跑定时器，超时从可选池**排除南瓜**后随机 ban/pick（可撤销，`lastActor`=当前选手）；池空则 ban 步按空 ban 跳过；`stepStartedAt` 随 `getSyncPayload` 同步、其余端纯显示（StageIndicator 内嵌倒计时，<10s 变红）；globalBan 自动步与南瓜 extraPick pending 不计时
 - ✅ 多人对战：中心化 ws、三角色、断线重连身份自愈、公共房间目录、host 兼选手
 - ✅ ban/pick 飞行动效、Toast/Confirm 系统、移动端/桌面端响应式
 
