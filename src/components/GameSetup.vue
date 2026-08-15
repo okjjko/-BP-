@@ -295,7 +295,6 @@ const handleRoomStart = async (data) => {
     startGame()
 
     // 调试：检查 globalBans 是否已生成
-    console.log('[GameSetup] startGame() 调用完成，roomMode:', connStore.roomMode, 'globalBans:', store.globalBans)
 
     // 广播自定义植物配置到所有已连接的客户端
     const allPlants = getAllPlantsSync()
@@ -315,11 +314,6 @@ const handleRoomStart = async (data) => {
       roomManager.broadcastCustomPlants({
         plants: plantsToBroadcast,
         hiddenBuiltinPlants: hiddenBuiltinPlants
-      })
-
-      console.log('[GameSetup] 已广播植物配置:', {
-        customPlants: plantsToBroadcast.length,
-        hiddenBuiltin: hiddenBuiltinPlants.length
       })
     }
 

@@ -90,7 +90,7 @@ Vue 3 + Pinia 应用，管理 PvZ 改版 BP 对战，处理动态选手-道路�
 
 **状态层**
 
-- `src/stores/gameStore.js` — 核心 Pinia store：getters（`road2Player`/`road4Player`/`sideName`/`availablePlants`/`isPumpkinPlant`/`isRuleEditable`）、actions（`initGame`/`startRound`/`confirmSelection`/`undoLastAction`/`drawRandomGlobalBan`/`applyNextRoundSideSelection`/`applyRuleConfig`）、localStorage 持久化、多人同步接口（`getSyncPayload`/`applySyncState`）、数据迁移
+- `src/stores/gameStore.js` — 核心 Pinia store：getters（`road2Player`/`road4Player`/`sideName`/`availablePlants`/`isPumpkinPlant`/`isRuleEditable`）、actions（`initGame`/`startRound`/`confirmSelection`/`undoLastAction`/`drawRandomGlobalBan`/`skipBanStep`/`resetCurrentRound`/`applyNextRoundSideSelection`/`applyRuleConfig`）、localStorage 持久化、多人同步接口（`getSyncPayload`/`applySyncState`）、数据迁移
 - `src/stores/connectionStore.js` — 多人连接/身份/回合判定（`isMyTurn`/`isViewOnly`/`rederiveMyIdentity`/`handleRoster`/`assignPlayerIdentityOnInit`）、多人会话保存/加载/清理（24h 过期）
 - `src/stores/uiStore.js` — 飞行动效等 UI 状态
 
@@ -249,6 +249,8 @@ BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁�
 - ✅ 南瓜头特殊规则（可开关）
 - ✅ 阵营名称 / 选边方式 / BP 顺序模板 / 使用上限 / 随机禁用数量 自定义（集中 `ruleConfig`）
 - ✅ 通用撤销栈（`lastActor` 权限模型）
+- ✅ 空 ban（`skipBanStep`：仅 ban 步、仅回合方，消耗步骤不禁任何植物，可撤销）
+- ✅ 重置本小局（`resetCurrentRound`：仅裁判，清本局回起点；比分/历史使用/已抽永久禁用保留，UI ConfirmDialog 二次确认）
 - ✅ 多人对战：中心化 ws、三角色、断线重连身份自愈、公共房间目录、host 兼选手
 - ✅ ban/pick 飞行动效、Toast/Confirm 系统、移动端/桌面端响应式
 

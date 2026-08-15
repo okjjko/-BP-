@@ -38,6 +38,17 @@
       >
         {{ turnText || '确认' }}
       </BaseButton>
+
+      <!-- 空 ban：跳过本禁用步（仅 ban 步、仅回合方） -->
+      <BaseButton
+        v-if="isBan"
+        variant="ghost"
+        :size="btnSize"
+        :disabled="!hasBPPermission"
+        @click="skipBan"
+      >
+        跳过禁用
+      </BaseButton>
     </div>
 
     <!-- 植物网格 - 自适应填充剩余空间 -->
@@ -100,6 +111,7 @@ import { useConnectionStore } from '@/stores/connectionStore'
 import { getPlantByIdSync, getPlantImage } from '@/data/customPlants'
 import { canBan, canPick } from '@/utils/validators'
 import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
 import { useIsMobile } from '@/composables/useBreakpoint.js'
 import { usePlantFlight } from '@/composables/usePlantFlight'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -107,6 +119,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 const store = useGameStore()
 const connStore = useConnectionStore()
 const toast = useToast()
+const { confirm } = useConfirm()
 const { flyToResult } = usePlantFlight()
 
 // 响应式：手机端按钮 sm / 桌面端 md（BaseButton 的 size 是 prop，需在 JS 侧按断点切换）
@@ -235,6 +248,27 @@ const confirmSelection = () => {
     })
   }
   store.confirmSelection()
+}
+
+// 空 ban：消耗 ban 步但不禁用任何植物（TODO §3.3）。不可逆入口需确认（无飞行目标，无动效）
+const skipBan = async () => {
+  if (isBan.value && hasBPPermission.value) {
+    const ok = await confirm({
+      title: '跳过禁用',
+      message: '确定跳过本次禁用吗？该步骤将被消耗，本小局不会再回到这一步。',
+      confirmText: '跳过',
+      variant: 'primary',
+    })
+    if (!ok) return
+  }
+  const r = store.skipBanStep()
+  if (!r.ok) {
+    if (r.reason === 'not-your-turn') toast.warning('现在不是你的回合')
+    else if (r.reason === 'wrong-action') toast.warning('仅禁用步骤可以跳过')
+    // wrong-phase 由 UI 隐藏兜底
+    return
+  }
+  toast.info('已跳过本次禁用')
 }
 
 // 监听双方 bans/picks 变化：对比找出新增项，标记为「刚操作」，

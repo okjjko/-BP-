@@ -117,6 +117,16 @@
         <template #icon><Dices :size="iconSize" /></template>
         抽取永禁
       </BaseButton>
+      <!-- 重置本小局（仅裁判/host；BP/站位阶段；清本局不动比分与已抽取的永久禁用） -->
+      <BaseButton
+        v-if="(gameStatus === 'banning' || gameStatus === 'positioning') && canResetRound"
+        variant="secondary"
+        :size="btnSize"
+        @click="resetCurrentRound"
+      >
+        <template #icon><RotateCw :size="iconSize" /></template>
+        重置本小局
+      </BaseButton>
       <!-- 通用撤销：裁判随时可撤；选手可撤自己刚做的操作；BP 流程进行中且有可撤销步骤时显示 -->
       <BaseButton
         v-if="gameStatus === 'banning' && canUndo"
@@ -179,7 +189,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Swords, RotateCcw, Dices, Undo2, History } from 'lucide-vue-next'
+import { Swords, RotateCcw, Dices, Undo2, History, RotateCw } from 'lucide-vue-next'
 import { useGameStore } from '@/stores/gameStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useConfirm } from '@/composables/useConfirm'
@@ -216,6 +226,10 @@ const showHistory = ref(false)
 
 // 局内抽取永禁：仅裁判/host 可操作（单机 local 谁都能点）
 const canDrawGlobalBan = computed(() =>
+  connStore.roomMode === 'local' || connStore.myRole === 'host'
+)
+// 重置本小局：同裁判权限（涉及重抽自动步骤，遵循权威方单点）
+const canResetRound = computed(() =>
   connStore.roomMode === 'local' || connStore.myRole === 'host'
 )
 // 通用撤销权限：观众不可；裁判(local/host)永可；选手仅当 lastActor===自己（撤销自己刚做的操作）
@@ -273,6 +287,23 @@ const isPlantCacheReady = computed(() => {
 const finishRound = () => {
   store.finishRound()
   router.push({ name: 'result' })
+}
+
+// 重置本小局：清本局回到起点（比分/历史使用/已抽永久禁用保留），需二次确认
+const resetCurrentRound = async () => {
+  const ok = await confirm({
+    title: '重置本小局',
+    message: '本小局的禁用/选择/站位将被清空并回到本局起点。大局比分、历史使用次数与本局已抽取的永久禁用不受影响。',
+    confirmText: '重置',
+    variant: 'danger',
+  })
+  if (!ok) return
+  const r = store.resetCurrentRound()
+  if (!r.ok) {
+    if (r.reason === 'not-allowed') useToast().warning('仅裁判可以重置本小局')
+    return
+  }
+  useToast().info(`已重置第 ${store.currentRound.roundNumber} 小局`)
 }
 
 const { confirm } = useConfirm()

@@ -26,7 +26,6 @@ export const initializeCache = async () => {
   if (!isCacheLoaded) {
     customPlantsCache = await loadCustomPlants()
     isCacheLoaded = true
-    console.log(`自定义植物缓存已加载，共 ${customPlantsCache.length} 个植物`)
   }
 }
 
@@ -38,7 +37,6 @@ export const updateCache = async () => {
   // 重新加载缓存以立即反映更改
   customPlantsCache = await loadCustomPlants()
   isCacheLoaded = true
-  console.log(`缓存已更新，共 ${customPlantsCache.length} 个自定义植物`)
 }
 
 /**
@@ -60,7 +58,6 @@ export const hideBuiltinPlant = (plantId) => {
   if (!hidden.includes(plantId)) {
     hidden.push(plantId)
     localStorage.setItem(HIDDEN_PLANTS_KEY, JSON.stringify(hidden))
-    console.log(`已隐藏内置植物: ${plantId}`)
     return true
   }
   return false
@@ -77,7 +74,6 @@ export const unhideBuiltinPlant = (plantId) => {
   if (index > -1) {
     hidden.splice(index, 1)
     localStorage.setItem(HIDDEN_PLANTS_KEY, JSON.stringify(hidden))
-    console.log(`已恢复内置植物: ${plantId}`)
     return true
   }
   return false
@@ -88,7 +84,6 @@ export const unhideBuiltinPlant = (plantId) => {
  */
 export const unhideAllBuiltinPlants = () => {
   localStorage.removeItem(HIDDEN_PLANTS_KEY)
-  console.log('已恢复所有内置植物')
 }
 
 /**
@@ -255,7 +250,6 @@ export const openDB = () => {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' })
         // 创建索引以便快速查询
         store.createIndex('createdAt', 'createdAt', { unique: false })
-        console.log('IndexedDB对象存储创建成功')
       }
     }
   })

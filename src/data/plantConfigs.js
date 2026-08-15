@@ -44,7 +44,6 @@ export async function ensureDefaultPreset() {
   if (!data.configs.some(c => c.id === DEFAULT_CONFIG_ID)) {
     data.configs.unshift(createDefaultConfig())
     saveConfigsData(data)
-    console.log('[plantConfigs] 已注入默认预设')
   }
 }
 
@@ -65,7 +64,6 @@ export async function duplicateConfig(configId) {
   copy.updatedAt = new Date().toISOString()
   data.configs.push(copy)
   saveConfigsData(data)
-  console.log('[plantConfigs] 已复制预设:', copy.name)
   return copy
 }
 
@@ -189,7 +187,6 @@ export async function saveConfig(name, description, ruleConfig = null) {
 
     saveConfigsData(data)
 
-    console.log('[plantConfigs] 已保存配置:', config.name)
     return config
   } catch (error) {
     console.error('保存配置失败:', error)
@@ -214,7 +211,6 @@ export async function loadConfig(configId) {
     for (const plant of existingPlants) {
       await deleteCustomPlant(plant.id)
     }
-    console.log(`[plantConfigs] 已清空 ${existingPlants.length} 个现有植物`)
 
     // 3. 清空隐藏的内置植物设置
     localStorage.removeItem('hiddenBuiltinPlants')
@@ -230,12 +226,10 @@ export async function loadConfig(configId) {
         imageType: imageBlob.type
       })
     }
-    console.log(`[plantConfigs] 已加载 ${config.plants.length} 个植物`)
 
     // 5. 恢复隐藏的内置植物设置
     if (config.hiddenBuiltinPlants.length > 0) {
       localStorage.setItem('hiddenBuiltinPlants', JSON.stringify(config.hiddenBuiltinPlants))
-      console.log(`[plantConfigs] 已恢复 ${config.hiddenBuiltinPlants.length} 个隐藏的内置植物`)
     }
 
     // 6. 设置为活动配置
@@ -275,7 +269,6 @@ export async function deleteConfig(configId) {
     }
 
     saveConfigsData(data)
-    console.log('[plantConfigs] 已删除配置:', configId)
     return true
   } catch (error) {
     console.error('删除配置失败:', error)
@@ -306,7 +299,6 @@ export async function renameConfig(configId, newName) {
     config.updatedAt = new Date().toISOString()
 
     saveConfigsData(data)
-    console.log('[plantConfigs] 已重命名配置:', config.name)
     return config
   } catch (error) {
     console.error('重命名配置失败:', error)
@@ -333,7 +325,6 @@ export async function updateConfigRuleConfig(configId, ruleConfig) {
     config.ruleConfig = ruleConfig ? JSON.parse(JSON.stringify(ruleConfig)) : null
     config.updatedAt = new Date().toISOString()
     saveConfigsData(data)
-    console.log('[plantConfigs] 已更新配置 ruleConfig:', config.name)
     return config
   } catch (error) {
     console.error('更新配置 ruleConfig 失败:', error)
@@ -364,7 +355,6 @@ export async function updateConfigPlants(configId, plants, hiddenBuiltinPlants) 
       : (config.hiddenBuiltinPlants || [])
     config.updatedAt = new Date().toISOString()
     saveConfigsData(data)
-    console.log('[plantConfigs] 已更新配置 plants/hidden:', config.name)
     return config
   } catch (error) {
     console.error('更新配置 plants 失败:', error)
@@ -387,7 +377,6 @@ export async function setActiveConfig(configId) {
 
     data.activeConfigId = configId
     saveConfigsData(data)
-    console.log('[plantConfigs] 已设置活动配置:', config.name)
     return config
   } catch (error) {
     console.error('设置活动配置失败:', error)
@@ -422,7 +411,6 @@ export async function exportConfig(configId) {
     a.click()
 
     URL.revokeObjectURL(url)
-    console.log('[plantConfigs] 已导出配置:', config.name)
     return true
   } catch (error) {
     console.error('导出配置失败:', error)
@@ -470,7 +458,6 @@ export async function importConfig(importedData) {
     }
 
     saveConfigsData(data)
-    console.log('[plantConfigs] 已导入配置:', newConfig.name)
     return newConfig
   } catch (error) {
     console.error('导入配置失败:', error)

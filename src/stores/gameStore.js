@@ -562,6 +562,50 @@ export const useGameStore = defineStore('game', {
     },
 
     /**
+     * 空 ban（跳过禁用）：消耗当前 ban 步但不禁用任何植物。
+     * 仅 ban 步允许（pick 步不可空选）；权限走标准回合制（isMyTurn）。
+     * 压撤销快照，lastActor=当前选手——对手/裁判可撤回该空 ban 让其重选。
+     * @returns {{ ok:boolean, reason?:string }} ok=false: 'not-your-turn' | 'wrong-action' | 'wrong-phase'
+     */
+    skipBanStep() {
+      const connStore = useConnectionStore()
+      if (!connStore.isMyTurn) return { ok: false, reason: 'not-your-turn' }
+      if (this.gameStatus !== 'banning') return { ok: false, reason: 'wrong-phase' }
+      if (this.currentRound.action !== 'ban') return { ok: false, reason: 'wrong-action' }
+
+      this._pushUndoSnapshot()
+      this.lastActor = this.currentRound.currentPlayer
+      this.currentRound.selectedPlant = null
+      this.moveToNextStep()
+      this.saveToLocalStorage()
+      connStore.syncState()
+      return { ok: true }
+    },
+
+    /**
+     * 重置本小局：清空本局 ban/pick/站位回到本局起点（重新生成 BP 序列、重抽自动步骤），
+     * 不影响大局比分、历史 plantUsage、跨小局 globalBans（对局内已抽取的永久禁用保留——
+     * 与「重置游戏」的根本区别）。
+     *
+     * 权限：仅裁判（local/host）——涉及重新随机（_processAutoSteps 重抽 globalBan），
+     * 遵循权威方单点原则；选手/观众拒绝。UI 层用 ConfirmDialog 二次确认。
+     * @returns {{ ok:boolean, reason?:string }} ok=false: 'not-allowed' | 'wrong-phase'
+     */
+    resetCurrentRound() {
+      const connStore = useConnectionStore()
+      const isAuthority = connStore.roomMode === 'local' || connStore.myRole === 'host'
+      if (!isAuthority) return { ok: false, reason: 'not-allowed' }
+      if (this.gameStatus !== 'banning' && this.gameStatus !== 'positioning') {
+        return { ok: false, reason: 'wrong-phase' }
+      }
+
+      this.startRound(this.currentRound.roundNumber)
+      this.saveToLocalStorage()
+      connStore.syncState()
+      return { ok: true }
+    },
+
+    /**
      * 通用撤销：弹出最近一个操作前快照，整体恢复状态。
      *
      * 权限：观众拒绝；裁判（local/host）永真；选手仅当 lastActor===myAssignedPlayer
@@ -583,6 +627,7 @@ export const useGameStore = defineStore('game', {
       }
       if (this.gameStatus !== 'banning') return { ok: false, reason: 'wrong-phase' }
       if (this.undoStack.length === 0) return { ok: false, reason: 'empty' }
+
 
       // 记录撤销前状态，供 _describeUndone 解析「撤了什么」
       const before = {
@@ -619,6 +664,10 @@ export const useGameStore = defineStore('game', {
 
     /**
      * 构造操作前快照（仅含会被可撤销操作修改的字段；深拷贝避开响应式代理与后续 mutation）。
+     *
+     * 深拷贝刻意用 JSON 序列化而非 structuredClone：Pinia state 是响应式 Proxy，
+     * structuredClone(proxy) 会抛 DataCloneError；且快照本就要经过 ws JSON 序列化边界，
+     * JSON 拷贝即最终形态（本项目数据皆纯 JSON，无 Date/Map/Symbol）。勿"优化"此处。
      */
     _buildUndoSnapshot() {
       return {

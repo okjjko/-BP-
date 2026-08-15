@@ -584,7 +584,6 @@ const createRoom = async () => {
   try {
     const code = await roomManager.createRoom(participateName)
     inviteCode.value = code
-    console.log('房间已创建，邀请码:', code)
 
     // 关键修复：主办方也需要设置 roomMode，否则 startStateSync() 会认为这是本地模式
     connStore.setRoomMode('host', code)
@@ -604,7 +603,6 @@ const createRoom = async () => {
         const res = await lobbyApi.registerRoom(code, hostName.value.trim())
         hostSecret.value = res.hostSecret
         startLobbyHeartbeat(code, res.hostSecret)
-        console.log('[lobby] 已登记公开房间', code)
       } catch (e) {
         // 登记失败：房间退化为私密，仍可用邀请码，不阻断
         console.warn('[lobby] 公开登记失败，房间退化为私密:', e)
@@ -711,7 +709,6 @@ const joinRoom = async () => {
     // 开始状态同步，这样才能接收游戏开始消息
     connStore.startStateSync()
 
-    console.log('已加入房间，roomMode 已设置为:', connStore.roomMode)
   } catch (error) {
     console.error('加入房间失败:', error)
     joinError.value = error.message || '加入房间失败，请检查邀请码是否正确'
@@ -893,7 +890,6 @@ const getSessionTime = (timestamp) => {
 const checkReconnectSession = () => {
   const session = connStore.loadMultiplayerSession()
   if (session && session.roomMode && session.roomMode !== 'local') {
-    console.log('[RoomSetup] 检测到需要重连的会话:', session)
     reconnectSession.value = session
     showReconnectPrompt.value = true
   }
@@ -911,7 +907,6 @@ const performReconnect = async () => {
 
     if (session.myRole === 'host') {
       // 主办方：重新创建房间
-      console.log('[RoomSetup] 主办方重连，创建新房间...')
       // 恢复"公开房间"状态：createRoom 会用新 inviteCode + 原 hostName 重新登记到 lobby
       isPublicRoom.value = !!session.wasPublicRoom
       hostName.value = session.hostName || ''
@@ -921,7 +916,6 @@ const performReconnect = async () => {
 
       // 房间创建成功后，恢复游戏状态
       if (store.loadFromLocalStorage()) {
-        console.log('[RoomSetup] 游戏状态已恢复')
         // 重建选手 host 身份（createRoom→setMyIdentity 已重置 myAssignedPlayer=null，
         // 复用 d767172 统一自愈：选手 host→player1，纯裁判→null）
         connStore.rederiveMyIdentity()
@@ -934,7 +928,6 @@ const performReconnect = async () => {
       }
     } else {
       // 选手/观众：重新加入房间
-      console.log('[RoomSetup] 选手/观众重连，加入房间...')
       mode.value = 'multiplayer'
       role.value = session.myRole
       inputInviteCode.value = session.inviteCode
@@ -944,7 +937,6 @@ const performReconnect = async () => {
 
       // 重连成功后，恢复游戏状态
       if (isConnected.value && store.loadFromLocalStorage()) {
-        console.log('[RoomSetup] 游戏状态已恢复')
         // 恢复选手身份：joinRoom 的 setMyIdentity 会把 myAssignedPlayer 重置为 null，
         // 此处从已恢复的 player1/player2.id 本地重推导（见 connectionStore.rederiveMyIdentity）
         connStore.rederiveMyIdentity()
@@ -968,7 +960,6 @@ const performReconnect = async () => {
 
 // 取消重连，开始新对局
 const cancelReconnect = () => {
-  console.log('[RoomSetup] 取消重连，清除旧会话')
   connStore.clearMultiplayerSession()
   showReconnectPrompt.value = false
   reconnectSession.value = null
@@ -982,12 +973,10 @@ const updateConnectedUsers = () => {
 
 // 定义事件处理函数（保存引用以便正确清理）
 const handleUserJoined = ({ peerId, role }) => {
-  console.log('用户加入:', peerId, role)
   updateConnectedUsers()
 }
 
 const handleUserLeft = ({ peerId }) => {
-  console.log('用户离开:', peerId)
   updateConnectedUsers()
 }
 
@@ -996,17 +985,14 @@ const handleConnected = () => {
 }
 
 const handleGameStart = (data) => {
-  console.log('[RoomSetup] 收到游戏开始消息:', data)
   const { player1Name, player2Name, player1Road, player2Road, globalBans, hiddenBuiltinPlants } = data
 
   // 新增：在游戏开始前先同步隐藏植物设置
   if (hiddenBuiltinPlants && Array.isArray(hiddenBuiltinPlants)) {
     localStorage.setItem('hiddenBuiltinPlants', JSON.stringify(hiddenBuiltinPlants))
-    console.log('[RoomSetup] 已同步主办方的隐藏植物设置:', hiddenBuiltinPlants.length, '个')
   } else {
     // 如果主办方没有隐藏植物，清除选手端的本地设置
     localStorage.removeItem('hiddenBuiltinPlants')
-    console.log('[RoomSetup] 主办方没有隐藏植物，已清除本地设置')
   }
 
   // 1. 先保存 globalBans（因为 initGame 会清空它）
@@ -1024,7 +1010,6 @@ const handleGameStart = (data) => {
   // 3. 恢复 globalBans
   if (savedGlobalBans.length > 0) {
     store.globalBans = [...savedGlobalBans]
-    console.log('[RoomSetup] 已恢复永久禁用植物:', savedGlobalBans.length, '个')
   }
 
   // 选手端不需要调用 syncState()，会通过 handleStateUpdate() 接收主办方的状态
@@ -1045,7 +1030,6 @@ const handleError = ({ type, error }) => {
 }
 
 const handleConnectionStatus = ({ status, message }) => {
-  console.log('连接状态变化:', status, message)
   connectionStatus.value = status
   connectionMessage.value = message
 
@@ -1071,7 +1055,6 @@ const handleRejoinOnState = (message) => {
   if (role.value !== 'player' && role.value !== 'spectator') return
   const gs = message?.gameState
   if (!gs || gs.gameStatus === 'setup') return
-  console.log('[RoomSetup] 重新加入：收到对局中状态，自动进入对局')
   emit('startGame', {
     mode: 'multiplayer',
     role: connStore.myRole,
