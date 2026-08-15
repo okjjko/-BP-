@@ -252,7 +252,7 @@ BP 流程内所有用户操作（ban / pick / 南瓜 pick / 手动抽取永禁�
 - ✅ 阵营名称 / 选边方式 / BP 顺序模板 / 使用上限 / 随机禁用数量 自定义（集中 `ruleConfig`）
 - ✅ 通用撤销栈（`lastActor` 权限模型）
 - ✅ 空 ban（`skipBanStep`：仅 ban 步、仅回合方，消耗步骤不禁任何植物，可撤销）
-- ✅ 重置本小局（`resetCurrentRound`：仅裁判，清本局回起点；比分/历史使用/已抽永久禁用保留，UI ConfirmDialog 二次确认）
+- ✅ 重置本小局（`resetCurrentRound`：仅裁判，清本局回起点；比分/历史 plantUsage 保留；**本小局新增的 globalBans（预设步骤自动抽取/局内手动抽取）与 pumpkinUsage 一并回退到 `roundBaseline` 基线并重抽**——基线由 `startRound` 在 `_processAutoSteps` 之前记录，旧存档无则降级不回退，UI ConfirmDialog 二次确认）
 - ✅ 每步思考倒计时（`ruleConfig.timer`，默认关）：权威方（local/host）单点跑定时器，超时从可选池**排除南瓜**后随机 ban/pick（可撤销，`lastActor`=当前选手）；池空则 ban 步按空 ban 跳过；`stepStartedAt` 随 `getSyncPayload` 同步、其余端纯显示（StageIndicator 内嵌倒计时，<10s 变红）；globalBan 自动步与南瓜 extraPick pending 不计时
 - ✅ 多人对战：中心化 ws、三角色、断线重连身份自愈、公共房间目录、host 兼选手
 - ✅ ban/pick 飞行动效、Toast/Confirm 系统、移动端/桌面端响应式

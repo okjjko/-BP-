@@ -278,11 +278,11 @@ const finishRound = () => {
   router.push({ name: 'result' })
 }
 
-// 重置本小局：清本局回到起点（比分/历史使用/已抽永久禁用保留），需二次确认
+// 重置本小局：清本局回到起点（本小局新增的永久禁用/南瓜用量回退重抽；比分与历史使用保留），需二次确认
 const resetCurrentRound = async () => {
   const ok = await confirm({
     title: '重置本小局',
-    message: '本小局的禁用/选择/站位将被清空并回到本局起点。大局比分、历史使用次数与本局已抽取的永久禁用不受影响。',
+    message: '本小局的禁用/选择/站位将被清空并回到本局起点；本小局内新增的永久禁用与南瓜用量将一并回退重抽。大局比分与历史使用次数不受影响。',
     confirmText: '重置',
     variant: 'danger',
   })

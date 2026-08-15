@@ -59,6 +59,14 @@ export const useGameStore = defineStore('game', {
     // 用于精确判定选手撤销权（选手仅能撤销自己刚做的操作）；见 undoLastAction。
     lastActor: null,
 
+    // 本小局起点的跨小局字段基线：{ globalBans: [], pumpkinUsage: {} }。
+    // startRound 在 _processAutoSteps（本小局 globalBan 自动抽取）之前记录；
+    // resetCurrentRound 先恢复到此基线再重建小局——本小局内新增的永久禁用
+    // （预设步骤自动抽取 / 局内手动抽取）与南瓜用量随之回退并重抽，而开局
+    // 随机禁用与之前小局累积的保留。globalBans 无序，无法从当前状态反推
+    // 归属，故显式记基线。持久化+随状态同步（旧存档/旧 payload 无则 null 降级）。
+    roundBaseline: null,
+
     // 游戏状态
     gameStatus: 'setup',
     roundWinner: null,
@@ -283,6 +291,12 @@ export const useGameStore = defineStore('game', {
 
       this.updateCurrentStep()
       this.gameStatus = 'banning'
+      // 记录本小局起点基线（须在 _processAutoSteps 抽取本小局 globalBan 之前），
+      // 供 resetCurrentRound 回退本小局内新增的永久禁用/南瓜用量
+      this.roundBaseline = {
+        globalBans: [...this.globalBans],
+        pumpkinUsage: { ...this.pumpkinUsage }
+      }
       // 首步可能是 globalBan（自动步骤），由权威方抽取并推进
       this._processAutoSteps()
     },
@@ -674,8 +688,12 @@ export const useGameStore = defineStore('game', {
 
     /**
      * 重置本小局：清空本局 ban/pick/站位回到本局起点（重新生成 BP 序列、重抽自动步骤），
-     * 不影响大局比分、历史 plantUsage、跨小局 globalBans（对局内已抽取的永久禁用保留——
-     * 与「重置游戏」的根本区别）。
+     * 不影响大局比分与历史 plantUsage（跨小局字段）。
+     *
+     * 本小局内新增的永久禁用（globalBan 预设步骤自动抽取 / 局内手动抽取）与南瓜用量
+     * （pumpkinUsage，pick 南瓜即时累加的跨小局字段）一并回退到小局起点基线再重抽——
+     * 开局随机禁用与之前小局累积的保留（基线见 startRound 的 roundBaseline）。
+     * 旧存档无基线时降级为不回退这两个字段（保持重置前行为）。
      *
      * 权限：仅裁判（local/host）——涉及重新随机（_processAutoSteps 重抽 globalBan），
      * 遵循权威方单点原则；选手/观众拒绝。UI 层用 ConfirmDialog 二次确认。
@@ -689,6 +707,11 @@ export const useGameStore = defineStore('game', {
         return { ok: false, reason: 'wrong-phase' }
       }
 
+      // 先回退本小局新增的跨小局字段，再重建小局（startRound 会重记基线并重抽自动步骤）
+      if (this.roundBaseline) {
+        this.globalBans = [...this.roundBaseline.globalBans]
+        this.pumpkinUsage = { ...this.roundBaseline.pumpkinUsage }
+      }
       this.startRound(this.currentRound.roundNumber)
       this.saveToLocalStorage()
       connStore.syncState()
@@ -919,6 +942,7 @@ export const useGameStore = defineStore('game', {
         lastManualGlobalBan: this.lastManualGlobalBan,
         undoStack: this.undoStack,
         lastActor: this.lastActor,
+        roundBaseline: this.roundBaseline,
         currentRound: this.currentRound,
         gameStatus: this.gameStatus,
         firstPlayer: this.firstPlayer,
@@ -942,6 +966,7 @@ export const useGameStore = defineStore('game', {
           this.lastManualGlobalBan = state.lastManualGlobalBan || null
           this.undoStack = Array.isArray(state.undoStack) ? state.undoStack : []
           this.lastActor = state.lastActor ?? null
+          this.roundBaseline = state.roundBaseline ?? null
           this.currentRound = state.currentRound
           this.gameStatus = state.gameStatus
           this.firstPlayer = state.firstPlayer || null
@@ -1054,6 +1079,7 @@ export const useGameStore = defineStore('game', {
       this.lastManualGlobalBan = gameState.lastManualGlobalBan || null
       this.undoStack = Array.isArray(gameState.undoStack) ? gameState.undoStack : []
       this.lastActor = gameState.lastActor ?? null
+      this.roundBaseline = gameState.roundBaseline ?? null
       this.gameStatus = gameState.gameStatus
       this.roundWinner = gameState.roundWinner
       this.winThreshold = gameState.winThreshold || 4
@@ -1075,6 +1101,7 @@ export const useGameStore = defineStore('game', {
         lastManualGlobalBan: this.lastManualGlobalBan,
         undoStack: this.undoStack,
         lastActor: this.lastActor,
+        roundBaseline: this.roundBaseline,
         gameStatus: this.gameStatus,
         roundWinner: this.roundWinner,
         winThreshold: this.winThreshold,

@@ -111,13 +111,14 @@ describe('resetCurrentRound（重置本小局）', () => {
     return { store, conn }
   }
 
-  it('裁判：清本局 ban/pick 回起点，保留比分与已抽永久禁用', () => {
+  it('裁判：清本局 ban/pick 回起点，保留比分；本小局新增永久禁用回退到起点基线', () => {
     const { store } = setupWithProgress()
     expect(store.currentRound.bans.player1.length).toBe(1)
 
-    // 造一点「对局内已抽取的永久禁用」与比分，验证保留
+    // 开局随机禁用已在基线内；再模拟「本小局内手动抽取的永久禁用」与比分
     store.globalBans = ['peashooter']
     store.player1.score = 2
+    const baselineBans = [...store.roundBaseline.globalBans]
 
     const r = store.resetCurrentRound()
     expect(r.ok).toBe(true)
@@ -128,9 +129,42 @@ describe('resetCurrentRound（重置本小局）', () => {
     expect(store.gameStatus).toBe('banning')
     // 保留项
     expect(store.player1.score).toBe(2)
-    expect(store.globalBans).toEqual(['peashooter'])
+    // 本小局手动抽的 'peashooter' 已回退（globalBans 回到小局起点基线）
+    expect(store.globalBans).toEqual(baselineBans)
+    expect(store.globalBans).not.toContain('peashooter')
     // 撤销栈随 startRound 清空
     expect(store.undoStack.length).toBe(0)
+  })
+
+  it('本小局 pick 的南瓜用量回退（跨小局 pumpkinUsage 回起点基线）', () => {
+    const { store } = setupWithProgress()
+    // 模拟本小局内选过一次南瓜（pick 南瓜即时累加跨小局计数）
+    store.pumpkinUsage.player1 = 1
+    expect(store.roundBaseline.pumpkinUsage.player1).toBe(0)
+
+    expect(store.resetCurrentRound().ok).toBe(true)
+    expect(store.pumpkinUsage.player1).toBe(0)
+  })
+
+  it('BP 流程含 globalBan 预设步骤时：重置后自动步骤重抽（globalBans 数量回到步骤定义）', () => {
+    const { store } = setupWithProgress()
+    // 在模板首步前插入一个 globalBan 步骤（player:'system'）
+    store.ruleConfig.bpSequence = [
+      [{ player: 'system', action: 'globalBan', count: 2 }],
+      ...store.ruleConfig.bpSequence
+    ]
+    store.resetCurrentRound()
+    // 首步 globalBan 由权威方自动抽取 2 个并入 globalBans
+    expect(store.currentRound.action).not.toBe('globalBan')
+    expect(store.globalBans.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('旧存档无 roundBaseline（null）时降级：不回退 globalBans（保持重置前行为）', () => {
+    const { store } = setupWithProgress()
+    store.globalBans = ['peashooter']
+    store.roundBaseline = null
+    expect(store.resetCurrentRound().ok).toBe(true)
+    expect(store.globalBans).toEqual(['peashooter'])
   })
 
   it('选手/观众端：拒绝（not-allowed）', () => {
