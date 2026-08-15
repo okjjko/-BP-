@@ -1,6 +1,6 @@
 {
   "name": "bp-plant-war",
-  "version": "3.2.4",
+  "version": "3.2.5",
   "description": "植物大战僵尸BP对战辅助工具",
   "type": "module",
   "scripts": {

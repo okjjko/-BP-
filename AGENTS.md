@@ -185,7 +185,7 @@ host 可兼任其中一名选手，host + 1 名远端选手即可开局（向后
 
 - **静态文件路径必须先 `decodeURIComponent`**：`URL.pathname` 保留 percent 编码，中文文件名（如 `/plants/胆.png` 被编码成 `%E8%83%86.png`）若不解码，`fs.stat` 按字面量找文件 → 中文资源全 404（nginx 直托时自动解码未暴露，改 Node 托管后须在 createServer 入口显式解码）。
 - webhook 密钥取 `WEBHOOK_SECRET` 环境变量（**勿加 `VITE_` 前缀**，否则打进前端 bundle 泄露）。
-- host 断开当前简化为整房清理（无 host 迁移）。
+- host 断开当前简化为整房清理（无 host 迁移）。成员端由 `App.vue` **全局**监听 `connectionStatus: host-left` 弹单按钮告知框（RoomSetup 的连接监听只覆盖其挂载期，对局中 BanPickView 无人处理）；确认后 `roomManager.disconnect()`（停对已删房间的徒劳重连）+ `clearMultiplayerSession()`（清 24h 死会话，防刷新后被引导重连），但不改 roomMode/身份，维持选手端只读态。
 
 ---
 

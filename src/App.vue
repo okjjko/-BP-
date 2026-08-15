@@ -41,23 +41,51 @@
       <!-- 全局反馈层：Toast 与 Confirm -->
       <ToastContainer />
       <ConfirmDialog />
+
+      <!-- 房主断开全局告知：房间被服务器整房清理（含对局中，BanPickView 无连接监听，
+           故挂全局）。确认后停掉对已死房间的自动重连并清理会话，避免刷新后被引导重连。 -->
+      <BaseDialog
+        :model-value="hostLeftOpen"
+        title="房主已断开"
+        :closable="false"
+        :close-on-backdrop="false"
+        panel-class="sm:max-w-md"
+        aria-label="房主已断开，房间已关闭"
+        @update:model-value="onHostLeftDialog"
+      >
+        <p class="text-slate-300 leading-relaxed">
+          房主与服务器的连接已断开，房间已被关闭，当前对局的实时同步中止。
+        </p>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          对局进度保存在房主本地、不会丢失。房主恢复后会创建新房间并产生新邀请码，
+          请通过群聊等渠道获取后重新加入；期间可保持本页查看当前局面。
+        </p>
+        <template #footer>
+          <BaseButton variant="primary" @click="onHostLeftDialog(false)">我知道了</BaseButton>
+        </template>
+      </BaseDialog>
     </main>
   </div>
 </template>
 
 <script setup>
-import { onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/gameStore'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { useUIStore } from '@/stores/uiStore'
 import { initializeCache } from '@/data/customPlants'
 import PlantManager from '@/components/PlantManager/index.vue'
 import BPRulesDialog from '@/components/RulesEditor/BPRulesDialog.vue'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
+import BaseDialog from '@/components/ui/BaseDialog.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import roomManager from '@/utils/roomManager'
 import { APP_VERSION, APP_GIT_HASH } from '@/config/buildInfo'
 
 const store = useGameStore()
+const connStore = useConnectionStore()
 const uiStore = useUIStore()
 const router = useRouter()
 
@@ -78,6 +106,38 @@ onMounted(async () => {
 // 监听 gameStatus 变化，自动导航到对应路由
 watch(() => store.gameStatus, (newStatus) => {
   navigateToStatus()
+})
+
+// ========== 房主断开全局告知（多人） ==========
+// 服务器在 host 断开时整房清理并给所有成员推 connectionStatus: host-left
+// （server/index.js removeMember）。事件链：roomManager default 分支直接 emit，
+// RoomSetup 只在挂载期间监听，对局中（BanPickView）无人处理 → 必须挂全局。
+const hostLeftOpen = ref(false)
+
+// connectionStatus 事件还携带 'connected'（ws 建立）/ 'heartbeat-lost'（心跳超时）等
+// 状态（RoomSetup 也各自监听），这里只拦截 host-left 这一致命状态。
+function onConnectionStatus(message) {
+  if (message?.status === 'host-left') {
+    hostLeftOpen.value = true
+  }
+}
+
+function onHostLeftDialog(value) {
+  // 单按钮告知框：仅确认一路（BaseDialog 关闭事件也走 false，幂等）
+  if (value) return
+  hostLeftOpen.value = false
+  // 房间已被服务器删除：停掉对旧邀请码的自动重连/心跳/同步，并清掉 24h 会话，
+  // 避免刷新后被引导重连不存在的房间（新邀请码需房主恢复后另行下发）。
+  // 不改 roomMode/身份：维持 isMyTurn=false 的只读态，防止在死房间误操作。
+  roomManager.disconnect()
+  connStore.clearMultiplayerSession()
+}
+
+onMounted(() => {
+  roomManager.on('connectionStatus', onConnectionStatus)
+})
+onBeforeUnmount(() => {
+  roomManager.off('connectionStatus', onConnectionStatus)
 })
 
 function navigateToStatus() {
