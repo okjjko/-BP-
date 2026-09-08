@@ -115,7 +115,7 @@
                 />
                 <!-- 如果重复，显示序号 -->
                 <div v-if="countPlantOccurrences(selectingPlayer, plantId) > 1"
-                     class="absolute -top-1 -left-1 bg-plant-green text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                     class="absolute -top-1 -left-1 bg-plant-green text-black text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
                   {{ index + 1 }}
                 </div>
               </div>

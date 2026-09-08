@@ -30,10 +30,12 @@ const props = defineProps({
   loading: Boolean,
 })
 
+// 底色用 -dark 系：白字对比度 plant-green 2.28 / pick-blue 3.68 / ban-red 3.76 均不达 WCAG AA 4.5:1，
+// 换 dark 系后为 5.0 / 8.8 / 6.5；hover 再深一档保持反馈。focus ring 用亮色（衬深底按钮反而更清晰）。
 const VARIANTS = {
-  primary:   'bg-plant-green hover:bg-plant-green-dark text-white focus-visible:ring-plant-green',
-  blue:      'bg-pick-blue hover:bg-pick-blue-dark text-white focus-visible:ring-pick-blue',
-  danger:    'bg-ban-red hover:bg-ban-red-dark text-white focus-visible:ring-ban-red',
+  primary:   'bg-plant-green-dark hover:bg-green-900 text-white focus-visible:ring-plant-green',
+  blue:      'bg-pick-blue-dark hover:bg-blue-900 text-white focus-visible:ring-pick-blue',
+  danger:    'bg-ban-red-dark hover:bg-red-900 text-white focus-visible:ring-ban-red',
   secondary: 'bg-slate-700 hover:bg-slate-600 text-slate-100 focus-visible:ring-slate-400',
   ghost:     'bg-transparent hover:bg-white/10 text-slate-200 border border-white/15 focus-visible:ring-slate-400',
 }

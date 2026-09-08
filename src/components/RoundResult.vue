@@ -112,7 +112,7 @@
         <p class="text-slate-400 mb-6">下一局道路已自动确定</p>
         <button
           @click="goToNextRound"
-          class="px-10 min-h-[56px] py-4 bg-plant-green hover:bg-plant-green-dark text-white rounded-xl font-bold text-xl shadow-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          class="px-10 min-h-[56px] py-4 bg-plant-green-dark hover:bg-green-900 text-white rounded-xl font-bold text-xl shadow-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           下一小局 →
         </button>
@@ -123,7 +123,7 @@
         <p class="text-slate-300 mb-6 font-mono tracking-widest">大局结束</p>
         <button
           @click="resetGame"
-          class="w-full min-h-[56px] py-4 bg-ban-red hover:bg-ban-red-dark text-white rounded-xl font-bold text-xl shadow-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ban-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          class="w-full min-h-[56px] py-4 bg-ban-red-dark hover:bg-red-900 text-white rounded-xl font-bold text-xl shadow-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ban-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           重新开始
         </button>

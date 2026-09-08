@@ -31,7 +31,7 @@
           <button
             @click="performReconnect"
             :disabled="isReconnecting"
-            class="flex-1 px-6 py-3 bg-plant-green hover:bg-plant-green-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="flex-1 px-6 py-3 bg-plant-green-dark hover:bg-green-900 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Loader2 v-if="isReconnecting" :size="18" class="animate-spin" />
             {{ isReconnecting ? '重连中...' : '重新连接' }}
@@ -62,7 +62,7 @@
         </button>
         <button
           @click="selectMode('multiplayer')"
-          class="mode-btn px-6 py-3 bg-pick-blue hover:bg-pick-blue-dark text-white font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          class="mode-btn px-6 py-3 bg-pick-blue-dark hover:bg-blue-900 text-white font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <Globe :size="18" /> 多人对战
         </button>
@@ -99,7 +99,7 @@
           </button>
           <button
             @click="selectRole('player')"
-            class="role-btn px-6 py-4 bg-plant-green hover:bg-plant-green-dark text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="role-btn px-6 py-4 bg-plant-green-dark hover:bg-green-900 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Gamepad2 :size="24" />
             <div class="text-left">
@@ -177,7 +177,7 @@
           <button
             @click="createPublicRoom"
             :disabled="isCreating || !hostName.trim()"
-            class="w-full px-4 py-2.5 bg-pick-blue/80 hover:bg-pick-blue disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="w-full px-4 py-2.5 bg-pick-blue-dark/90 hover:bg-blue-900 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Globe :size="18" />
             <span>创建公开房间</span>
@@ -253,7 +253,7 @@
           <button
             @click="confirmStart"
             :disabled="connectionStats.total === 0"
-            class="start-btn mt-4 w-full px-6 py-3 bg-plant-green hover:bg-plant-green-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="start-btn mt-4 w-full px-6 py-3 bg-plant-green-dark hover:bg-green-900 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             开始对战 →
           </button>
@@ -331,7 +331,7 @@
           <button
             @click="joinRoom"
             :disabled="!canJoin || isJoining"
-            class="join-btn w-full px-6 py-4 bg-plant-green hover:bg-plant-green-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors mt-4 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="join-btn w-full px-6 py-4 bg-plant-green-dark hover:bg-green-900 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors mt-4 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plant-green focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Loader2 v-if="isJoining" :size="20" class="animate-spin" />
             {{ isJoining ? '连接中...' : '加入房间' }}
@@ -351,7 +351,7 @@
           <!-- 浏览公共房间入口 -->
           <button
             @click="toggleLobbyList"
-            class="w-full px-4 py-2.5 bg-pick-blue/80 hover:bg-pick-blue text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            class="w-full px-4 py-2.5 bg-pick-blue-dark/90 hover:bg-blue-900 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Globe :size="18" />
             <span>{{ showLobbyList ? '收起公共房间列表' : '浏览公共房间' }}</span>

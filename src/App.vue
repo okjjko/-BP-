@@ -1,5 +1,5 @@
 <template>
-  <div id="app" class="min-h-screen text-gray-100 overflow-x-hidden selection:bg-plant-green selection:text-white">
+  <div id="app" class="min-h-screen text-gray-100 overflow-x-hidden selection:bg-plant-green selection:text-black">
     <!-- 无障碍：跳到主内容 -->
     <a
       href="#main-content"

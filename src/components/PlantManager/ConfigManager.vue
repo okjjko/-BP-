@@ -105,7 +105,7 @@
             <template v-if="config.isDefault">
               <button
                 @click="handleDuplicate(config.id)"
-                class="min-h-[40px] px-3 py-1.5 bg-pick-blue hover:bg-pick-blue-hover text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
+                class="min-h-[40px] px-3 py-1.5 bg-pick-blue-dark hover:bg-blue-900 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
               >
                 <Copy :size="14" /> 复制
               </button>
@@ -127,7 +127,7 @@
               </button>
               <button
                 @click="handleEditPreset(config)"
-                class="min-h-[40px] px-3 py-1.5 bg-pick-blue hover:bg-pick-blue-hover text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
+                class="min-h-[40px] px-3 py-1.5 bg-pick-blue-dark hover:bg-blue-900 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
               >
                 <Pencil :size="14" /> 编辑预设
               </button>
