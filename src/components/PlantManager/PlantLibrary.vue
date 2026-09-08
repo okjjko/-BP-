@@ -102,8 +102,8 @@
               @click="createNew"
               class="aspect-square border-2 border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center hover:border-purple-400 hover:bg-purple-400/10 transition-colors group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
             >
-              <Plus :size="48" class="text-gray-500 group-hover:text-purple-400 mb-2" />
-              <span class="text-gray-500 group-hover:text-purple-400">新建植物</span>
+              <Plus :size="48" class="text-gray-400 group-hover:text-purple-400 mb-2" />
+              <span class="text-gray-400 group-hover:text-purple-400">新建植物</span>
             </button>
           </div>
         </div>
@@ -120,7 +120,7 @@
             @save="handleSave"
             @cancel="cancelEdit"
           />
-          <div v-else class="h-full flex items-center justify-center text-gray-500">
+          <div v-else class="h-full flex items-center justify-center text-gray-400">
             <div class="text-center">
               <Sprout :size="64" class="mx-auto mb-4 opacity-50" />
               <p>选择左侧植物进行编辑<br />或点击新建按钮</p>
@@ -157,7 +157,7 @@
     panel-class="max-w-2xl"
     aria-label="回收站"
   >
-    <div v-if="hiddenPlants.length === 0" class="text-center text-gray-500 py-12">
+    <div v-if="hiddenPlants.length === 0" class="text-center text-gray-400 py-12">
       <Trash2 :size="48" class="mx-auto mb-4 opacity-50" />
       <p>回收站为空</p>
     </div>

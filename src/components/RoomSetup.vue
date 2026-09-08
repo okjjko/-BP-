@@ -169,7 +169,7 @@
           <!-- 分隔线 -->
           <div class="lobby-divider flex items-center my-4 gap-3">
             <div class="flex-1 h-px bg-gray-700"></div>
-            <span class="text-gray-500 text-xs">或者</span>
+            <span class="text-gray-400 text-xs">或者</span>
             <div class="flex-1 h-px bg-gray-700"></div>
           </div>
 
@@ -344,7 +344,7 @@
           <!-- 分隔线 -->
           <div class="lobby-divider flex items-center my-4 gap-3">
             <div class="flex-1 h-px bg-gray-700"></div>
-            <span class="text-gray-500 text-xs">或者</span>
+            <span class="text-gray-400 text-xs">或者</span>
             <div class="flex-1 h-px bg-gray-700"></div>
           </div>
 
@@ -364,7 +364,7 @@
               <button
                 @click="refreshLobbyList"
                 :disabled="lobbyLoading"
-                class="text-xs text-pick-blue hover:text-pick-blue-dark disabled:opacity-50 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue rounded py-1.5 px-1"
+                class="text-xs text-pick-blue hover:text-pick-blue-neon disabled:opacity-50 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue rounded py-1.5 px-1"
               >
                 <RefreshCw :size="14" :class="lobbyLoading ? 'animate-spin' : ''" />
                 {{ lobbyLoading ? '刷新中...' : '刷新' }}
@@ -373,7 +373,7 @@
 
             <div v-if="lobbyError" class="error-message">{{ lobbyError }}</div>
 
-            <div v-if="lobbyRooms.length === 0 && !lobbyLoading" class="text-center text-gray-500 text-sm py-4">
+            <div v-if="lobbyRooms.length === 0 && !lobbyLoading" class="text-center text-gray-400 text-sm py-4">
               暂无公开房间
             </div>
 

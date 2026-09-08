@@ -9,7 +9,7 @@
       <!-- 多人对局进行中锁定提示 -->
       <div
         v-if="!isPresetMode && !store.isRuleEditable"
-        class="text-xs text-gray-500 bg-gray-800/40 border border-gray-700/50 rounded-md px-3 py-2 flex items-center gap-2"
+        class="text-xs text-gray-400 bg-gray-800/40 border border-gray-700/50 rounded-md px-3 py-2 flex items-center gap-2"
       >
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -33,7 +33,7 @@
               @input="onMaxUsageInput"
               class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
             />
-            <span class="text-xs text-gray-500">次（1~5）</span>
+            <span class="text-xs text-gray-400">次（1~5）</span>
           </div>
         </div>
       </section>
@@ -43,7 +43,7 @@
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div class="min-w-0">
             <span class="text-xs font-semibold text-gray-300 block">南瓜头锁定保护特殊规则</span>
-            <p class="text-[10px] text-gray-600 mt-0.5">
+            <p class="text-[10px] text-gray-400 mt-0.5">
               开启：选南瓜不消耗 BP 步骤，并保护下一个普通植物；关闭：南瓜当作普通植物。
             </p>
           </div>
@@ -77,7 +77,7 @@
               </label>
               <div class="min-w-0">
                 <span class="text-xs font-semibold text-gray-300 block">开局随机永久禁用</span>
-                <p class="text-[10px] text-gray-600 mt-0.5">
+                <p class="text-[10px] text-gray-400 mt-0.5">
                   开启：开局随机抽取若干植物入永久禁用；关闭：开局不禁用。与 BP 流程内的全局禁用步骤互补。
                 </p>
               </div>
@@ -94,7 +94,7 @@
                 @input="onRandomBanCountInput"
                 class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white text-center focus:outline-none focus:ring-1 focus:ring-ban-red"
               />
-              <span class="text-xs text-gray-500">个（1~20，池不足抽满）</span>
+              <span class="text-xs text-gray-400">个（1~20，池不足抽满）</span>
             </div>
           </div>
         </div>
@@ -117,7 +117,7 @@
               </label>
               <div class="min-w-0">
                 <span class="text-xs font-semibold text-gray-300 block">每步思考倒计时</span>
-                <p class="text-[10px] text-gray-600 mt-0.5">
+                <p class="text-[10px] text-gray-400 mt-0.5">
                   开启：每步限时思考，超时后系统从当前可选植物中随机禁用/选择；关闭：不限时。
                 </p>
               </div>
@@ -198,7 +198,7 @@
               </div>
             </div>
 
-            <div v-if="stage.length === 0" class="text-[11px] text-gray-600 italic px-1 pb-1">
+            <div v-if="stage.length === 0" class="text-[11px] text-gray-400 italic px-1 pb-1">
               （空阶段，将删除）
             </div>
 
@@ -208,7 +208,7 @@
                 :key="stepIdx"
                 class="flex items-center gap-1.5 text-xs"
               >
-                <span class="text-gray-500 w-6 text-right">{{ stepIdx + 1 }}.</span>
+                <span class="text-gray-400 w-6 text-right">{{ stepIdx + 1 }}.</span>
 
                 <!-- action 选择 -->
                 <select
@@ -274,7 +274,7 @@
         </button>
 
         <!-- 统计 -->
-        <div class="text-[11px] text-gray-500 text-right">
+        <div class="text-[11px] text-gray-400 text-right">
           共 {{ localSequence.length }} 阶段 · {{ totalSteps }} 步
         </div>
       </section>

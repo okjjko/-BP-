@@ -22,12 +22,12 @@
       </router-view>
 
       <!-- 全局页脚 -->
-      <footer class="py-3 text-center text-xs text-gray-500 font-mono tracking-widest">
+      <footer class="py-3 text-center text-xs text-gray-400 font-mono tracking-widest">
         <div>
-          本系统由@okjjko制作，GitHub仓库地址：<a href="https://github.com/okjjko/-BP-" target="_blank" class="text-pick-blue hover:text-pick-blue-hover underline">https://github.com/okjjko/-BP-</a>
+          本系统由@okjjko制作，GitHub仓库地址：<a href="https://github.com/okjjko/-BP-" target="_blank" class="text-pick-blue hover:text-pick-blue-neon underline">https://github.com/okjjko/-BP-</a>
         </div>
         <!-- 版本号 + git 短 hash：hash 随每次自动部署变化，用于确认 webhook 部署是否生效 -->
-        <div class="mt-1 text-gray-600">
+        <div class="mt-1 text-gray-400">
           v{{ APP_VERSION }} · {{ APP_GIT_HASH }}
         </div>
       </footer>

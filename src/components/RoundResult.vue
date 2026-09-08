@@ -75,7 +75,7 @@
               pickerRoad === 2
                 ? pickerSelectedClass + ' text-white'
                 : otherRoad === 2
-                  ? 'bg-gray-800 border-gray-700 text-gray-600 opacity-50'
+                  ? 'bg-gray-800 border-gray-700 text-gray-400 opacity-60'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'
             ]"
           >
@@ -90,7 +90,7 @@
               pickerRoad === 4
                 ? pickerSelectedClass + ' text-white'
                 : otherRoad === 4
-                  ? 'bg-gray-800 border-gray-700 text-gray-600 opacity-50'
+                  ? 'bg-gray-800 border-gray-700 text-gray-400 opacity-60'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'
             ]"
           >

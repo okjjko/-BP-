@@ -22,9 +22,9 @@
           />
           <h3 class="font-bold text-sm md:text-base text-white truncate min-w-0">{{ selectedPlantInfo.name }}</h3>
           <span class="hidden md:inline-block text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 flex-shrink-0">{{ selectedPlantInfo.type }}</span>
-          <span class="text-[11px] md:text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">已用 <span class="text-white font-bold">{{ usageCount }}/{{ store.maxPlantUsage }}</span></span>
+          <span class="text-[11px] md:text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">已用 <span class="text-white font-bold">{{ usageCount }}/{{ store.maxPlantUsage }}</span></span>
         </template>
-        <span v-else class="text-gray-500 italic text-xs md:text-sm truncate">
+        <span v-else class="text-gray-400 italic text-xs md:text-sm truncate">
           {{ isBan ? '请选择一个要禁用的植物...' : '请选择一个要出战的植物...' }}
         </span>
       </div>

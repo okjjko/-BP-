@@ -62,7 +62,7 @@
               :class="player1Road === 2
                 ? 'bg-pick-blue/20 border-pick-blue text-pick-blue'
                 : player2Road === 2
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-400'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player1Road === 2 ? 'bg-pick-blue' : 'bg-gray-600'"></span>
@@ -77,7 +77,7 @@
               :class="player1Road === 4
                 ? 'bg-pick-blue/20 border-pick-blue text-pick-blue'
                 : player2Road === 4
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-400'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player1Road === 4 ? 'bg-pick-blue' : 'bg-gray-600'"></span>
@@ -113,7 +113,7 @@
               :class="player2Road === 2
                 ? 'bg-ban-red/20 border-ban-red text-ban-red'
                 : player1Road === 2
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-400'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player2Road === 2 ? 'bg-ban-red' : 'bg-gray-600'"></span>
@@ -128,7 +128,7 @@
               :class="player2Road === 4
                 ? 'bg-ban-red/20 border-ban-red text-ban-red'
                 : player1Road === 4
-                  ? 'bg-gray-800/50 border-gray-700 text-gray-600'
+                  ? 'bg-gray-800/50 border-gray-700 text-gray-400'
                   : 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white'"
             >
               <span class="w-2 h-2 rounded-full" :class="player2Road === 4 ? 'bg-ban-red' : 'bg-gray-600'"></span>

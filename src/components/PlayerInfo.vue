@@ -30,7 +30,7 @@
           :class="isPlayer1 ? 'text-pick-blue' : 'text-ban-red'"
           aria-hidden="true"
         >{{ score }}</span>
-        <span class="text-[9px] text-gray-500">/{{ store.winThreshold }}</span>
+        <span class="text-[9px] text-gray-400">/{{ store.winThreshold }}</span>
       </div>
     </div>
   </div>

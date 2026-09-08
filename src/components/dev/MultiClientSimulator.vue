@@ -28,7 +28,7 @@
 
     <div class="grid grid-cols-3 gap-3">
       <div v-for="peer in peers" :key="peer.name" class="border border-gray-700 rounded p-3 bg-slate-900">
-        <div class="font-bold text-pick-blue">{{ peer.name }} <span class="text-xs text-gray-500">({{ peer.role }})</span></div>
+        <div class="font-bold text-pick-blue">{{ peer.name }} <span class="text-xs text-gray-400">({{ peer.role }})</span></div>
         <div class="text-xs mt-1">clientId: <code>{{ peer.clientId || '-' }}</code></div>
         <div class="text-xs">members: {{ peer.memberCount }}</div>
         <div class="text-xs">playerNames: {{ peer.playerNames.join(', ') || '-' }}</div>

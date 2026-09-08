@@ -22,7 +22,7 @@
             已修改
           </span>
         </div>
-        <p class="text-xs text-gray-500 mt-1">
+        <p class="text-xs text-gray-400 mt-1">
           修改ID可能影响游戏中的引用，请谨慎操作
         </p>
       </div>
@@ -75,7 +75,7 @@
           class="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg focus:border-purple-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 resize-none cursor-text"
           placeholder="简要描述植物的功能..."
         ></textarea>
-        <p class="text-xs text-gray-500 mt-1">{{ formData.description.length }}/100</p>
+        <p class="text-xs text-gray-400 mt-1">{{ formData.description.length }}/100</p>
       </div>
 
       <!-- 按钮组 -->

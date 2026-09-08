@@ -37,7 +37,7 @@
 
     <!-- 配置列表 -->
     <div v-if="configs.length === 0" class="flex-1 flex items-center justify-center">
-      <div class="text-center text-gray-500">
+      <div class="text-center text-gray-400">
         <FolderOpen :size="64" class="mx-auto mb-4 opacity-50" />
         <p>还没有保存的配置</p>
         <p class="text-sm mt-2">点击"保存当前配置"来创建第一个配置</p>
@@ -62,7 +62,7 @@
               <p v-if="config.description" class="text-sm text-gray-400 line-clamp-2">
                 {{ config.description }}
               </p>
-              <p v-else class="text-sm text-gray-500 italic">无描述</p>
+              <p v-else class="text-sm text-gray-400 italic">无描述</p>
             </div>
             <span v-if="config.id === activeConfigId" class="active-badge px-2 py-1 bg-green-600 text-white text-xs rounded-full flex items-center gap-1">
               <Check :size="12" /> 当前
@@ -86,10 +86,10 @@
           </div>
 
           <!-- 配置时间（默认预设 createdAt 为 null，显示系统标记） -->
-          <div v-if="!config.isDefault" class="text-xs text-gray-500 mb-4">
+          <div v-if="!config.isDefault" class="text-xs text-gray-400 mb-4">
             创建于 {{ formatDate(config.createdAt) }}
           </div>
-          <div v-else class="text-xs text-gray-600 mb-4 italic">系统预设 · 不可修改</div>
+          <div v-else class="text-xs text-gray-400 mb-4 italic">系统预设 · 不可修改</div>
 
           <!-- 操作按钮 -->
           <div class="flex flex-wrap gap-2">

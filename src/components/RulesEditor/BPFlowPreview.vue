@@ -9,14 +9,14 @@
     渲染映射逻辑（player/action → 文案 + 颜色）抽到 @/utils/bpFlowRender，
     由 bpFlowRender.spec.js 覆盖（含 globalBan/system 边界）。
   -->
-  <div v-if="stages.length === 0" class="text-sm text-gray-500 italic py-4 text-center">
+  <div v-if="stages.length === 0" class="text-sm text-gray-400 italic py-4 text-center">
     （当前规则未配置 BP 流程）
   </div>
 
   <div v-else class="space-y-3">
     <!-- 概要：阶段数 + 总步数 -->
     <div class="text-xs text-gray-400 flex items-center gap-2">
-      <Info :size="13" class="text-gray-500" />
+      <Info :size="13" class="text-gray-400" />
       共 {{ stages.length }} 阶段 · {{ totalSteps }} 步
     </div>
 
@@ -28,7 +28,7 @@
     >
       <div class="text-xs font-bold text-gray-300 mb-2 flex items-center justify-between gap-2">
         <span>{{ stageNames[idx + 1] }}</span>
-        <span class="text-[10px] font-normal text-gray-500">（{{ stage.length }} 步）</span>
+        <span class="text-[10px] font-normal text-gray-400">（{{ stage.length }} 步）</span>
       </div>
 
       <!-- 阶段内步骤（胶囊流式排列） -->
@@ -40,7 +40,7 @@
         >
           <span :class="playerMeta(step.player).textClass">{{ playerMeta(step.player).label }}</span>
           <span :class="actionMeta(step.action).textClass">{{ actionMeta(step.action).label }}</span>
-          <span class="text-gray-500">×{{ step.count || 1 }}</span>
+          <span class="text-gray-400">×{{ step.count || 1 }}</span>
         </span>
       </div>
     </div>

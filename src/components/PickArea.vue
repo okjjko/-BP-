@@ -10,10 +10,10 @@
       <span class="text-[10px] font-bold text-pick-blue-neon whitespace-nowrap flex-shrink-0 flex items-center gap-1">
         <span class="w-1.5 h-1.5 rounded-full bg-pick-blue" aria-hidden="true"></span>
         {{ playerName }}
-        <span class="text-gray-500 font-normal">({{ picks.length }})</span>
+        <span class="text-gray-400 font-normal">({{ picks.length }})</span>
       </span>
       <div class="flex flex-wrap items-center gap-1 min-w-0">
-        <span v-if="picks.length === 0" class="text-gray-600 text-[10px] italic">等待选择...</span>
+        <span v-if="picks.length === 0" class="text-gray-400 text-[10px] italic">等待选择...</span>
         <div
           v-for="(plantId, index) in picks"
           :key="`m-${player}-${plantId}-${index}`"
@@ -47,9 +47,9 @@
       <span class="w-2 h-2 rounded-full bg-pick-blue" aria-hidden="true"></span>
       {{ playerName }} 阵容
     </h3>
-    <p class="mb-3 text-[11px] text-gray-500">拖拽到战场站位，或点击站位格选择</p>
+    <p class="mb-3 text-[11px] text-gray-400">拖拽到战场站位，或点击站位格选择</p>
 
-    <div v-if="picks.length === 0" class="text-gray-500 text-sm py-8 text-center flex-1 flex items-center justify-center italic">
+    <div v-if="picks.length === 0" class="text-gray-400 text-sm py-8 text-center flex-1 flex items-center justify-center italic">
       等待选择...
     </div>
 
@@ -67,7 +67,7 @@
           aria-roledescription="可拖拽项"
           :aria-label="dragItemLabel(plantId)"
         >
-          <span class="text-gray-500 text-xs font-mono w-4 text-center">#{{ index + 1 }}</span>
+          <span class="text-gray-400 text-xs font-mono w-4 text-center">#{{ index + 1 }}</span>
           <!-- 如果是重复植物，高亮显示序号 -->
           <span v-if="countPlantOccurrences(plantId) > 1"
                 class="text-xs text-pick-blue ml-1">
@@ -92,7 +92,7 @@
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-bold text-gray-200 lg:group-hover:text-pick-blue-neon transition-colors truncate">{{ getPlantName(plantId) }}</div>
-            <div class="text-[10px] text-gray-500 truncate">{{ getPlantDesc(plantId) }}</div>
+            <div class="text-[10px] text-gray-400 truncate">{{ getPlantDesc(plantId) }}</div>
           </div>
         </div>
         <!-- 飞行终点锚点：零宽零高，定位在列表末尾，供飞行 overlay 读取落点坐标 -->

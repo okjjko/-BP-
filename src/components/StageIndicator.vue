@@ -17,7 +17,7 @@
 
     <!-- 阶段名 -->
     <div class="flex items-baseline gap-1 min-w-0 justify-center">
-      <span class="text-[9px] text-gray-500 whitespace-nowrap">R{{ roundNumber }}</span>
+      <span class="text-[9px] text-gray-400 whitespace-nowrap">R{{ roundNumber }}</span>
       <span class="text-xs font-black truncate max-w-[96px]" :class="stageClass">{{ stageName }}</span>
       <span
         v-if="timerEnabled && remainingSeconds !== null"
@@ -88,8 +88,8 @@
           </span>
         </div>
         <div class="flex justify-between items-center mt-1.5 px-1">
-          <span class="text-[10px] text-gray-500">开始</span>
-          <span class="text-[10px] text-gray-500">结束</span>
+          <span class="text-[10px] text-gray-400">开始</span>
+          <span class="text-[10px] text-gray-400">结束</span>
         </div>
       </div>
 

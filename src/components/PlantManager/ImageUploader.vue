@@ -8,10 +8,10 @@
         alt="预览"
         class="w-full h-full object-contain"
       />
-      <div v-else class="text-center text-gray-500">
+      <div v-else class="text-center text-gray-400">
         <ImagePlus :size="64" class="mx-auto mb-2" />
         <p class="text-sm">拖拽或点击上传图片</p>
-        <p class="text-xs text-gray-600 mt-1">支持 PNG, JPG, WEBP</p>
+        <p class="text-xs text-gray-400 mt-1">支持 PNG, JPG, WEBP</p>
       </div>
 
       <!-- 删除按钮 -->

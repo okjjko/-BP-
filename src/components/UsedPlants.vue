@@ -7,7 +7,7 @@
       </h3>
     </div>
 
-    <div v-if="usedPlants.length === 0" class="text-gray-600 text-xs px-1 italic">
+    <div v-if="usedPlants.length === 0" class="text-gray-400 text-xs px-1 italic">
       暂未使用植物
     </div>
 
@@ -24,7 +24,7 @@
         :title="`${getPlantName(item.id)}${item.isHidden ? '（已隐藏）' : ''}，已使用${item.count}/${maxPlantUsage}次`"
       >
         <span class="font-medium" :class="{ 'line-through': item.isHidden }">{{ getPlantName(item.id) }}</span>
-        <span class="ml-1.5 text-[10px] px-1 rounded bg-black/30 font-bold" :class="item.isHidden ? 'text-gray-500' : (item.count >= maxPlantUsage ? 'text-red-400' : 'text-yellow-400')">{{ item.count }}</span>
+        <span class="ml-1.5 text-[10px] px-1 rounded bg-black/30 font-bold" :class="item.isHidden ? 'text-gray-400' : (item.count >= maxPlantUsage ? 'text-red-400' : 'text-yellow-400')">{{ item.count }}</span>
       </span>
     </div>
   </div>

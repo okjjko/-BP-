@@ -11,7 +11,7 @@
     <div class="flex items-center gap-1 overflow-x-auto min-w-0 custom-scrollbar py-0.5">
       <!-- 飞行终点锚点：零宽但可见（offsetParent 非空），始终存在以承接首次 ban 飞行 -->
       <span :data-ban-slot="player" class="inline-block w-0 h-6 flex-shrink-0 self-center" aria-hidden="true"></span>
-      <span v-if="roundBans.length === 0" class="text-gray-600 text-[10px] italic whitespace-nowrap">等待禁用...</span>
+      <span v-if="roundBans.length === 0" class="text-gray-400 text-[10px] italic whitespace-nowrap">等待禁用...</span>
       <div
         v-for="plantId in roundBans"
         :key="plantId"
@@ -35,7 +35,7 @@
 
     <!-- 本局禁用 -->
     <div>
-      <div v-if="roundBans.length === 0" class="text-gray-500 text-xs italic py-2 text-center">
+      <div v-if="roundBans.length === 0" class="text-gray-400 text-xs italic py-2 text-center">
         等待禁用...
       </div>
       <TransitionGroup name="ban" tag="div" class="relative grid grid-cols-5 gap-1 sm:gap-1.5">

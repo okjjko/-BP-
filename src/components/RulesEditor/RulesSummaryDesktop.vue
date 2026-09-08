@@ -10,13 +10,13 @@
   >
     <!-- 小局后选边权 -->
     <span class="flex items-baseline gap-1.5">
-      <span class="text-gray-500 text-[10px]">选边权</span>
+      <span class="text-gray-400 text-[10px]">选边权</span>
       <span class="text-gray-200 font-semibold whitespace-nowrap">{{ loserPickModeLabel }}</span>
     </span>
 
     <!-- 复选同一植物上限 -->
     <span class="flex items-baseline gap-1.5">
-      <span class="text-gray-500 text-[10px]">复选上限</span>
+      <span class="text-gray-400 text-[10px]">复选上限</span>
       <span class="text-gray-200 font-semibold whitespace-nowrap">{{ maxPlantUsage }} 次</span>
     </span>
 
@@ -27,9 +27,9 @@
       :aria-label="`显示 BP 顺序（${stageCount} 阶段 · ${totalSteps} 步）`"
       @click="showFlow = true"
     >
-      <span class="text-gray-500 text-[10px]">BP 流程</span>
+      <span class="text-gray-400 text-[10px]">BP 流程</span>
       <span class="text-gray-200 font-semibold whitespace-nowrap group-hover/flow:text-blue-300 transition-colors">{{ stageCount }}阶段 · {{ totalSteps }}步</span>
-      <ChevronRight :size="11" class="text-gray-500 group-hover/flow:text-blue-300 group-hover/flow:translate-x-0.5 transition-all" aria-hidden="true" />
+      <ChevronRight :size="11" class="text-gray-400 group-hover/flow:text-blue-300 group-hover/flow:translate-x-0.5 transition-all" aria-hidden="true" />
     </button>
 
     <!-- 流程详情弹窗 -->

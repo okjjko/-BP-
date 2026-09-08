@@ -20,7 +20,7 @@
       <!-- 多人对局进行中锁定提示 -->
       <div
         v-if="!store.isRuleEditable"
-        class="text-xs text-gray-500 bg-gray-800/40 border border-gray-700/50 rounded-md px-3 py-2 flex items-center gap-2"
+        class="text-xs text-gray-400 bg-gray-800/40 border border-gray-700/50 rounded-md px-3 py-2 flex items-center gap-2"
       >
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -32,7 +32,7 @@
         <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wide">阵营名称</h4>
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
-            <span class="block text-[11px] text-gray-500 mb-1">2 路阵营显示名</span>
+            <span class="block text-[11px] text-gray-400 mb-1">2 路阵营显示名</span>
             <div class="field-grow" style="--grow-color:#00ff41">
               <input
                 v-model="sideNames.road2"
@@ -46,7 +46,7 @@
             </div>
           </label>
           <label class="block">
-            <span class="block text-[11px] text-gray-500 mb-1">4 路阵营显示名</span>
+            <span class="block text-[11px] text-gray-400 mb-1">4 路阵营显示名</span>
             <div class="field-grow" style="--grow-color:#00ff41">
               <input
                 v-model="sideNames.road4"
@@ -60,7 +60,7 @@
             </div>
           </label>
         </div>
-        <p class="text-[10px] text-gray-600">仅影响显示文案，不影响 BP 顺序逻辑。留空将回退为默认名。</p>
+        <p class="text-[10px] text-gray-400">仅影响显示文案，不影响 BP 顺序逻辑。留空将回退为默认名。</p>
       </section>
 
       <hr class="border-gray-700/50" />
@@ -95,7 +95,7 @@
         <!-- assigned 模式下显示指定选边方（滑动展开） -->
         <Transition name="slide-down">
           <div v-if="sideSelection.initialMode === 'assigned'" class="flex items-center gap-2 pl-1">
-            <span class="text-[11px] text-gray-500">指定选边方：</span>
+            <span class="text-[11px] text-gray-400">指定选边方：</span>
             <div class="segment-track inline-grid grid-cols-2 gap-2">
               <div
                 class="segment-indicator rounded bg-pick-blue/20 border border-pick-blue"
@@ -122,7 +122,7 @@
           </div>
         </Transition>
 
-        <p class="text-[10px] text-gray-600">{{ initialModeHint }}</p>
+        <p class="text-[10px] text-gray-400">{{ initialModeHint }}</p>
       </section>
 
       <hr class="border-gray-700/50" />
@@ -153,7 +153,7 @@
             </span>
           </label>
         </div>
-        <p class="text-[10px] text-gray-600">{{ loserPickModeHint }}</p>
+        <p class="text-[10px] text-gray-400">{{ loserPickModeHint }}</p>
       </section>
       </div>
   </details>

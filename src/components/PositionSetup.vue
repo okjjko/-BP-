@@ -62,7 +62,7 @@
               </div>
             </template>
             <template v-else>
-              <span class="text-gray-600 text-2xl lg:group-hover:text-plant-green-neon transition-colors">+</span>
+              <span class="text-gray-400 text-2xl group-hover:text-plant-green-neon transition-colors">+</span>
             </template>
 
             <!-- 拖拽悬停提示层 -->
