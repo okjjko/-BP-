@@ -62,17 +62,17 @@
     <!-- 操作按钮：触屏常显（hover 不可用且 opacity-0 仍可点击，会形成误触盲区）；桌面 hover / 键盘 focus 显示 -->
     <div
       v-if="!batchMode && (plant.builtin === false || (plant.builtin !== false && !isHidden))"
-      class="absolute top-2 right-2 flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity"
+      class="absolute top-2 right-2 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity"
       @click.stop
     >
       <!-- 内置植物：隐藏按钮 -->
       <button
         v-if="plant.builtin !== false && !isHidden"
         @click.stop="$emit('hide', plant)"
-        class="p-1.5 bg-orange-600/90 hover:bg-orange-500 rounded backdrop-blur transition-colors"
+        class="p-2.5 bg-orange-600/90 hover:bg-orange-500 rounded backdrop-blur transition-colors"
         title="隐藏"
       >
-        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0 8.268 2.943 9.543 7a9.97 9.97 0 011.563 3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-1.995-1.858L5.732 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 002-2v5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       </button>
@@ -81,10 +81,10 @@
       <button
         v-if="plant.builtin === false"
         @click.stop="$emit('edit', plant)"
-        class="p-1.5 bg-blue-600/90 hover:bg-blue-500 rounded backdrop-blur transition-colors"
+        class="p-2.5 bg-blue-600/90 hover:bg-blue-500 rounded backdrop-blur transition-colors"
         title="编辑"
       >
-        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       </button>
@@ -93,10 +93,10 @@
       <button
         v-if="plant.builtin === false"
         @click.stop="$emit('delete', plant)"
-        class="p-1.5 bg-red-600/90 hover:bg-red-500 rounded backdrop-blur transition-colors"
+        class="p-2.5 bg-red-600/90 hover:bg-red-500 rounded backdrop-blur transition-colors"
         title="删除"
       >
-        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5.732 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       </button>

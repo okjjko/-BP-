@@ -18,7 +18,7 @@
           <button
             type="button"
             @click="dismiss(t.id)"
-            class="text-slate-500 hover:text-slate-200 transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+            class="relative text-slate-500 hover:text-slate-200 transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 p-3.5 -m-3.5"
             aria-label="关闭通知"
           >
             <X :size="16" />

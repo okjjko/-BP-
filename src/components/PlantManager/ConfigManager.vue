@@ -96,7 +96,7 @@
             <button
               @click="handleLoad(config.id)"
               :disabled="config.id === activeConfigId"
-              class="flex-1 min-h-[40px] px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+              class="flex-1 min-h-[44px] px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
             >
               加载
             </button>
@@ -105,13 +105,13 @@
             <template v-if="config.isDefault">
               <button
                 @click="handleDuplicate(config.id)"
-                class="min-h-[40px] px-3 py-1.5 bg-pick-blue-dark hover:bg-blue-900 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
+                class="min-h-[44px] px-3 py-1.5 bg-pick-blue-dark hover:bg-blue-900 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
               >
                 <Copy :size="14" /> 复制
               </button>
               <button
                 @click="handleExport(config.id)"
-                class="min-h-[40px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                class="min-h-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 导出
               </button>
@@ -121,25 +121,25 @@
             <template v-else>
               <button
                 @click="handleRename(config.id)"
-                class="min-h-[40px] px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                class="min-h-[44px] px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
               >
                 重命名
               </button>
               <button
                 @click="handleEditPreset(config)"
-                class="min-h-[40px] px-3 py-1.5 bg-pick-blue-dark hover:bg-blue-900 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
+                class="min-h-[44px] px-3 py-1.5 bg-pick-blue-dark hover:bg-blue-900 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue flex items-center gap-1"
               >
                 <Pencil :size="14" /> 编辑预设
               </button>
               <button
                 @click="handleExport(config.id)"
-                class="min-h-[40px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                class="min-h-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 导出
               </button>
               <button
                 @click="handleDelete(config.id)"
-                class="min-h-[40px] px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                class="min-h-[44px] px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
               >
                 删除
               </button>

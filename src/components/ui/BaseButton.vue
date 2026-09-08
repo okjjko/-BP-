@@ -41,7 +41,7 @@ const VARIANTS = {
 }
 
 const SIZES = {
-  sm: 'text-sm px-3 py-2 gap-1.5 min-h-[40px]',
+  sm: 'text-sm px-3 py-2 gap-1.5 min-h-[44px]',
   md: 'text-base px-5 py-2.5 gap-2 min-h-[44px]',
   lg: 'text-lg px-7 py-3.5 gap-2.5 min-h-[48px]',
 }

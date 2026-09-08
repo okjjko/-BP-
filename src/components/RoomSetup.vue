@@ -364,9 +364,9 @@
               <button
                 @click="refreshLobbyList"
                 :disabled="lobbyLoading"
-                class="text-xs text-pick-blue hover:text-pick-blue-dark disabled:opacity-50 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue rounded"
+                class="text-xs text-pick-blue hover:text-pick-blue-dark disabled:opacity-50 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pick-blue rounded py-1.5 px-1"
               >
-                <RefreshCw :size="12" :class="lobbyLoading ? 'animate-spin' : ''" />
+                <RefreshCw :size="14" :class="lobbyLoading ? 'animate-spin' : ''" />
                 {{ lobbyLoading ? '刷新中...' : '刷新' }}
               </button>
             </div>

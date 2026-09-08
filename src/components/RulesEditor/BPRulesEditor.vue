@@ -31,7 +31,7 @@
               :value="maxPlantUsage"
               :disabled="!canEditRules"
               @input="onMaxUsageInput"
-              class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
+              class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
             />
             <span class="text-xs text-gray-500">次（1~5）</span>
           </div>
@@ -92,7 +92,7 @@
                 :value="randomBanCount"
                 :disabled="!canEditRules"
                 @input="onRandomBanCountInput"
-                class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-center focus:outline-none focus:ring-1 focus:ring-ban-red"
+                class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white text-center focus:outline-none focus:ring-1 focus:ring-ban-red"
               />
               <span class="text-xs text-gray-500">个（1~20，池不足抽满）</span>
             </div>
@@ -128,7 +128,7 @@
                 :value="timerSeconds"
                 :disabled="!canEditRules"
                 @change="onTimerSecondsChange"
-                class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-plant-green"
+                class="bg-gray-800 border border-gray-600 rounded px-2 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-plant-green"
               >
                 <option v-for="s in TIMER_PRESETS" :key="s" :value="s">{{ s >= 60 ? `${Math.floor(s / 60)} 分钟` : `${s} 秒` }}</option>
               </select>
@@ -147,7 +147,7 @@
               v-model="selectedPreset"
               :disabled="!canEditRules"
               @change="applyPreset"
-              class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
+              class="bg-gray-800 border border-gray-600 rounded px-2 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
             >
               <option :value="PRESET_NONE">选择预设…</option>
               <option v-for="(tpl, idx) in presets" :key="idx" :value="idx">{{ tpl.name }}</option>
@@ -157,7 +157,7 @@
               type="button"
               @click="resetToDefault"
                   :disabled="!canEditRules"
-              class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+              class="text-xs px-2 py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
             >
               重置为默认
             </button>
@@ -183,7 +183,7 @@
                   type="button"
                   @click="addStep(stageIdx)"
                   :disabled="!canEditRules"
-                  class="text-[11px] px-1.5 py-0.5 rounded bg-pick-blue/20 hover:bg-pick-blue/40 text-pick-blue border border-pick-blue/40 transition-colors"
+                  class="text-[11px] px-2 py-1.5 rounded bg-pick-blue/20 hover:bg-pick-blue/40 text-pick-blue border border-pick-blue/40 transition-colors"
                 >
                   + 步骤
                 </button>
@@ -191,7 +191,7 @@
                   type="button"
                   @click="removeStage(stageIdx)"
                   :disabled="!canEditRules"
-                  class="text-[11px] px-1.5 py-0.5 rounded bg-ban-red/20 hover:bg-ban-red/40 text-ban-red border border-ban-red/40 transition-colors"
+                  class="text-[11px] px-2 py-1.5 rounded bg-ban-red/20 hover:bg-ban-red/40 text-ban-red border border-ban-red/40 transition-colors"
                 >
                   删除阶段
                 </button>
@@ -215,7 +215,7 @@
                   v-model="step.action"
                   :disabled="!canEditRules"
                   @change="onActionChange(step)"
-                  class="bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
+                  class="bg-gray-800 border border-gray-600 rounded px-1.5 py-2 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue"
                   :class="step.action === 'pick' ? 'text-pick-blue' : 'text-ban-red'"
                 >
                   <option value="ban">禁用</option>
@@ -228,7 +228,7 @@
                   v-model="step.player"
                   :disabled="!canEditRules || step.action === 'globalBan'"
                   @change="commit"
-                  class="bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue disabled:opacity-50"
+                  class="bg-gray-800 border border-gray-600 rounded px-1.5 py-2 text-white focus:outline-none focus:ring-1 focus:ring-pick-blue disabled:opacity-50"
                 >
                   <option value="road2">二路</option>
                   <option value="road4">四路</option>
@@ -245,7 +245,7 @@
                     v-model.number="step.count"
                     :disabled="!canEditRules"
                     @change="commit"
-                    class="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
+                    class="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white text-center focus:outline-none focus:ring-1 focus:ring-pick-blue"
                   />
                 </label>
 
@@ -253,7 +253,7 @@
                   type="button"
                   @click="removeStep(stageIdx, stepIdx)"
                   :disabled="!canEditRules"
-                  class="ml-auto text-[11px] px-1.5 py-0.5 rounded bg-gray-700 hover:bg-ban-red/40 text-gray-300 hover:text-ban-red transition-colors"
+                  class="ml-auto text-[11px] px-2 py-1.5 rounded bg-gray-700 hover:bg-ban-red/40 text-gray-300 hover:text-ban-red transition-colors"
                   aria-label="删除步骤"
                 >
                   ×
@@ -268,7 +268,7 @@
           type="button"
           @click="addStage"
                   :disabled="!canEditRules"
-          class="w-full text-xs px-2 py-1.5 rounded border border-dashed border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 transition-colors"
+          class="w-full text-xs px-2 py-2 rounded border border-dashed border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 transition-colors"
         >
           + 新增阶段
         </button>
