@@ -78,12 +78,12 @@
         }"
       >
         <!-- 植物图片：draggable=false + pointer-events-none 防止手机长按触发系统保存菜单/图片拖拽导致交互卡住 -->
-        <img
-          :src="getPlantImageUrl(plant)"
-          :alt="plant.name"
-          draggable="false"
-          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none select-none"
-        />
+          <img
+            :src="getPlantImageUrl(plant)"
+            :alt="plant.name"
+            draggable="false"
+            class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none select-none"
+          />
 
         <!-- 边框装饰 -->
         <div class="absolute inset-0 border-2 rounded-xl pointer-events-none transition-colors duration-300"
