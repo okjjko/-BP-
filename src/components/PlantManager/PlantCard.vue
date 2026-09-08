@@ -48,16 +48,21 @@
       </div>
     </div>
 
-    <!-- 信息遮罩 -->
-    <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+    <!-- 手机常显名字条（桌面改用下方 hover 遮罩）；pointer-events-none 保证点击穿透卡片 -->
+    <div class="lg:hidden absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1.5 pt-5 pointer-events-none">
+      <span class="block text-center text-[11px] font-bold text-white truncate drop-shadow-md">{{ plant.name }}</span>
+    </div>
+
+    <!-- 信息遮罩（桌面 hover / 键盘 focus-within 显示；触屏无 hover，名字由上方常显条承载） -->
+    <div class="absolute inset-0 hidden lg:flex flex-col justify-end p-3 bg-gradient-to-t from-black via-black/50 to-transparent lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity">
       <h4 class="font-bold text-white truncate">{{ plant.name }}</h4>
       <p class="text-xs text-gray-300 truncate">{{ plant.description }}</p>
     </div>
 
-    <!-- 操作按钮 -->
+    <!-- 操作按钮：触屏常显（hover 不可用且 opacity-0 仍可点击，会形成误触盲区）；桌面 hover / 键盘 focus 显示 -->
     <div
       v-if="!batchMode && (plant.builtin === false || (plant.builtin !== false && !isHidden))"
-      class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+      class="absolute top-2 right-2 flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity"
       @click.stop
     >
       <!-- 内置植物：隐藏按钮 -->
