@@ -11,7 +11,9 @@
           :key="t.id"
           class="toast-item flex items-start gap-2.5 px-4 py-3 border shadow-lg"
           :class="borderClass(t.variant)"
-          role="status"
+          :role="t.variant === 'error' ? 'alert' : 'status'"
+          @mouseenter="pause(t.id)"
+          @mouseleave="resume(t.id)"
         >
           <component :is="iconFor(t.icon)" :size="18" class="flex-shrink-0 mt-0.5" :class="iconColor(t.variant)" />
           <p class="text-sm text-slate-100 leading-snug flex-1">{{ t.message }}</p>
@@ -33,7 +35,7 @@
 import { CheckCircle2, CircleX, TriangleAlert, Info, X } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
 
-const { toasts, dismiss } = useToast()
+const { toasts, dismiss, pause, resume } = useToast()
 
 const ICONS = { CheckCircle: CheckCircle2, CircleX, TriangleAlert, Info }
 const iconFor = (name) => ICONS[name] || Info
