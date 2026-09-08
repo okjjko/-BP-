@@ -18,6 +18,7 @@
         <template v-if="selectedPlantInfo">
           <img
             :src="getPlantImageUrl(selectedPlantInfo)"
+            alt=""
             class="w-8 h-8 md:w-10 md:h-10 rounded border border-gray-500/50 flex-shrink-0"
           />
           <h3 class="font-bold text-sm md:text-base text-white truncate min-w-0">{{ selectedPlantInfo.name }}</h3>

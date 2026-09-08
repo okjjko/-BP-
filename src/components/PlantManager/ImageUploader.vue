@@ -51,8 +51,9 @@
           :key="index"
           @click="useTemplate(template)"
           class="aspect-square rounded border border-gray-600 hover:border-purple-400 overflow-hidden transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+          :aria-label="`使用默认模板 ${index + 1}`"
         >
-          <img :src="template" class="w-full h-full object-cover" />
+          <img :src="template" alt="" class="w-full h-full object-cover" />
         </button>
       </div>
     </div>

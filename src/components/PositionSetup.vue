@@ -107,6 +107,7 @@
               <div class="relative w-16 h-16 group-hover:scale-110 transition-transform duration-200">
                 <img
                   :src="getPlantImage(plantId)"
+                  alt=""
                   class="w-full h-full object-cover rounded-lg border-2 shadow-lg"
                   :class="{
                     'border-gray-600': !isPlantUsed(selectingPlayer, plantId, index),
