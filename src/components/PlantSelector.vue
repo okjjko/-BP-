@@ -91,7 +91,7 @@
 
         <!-- 植物名：手机常显（替代失效的 hover）；桌面保留 hover 渐显 -->
         <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-1">
-          <span class="text-[11px] md:text-[10px] lg:text-[11px] text-center text-white font-bold truncate w-full drop-shadow-md">{{ plant.name }}</span>
+          <span class="text-[11px] text-center text-white font-bold truncate w-full drop-shadow-md">{{ plant.name }}</span>
         </div>
 
         <!-- 使用次数标记 -->

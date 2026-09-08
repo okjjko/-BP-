@@ -21,7 +21,7 @@
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
             <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
           </span>
-          <span class="text-[9px] font-bold" :class="currentActionInfo.class">{{ currentActionInfo.text }}</span>
+          <span class="text-[10px] font-bold" :class="currentActionInfo.class">{{ currentActionInfo.text }}</span>
         </span>
       </div>
       <div class="flex items-baseline gap-0.5">
@@ -30,7 +30,7 @@
           :class="isPlayer1 ? 'text-pick-blue' : 'text-ban-red'"
           aria-hidden="true"
         >{{ score }}</span>
-        <span class="text-[9px] text-gray-400">/{{ store.winThreshold }}</span>
+        <span class="text-[11px] text-gray-400">/{{ store.winThreshold }}</span>
       </div>
     </div>
   </div>

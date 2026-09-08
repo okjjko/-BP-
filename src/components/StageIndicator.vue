@@ -3,12 +3,12 @@
   <div class="md:hidden flex flex-col items-center min-w-0 flex-1 px-1" role="region" aria-label="当前游戏阶段">
     <!-- 多人模式：角色 / 回合 极简徽章 -->
     <div v-if="roomMode !== 'local'" class="flex items-center justify-center gap-1 mb-0.5 min-w-0 flex-wrap">
-      <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap border" :class="roleBadgeClass">
+      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap border" :class="roleBadgeClass">
         {{ getRoleLabel() }}
       </span>
       <span
         v-if="myTurnDescription"
-        class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full truncate max-w-[80px] border"
+        class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full truncate max-w-[80px] border"
         :class="isMyTurn ? 'bg-green-500/20 border-green-500/40 text-green-300' : 'bg-red-500/20 border-red-500/40 text-red-300'"
       >
         {{ myTurnDescription }}
@@ -17,7 +17,7 @@
 
     <!-- 阶段名 -->
     <div class="flex items-baseline gap-1 min-w-0 justify-center">
-      <span class="text-[9px] text-gray-400 whitespace-nowrap">R{{ roundNumber }}</span>
+      <span class="text-[11px] text-gray-400 whitespace-nowrap">R{{ roundNumber }}</span>
       <span class="text-xs font-black truncate max-w-[96px]" :class="stageClass">{{ stageName }}</span>
       <span
         v-if="timerEnabled && remainingSeconds !== null"
@@ -32,7 +32,7 @@
     <div class="w-full max-w-[130px] h-3.5 bg-gray-800/70 rounded-full my-1 overflow-hidden border border-gray-700/50 relative" role="progressbar" aria-label="BP 进度" :aria-valuenow="step + 1" :aria-valuemin="1" :aria-valuemax="totalSteps">
       <div class="h-full rounded-full transition-all duration-500" :class="progressBarClass" :style="{ width: `${((step + 1) / totalSteps) * 100}%` }"></div>
       <!-- 当前进度文字叠在进度条中央 -->
-      <span class="absolute inset-0 flex items-center justify-center text-[9px] text-white font-mono font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none">
+      <span class="absolute inset-0 flex items-center justify-center text-[11px] text-white font-mono font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none">
         {{ step + 1 }}<span class="text-white/60 mx-0.5">/</span>{{ totalSteps }}
       </span>
     </div>
@@ -88,8 +88,8 @@
           </span>
         </div>
         <div class="flex justify-between items-center mt-1.5 px-1">
-          <span class="text-[10px] text-gray-400">开始</span>
-          <span class="text-[10px] text-gray-400">结束</span>
+          <span class="text-[11px] text-gray-400">开始</span>
+          <span class="text-[11px] text-gray-400">结束</span>
         </div>
       </div>
 

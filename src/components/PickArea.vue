@@ -13,7 +13,7 @@
         <span class="text-gray-400 font-normal">({{ picks.length }})</span>
       </span>
       <div class="flex flex-wrap items-center gap-1 min-w-0">
-        <span v-if="picks.length === 0" class="text-gray-400 text-[10px] italic">等待选择...</span>
+        <span v-if="picks.length === 0" class="text-gray-400 text-xs italic">等待选择...</span>
         <div
           v-for="(plantId, index) in picks"
           :key="`m-${player}-${plantId}-${index}`"
@@ -47,7 +47,7 @@
       <span class="w-2 h-2 rounded-full bg-pick-blue" aria-hidden="true"></span>
       {{ playerName }} 阵容
     </h3>
-    <p class="mb-3 text-[11px] text-gray-400">拖拽到战场站位，或点击站位格选择</p>
+    <p class="mb-3 text-xs text-gray-400">拖拽到战场站位，或点击站位格选择</p>
 
     <div v-if="picks.length === 0" class="text-gray-400 text-sm py-8 text-center flex-1 flex items-center justify-center italic">
       等待选择...
