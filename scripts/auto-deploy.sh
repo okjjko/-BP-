@@ -8,7 +8,7 @@ set -o pipefail  # 管道中任一命令失败即整体失败（避免 tee 掩�
 # ==================== 配置 ====================
 PROJECT_DIR="/root/code/bp-tool"
 LOG_FILE="/root/code/bp-tool/logs/deploy.log"
-PID_FILE="/root/code/bp-tool/.deploy.pid"
+LOCK_FILE="/root/code/bp-tool/.deploy.lock"
 # 上次成功部署到的 HEAD 标记文件（运行时状态，已 gitignore）
 LAST_BUILT_FILE="/root/code/bp-tool/.last-deployed-commit"
 
@@ -32,28 +32,20 @@ warn() {
     echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] WARN:${NC} $1" | tee -a "$LOG_FILE"
 }
 
-# 检查是否已有部署进程在运行
-check_lock() {
-    if [ -f "$PID_FILE" ]; then
-        OLD_PID=$(cat "$PID_FILE")
-        if ps -p "$OLD_PID" > /dev/null 2>&1; then
-            warn "已有部署进程在运行 (PID: $OLD_PID)，跳过本次部署"
-            exit 0
-        else
-            log "清理旧 PID 文件（进程 $OLD_PID 已不存在）"
-            rm -f "$PID_FILE"
-        fi
+# 检查是否已有部署进程在运行（flock 原子锁）
+# 旧 PID 文件方案在「检查-写入」两步间存在竞态窗口：webhook 短时间多次触发时，
+# 两个部署可同时通过检查（2026-09-09 实测），并发 vite build 互删对方正在写的
+# dist/plants，导致线上部分植物图标 404 且无任何告警。flock 把「锁定+检查」合并为
+# 一步内核原子操作，锁随进程退出（含被 kill）自动释放，无需清理逻辑。
+acquire_lock() {
+    exec 9>>"$LOCK_FILE"
+    if ! flock -n 9; then
+        warn "已有部署进程在运行（.deploy.lock 被占用），跳过本次部署"
+        exit 0
     fi
-    echo $$ > "$PID_FILE"
+    # 拿到锁后写入 PID 仅供人工排查辨认持有者；锁作用在 inode 上，改写内容不影响持锁
+    echo $$ > "$LOCK_FILE"
 }
-
-# 清理函数
-cleanup() {
-    rm -f "$PID_FILE"
-}
-
-# 注册退出时清理
-trap cleanup EXIT
 
 # git fetch 带重试（应对服务器到 GitHub 网络间歇性不通）
 # lowSpeed 超时让卡住的连接快速失败，尽早进入下一次重试
@@ -84,7 +76,7 @@ main() {
     log "========== 开始自动部署 =========="
 
     # 1. 检查是否已有部署进程
-    check_lock
+    acquire_lock
 
     cd "$PROJECT_DIR" || exit 1
 
@@ -196,7 +188,7 @@ main() {
         /usr/sbin/aa_nginx -s reload 2>&1 | tee -a "$LOG_FILE" || true
     fi
 
-    # 10. 重启服务（放最后；脚本自然 exit 时 EXIT trap 仍清理 PID 锁）
+    # 10. 重启服务（放最后）
     log "正在重启服务..."
     trap '' INT TERM
 

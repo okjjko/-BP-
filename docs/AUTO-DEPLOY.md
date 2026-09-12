@@ -60,7 +60,7 @@ tail -f /root/code/bp-tool/logs/deploy.log
 
 ### 部署脚本 (`scripts/auto-deploy.sh`) 执行流程：
 
-1. **检查锁文件** - 防止并发部署冲突
+1. **flock 原子锁** - 防止并发部署冲突。锁定+检查由内核一步完成，锁随进程退出自动释放。替代旧 PID 文件方案——旧方案「检查-写入」两步间有竞态，webhook 连发时曾放进两个并发部署，vite build 互删 `dist/plants` 造成线上部分植物图标 404（2026-09-09）
 2. **记录当前版本 + fetch** - 保存 `OLD_COMMIT`，执行 `git fetch origin master`（仅拉取，不合并）
 3. **检查更新** - 比较 `OLD_COMMIT` 与 `origin/master`，无更新则退出（**必须在合并前比较**，否则本地已被拉平，会永远误判“已最新”而跳过部署）
 4. **快进合并** - `git merge --ff-only origin/master`（拒绝产生 merge commit，保证历史线性）
@@ -76,7 +76,7 @@ tail -f /root/code/bp-tool/logs/deploy.log
 
 - **部署日志**: `/root/code/bp-tool/logs/deploy.log`
 - **PM2 日志**: `pm2 logs bp-server`
-- **锁文件**: `/root/code/bp-tool/.deploy.pid` (防止并发)
+- **锁文件**: `/root/code/bp-tool/.deploy.lock`（flock 独占锁防并发；内容为持锁进程 PID，仅供排查）
 
 ## 高级配置
 
