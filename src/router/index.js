@@ -49,7 +49,8 @@ if (import.meta.env.DEV) {
 }
 
 const router = createRouter({
-  history: createWebHistory(),
+  // base 跟随 vite 的 base 配置（生产为 /bp/，dev server 同样挂 /bp/ 下）
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

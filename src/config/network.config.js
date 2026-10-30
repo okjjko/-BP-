@@ -8,17 +8,17 @@
 export default {
   // WebSocket 连接地址
   // dev：经 vite proxy /ws（ws:true）→ 本地 Node :8080
-  // prod：nginx 终止 TLS 并反代 → Node :8080
+  // prod：wss://okjjko.top/bp/ws，由 nginx 剥掉 /bp 前缀后反代到 Node :8080 的 /ws
   ws: {
     devUrl: 'ws://localhost:3000/ws',
-    prodUrl: 'wss://okjjko.top/ws'
+    prodUrl: 'wss://okjjko.top/bp/ws'
   },
 
   // 公共房间目录服务（lobby）配置
   // lobby 只维护「公共房间目录」，房间内数据传输由 WebSocket（roomManager）处理
   // 与 ws hub 同 ECS 部署，由 nginx 反代到 https 子路径（解决 https 前端的混合内容问题）
   lobby: {
-    baseUrl: 'https://okjjko.top/lobby',  // 生产环境（经 nginx 反代，同源同协议）
+    baseUrl: 'https://okjjko.top/bp/lobby',  // 生产环境（经 nginx 反代，同源同协议）
     heartbeatIntervalMs: 25000,            // 房主心跳间隔（服务端 TTL 60s，留 2 次重试余量）
     listRefreshIntervalMs: 15000           // 选手公共房间列表轮询间隔
   }

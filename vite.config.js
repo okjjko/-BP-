@@ -19,6 +19,9 @@ try {
 }
 
 export default defineConfig({
+  // 生产部署在 https://okjjko.top/bp/ 子路径下，由 nginx 剥掉 /bp 前缀反代到本服务；
+  // dev server 同样挂在 /bp/ 下（http://localhost:3000/bp/）
+  base: '/bp/',
   plugins: [vue(),vueDevtools()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
@@ -34,7 +37,7 @@ export default defineConfig({
     port: 3000,
     strictPort: false,
     // dev 环境：将 /lobby 代理到本地 server/index.js（lobby 已与 ws hub 同进程，默认 8080）
-    // 生产环境前端直接用 https://okjjko.top/lobby（见 src/config/network.config.js），不走此 proxy
+    // 生产环境前端直接用 https://okjjko.top/bp/lobby（见 src/config/network.config.js），不走此 proxy
     proxy: {
       '/lobby': {
         target: process.env.LOBBY_TARGET || 'http://localhost:8080',
@@ -42,7 +45,7 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/lobby/, '')
       },
       // WebSocket 代理：dev 经 /ws 连本地 ws hub（server/index.js，默认 8080）
-      // 生产环境前端用 wss://okjjko.top/ws（见 src/config/network.config.js），由 nginx 终止 TLS 并反代
+      // 生产环境前端用 wss://okjjko.top/bp/ws（见 src/config/network.config.js），由 nginx 终止 TLS 并反代
       '/ws': {
         target: process.env.WS_TARGET || 'http://localhost:8080',
         ws: true,
